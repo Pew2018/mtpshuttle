@@ -43,7 +43,5 @@ cp "$ROOT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 # Ad-hoc signing makes the local test artifact easier to launch without a Developer ID.
 codesign --force --deep --sign - "$APP_DIR"
 
-ditto -c -k --sequesterRsrc --keepParent   "$APP_DIR"   "$DIST_DIR/OpenMTPNative-arm64.zip"
-
-echo "Created:"
-ls -lh "$DIST_DIR/OpenMTPNative-arm64.zip"
+echo "Created app bundle:"
+ls -la "$APP_DIR"
