@@ -1,20 +1,20 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var selection: SidebarItem? = .android
-    @State private var isConnected = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(selection: $selection, isConnected: isConnected)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
         } detail: {
-            WorkspaceView(isConnected: $isConnected)
+            WorkspaceView()
         }
-        .navigationSplitViewStyle(.balanced)
+        .navigationSplitViewStyle(.prominentDetail)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
-                    // Navigation is intentionally visual-only in this first UI shell.
+                    // Navigation will be connected to the file browsing model later.
                 } label: {
                     Image(systemName: "chevron.backward")
                 }
@@ -23,7 +23,7 @@ struct ContentView: View {
 
             ToolbarItem {
                 Button {
-                    // Navigation is intentionally visual-only in this first UI shell.
+                    // Navigation will be connected to the file browsing model later.
                 } label: {
                     Image(systemName: "chevron.forward")
                 }
@@ -32,7 +32,7 @@ struct ContentView: View {
 
             ToolbarItem {
                 Button {
-                    // Refresh will be connected to the native services later.
+                    // Refresh will be connected to native services later.
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -43,65 +43,63 @@ struct ContentView: View {
                 Text("OpenMTP")
                     .font(.headline)
             }
-
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    withAnimation(.snappy) {
-                        isConnected.toggle()
-                    }
-                } label: {
-                    Label(
-                        isConnected ? "Connected" : "Connect",
-                        systemImage: isConnected ? "checkmark.circle.fill" : "cable.connector"
-                    )
-                }
-                .buttonStyle(.borderedProminent)
-            }
         }
     }
 }
 
 private struct SidebarView: View {
-    @Binding var selection: SidebarItem?
-    let isConnected: Bool
-
     var body: some View {
-        List(selection: $selection) {
-            Section("Locations") {
-                Label(SidebarItem.computer.title, systemImage: SidebarItem.computer.icon)
-                    .tag(SidebarItem.computer)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Connection")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
 
-                Label(SidebarItem.android.title, systemImage: SidebarItem.android.icon)
-                    .tag(SidebarItem.android)
-            }
+            HStack(spacing: 10) {
+                Image(systemName: "externaldrive.connected.to.line.below")
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
 
-            Section("Device") {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(isConnected ? Color.green : Color.secondary.opacity(0.45))
-                        .frame(width: 8, height: 8)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(isConnected ? "Device connected" : "No device connected")
-                            .font(.subheadline.weight(.medium))
-                        Text(isConnected ? "Ready for MTP operations" : "USB / MTP will be added next")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Android device")
+                        .font(.subheadline.weight(.medium))
+                    Text("Not connected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
-            }
 
-            Section("Prototype") {
-                Label("Native SwiftUI", systemImage: "swift")
-                Label("ARM64 build", systemImage: "cpu")
+                Spacer()
+
+                Circle()
+                    .fill(.secondary.opacity(0.35))
+                    .frame(width: 7, height: 7)
             }
-        }
-        .listStyle(.sidebar)
-        .navigationTitle("OpenMTP")
-        .safeAreaInset(edge: .bottom) {
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+
+            Divider()
+                .padding(.top, 6)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("The two panes below are the file sources.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("The sidebar is reserved for app-level controls and device status.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(12)
+
+            Spacer()
+
             HStack {
-                Text("Native UI prototype")
+                Text("Native SwiftUI")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -112,12 +110,12 @@ private struct SidebarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial)
     }
 }
 
 private struct WorkspaceView: View {
-    @Binding var isConnected: Bool
-
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
@@ -125,19 +123,17 @@ private struct WorkspaceView: View {
                     title: "This Mac",
                     subtitle: "Local files",
                     path: "/Users/",
-                    items: FileItem.localSamples,
-                    accent: .blue
+                    items: FileItem.localSamples
                 )
 
                 Divider()
 
                 FilePaneView(
                     title: "Android Device",
-                    subtitle: isConnected ? "MTP storage" : "Preview",
+                    subtitle: "Not connected",
                     path: "/Internal storage/",
                     items: FileItem.androidSamples,
-                    accent: .green,
-                    showsPreviewBanner: !isConnected
+                    showsPreviewBanner: true
                 )
             }
 
@@ -147,13 +143,9 @@ private struct WorkspaceView: View {
                 Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
 
-                Text(
-                    isConnected
-                        ? "Connected state is visual only for this first build. MTP services will be wired in a later phase."
-                        : "This is the first native UI build. The MTP backend is intentionally not connected yet."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("The native UI is ready. MTP services will be connected in the next phase.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 

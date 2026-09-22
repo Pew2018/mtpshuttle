@@ -16,31 +16,6 @@ enum FileViewMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum SidebarItem: String, CaseIterable, Identifiable {
-    case computer
-    case android
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .computer:
-            return "This Mac"
-        case .android:
-            return "Android Device"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .computer:
-            return "macbook"
-        case .android:
-            return "cable.connector"
-        }
-    }
-}
-
 struct FileItem: Identifiable, Hashable {
     let id = UUID()
     let name: String

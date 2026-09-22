@@ -5,10 +5,15 @@ struct FilePaneView: View {
     let subtitle: String
     let path: String
     let items: [FileItem]
-    let accent: Color
     var showsPreviewBanner = false
 
     @State private var viewMode: FileViewMode = .list
+
+    private var deviceSymbol: String {
+        title == "This Mac"
+            ? "desktopcomputer"
+            : "externaldrive.connected.to.line.below"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,8 +22,11 @@ struct FilePaneView: View {
             if showsPreviewBanner {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
+                        .symbolRenderingMode(.hierarchical)
+
                     Text("UI preview — Android backend is not connected yet.")
                         .font(.caption)
+
                     Spacer()
                 }
                 .foregroundStyle(.secondary)
@@ -55,17 +63,16 @@ struct FilePaneView: View {
     private var paneHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(accent.opacity(0.12))
-                    Image(systemName: title == "This Mac" ? "macbook" : "cable.connector")
-                        .foregroundStyle(accent)
-                }
-                .frame(width: 34, height: 34)
+                Image(systemName: deviceSymbol)
+                    .font(.title2)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.headline)
+
                     Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -81,11 +88,14 @@ struct FilePaneView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 92)
+                .help("Change view")
             }
 
             HStack(spacing: 6) {
                 Image(systemName: "folder")
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.secondary)
+
                 Text(path)
                     .font(.system(.subheadline, design: .monospaced))
                     .lineLimit(1)
@@ -94,7 +104,10 @@ struct FilePaneView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                Color(nsColor: .controlBackgroundColor),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
         }
         .padding(12)
         .background(.bar)
@@ -105,12 +118,14 @@ struct FilePaneView: View {
             HStack(spacing: 12) {
                 Image(systemName: item.systemImage)
                     .font(.title3)
-                    .foregroundStyle(item.isDirectory ? accent : .secondary)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(item.isDirectory ? .primary : .secondary)
                     .frame(width: 26)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
                         .font(.body.weight(.medium))
+
                     Text(item.subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -146,7 +161,8 @@ struct FilePaneView: View {
                     VStack(spacing: 10) {
                         Image(systemName: item.systemImage)
                             .font(.system(size: 34))
-                            .foregroundStyle(item.isDirectory ? accent : .secondary)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(item.isDirectory ? .primary : .secondary)
 
                         Text(item.name)
                             .font(.subheadline.weight(.medium))
