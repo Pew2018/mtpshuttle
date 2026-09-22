@@ -1,163 +1,451 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var fileSystem = DemoFileSystem()
+    @State private var leftPane = PaneNavigationState(path: PaneKind.mac.rootPath)
+    @State private var rightPane = PaneNavigationState(path: PaneKind.android.rootPath)
+    @State private var clipboard: ClipboardPayload?
+    @State private var operation: DemoOperation?
+    @State private var propertyItem: DemoEntry?
+    @State private var statusMessage = "Ready"
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
-        } detail: {
-            WorkspaceView()
-        }
-        .navigationSplitViewStyle(.prominentDetail)
+        WorkspaceView(
+            fileSystem: $fileSystem,
+            leftPane: $leftPane,
+            rightPane: $rightPane,
+            clipboard: $clipboard,
+            operation: operation,
+            statusMessage: statusMessage,
+            onOpen: open,
+            onBack: goBack,
+            onForward: goForward,
+            onUp: goUp,
+            onAction: performAction,
+            onNewFolder: createFolder,
+            onPaste: paste
+        )
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    // Navigation will be connected to the file browsing model later.
-                } label: {
-                    Image(systemName: "chevron.backward")
-                }
-                .help("Back")
-            }
-
-            ToolbarItem {
-                Button {
-                    // Navigation will be connected to the file browsing model later.
-                } label: {
-                    Image(systemName: "chevron.forward")
-                }
-                .help("Forward")
-            }
-
-            ToolbarItem {
-                Button {
-                    // Refresh will be connected to native services later.
-                } label: {
+            ToolbarItem(placement: .automatic) {
+                Button(action: refresh) {
                     Image(systemName: "arrow.clockwise")
                 }
-                .help("Refresh")
-            }
-
-            ToolbarItem(placement: .principal) {
-                Text("OpenMTP")
-                    .font(.headline)
+                .help("Refresh both panes")
+                .disabled(operation != nil)
             }
         }
+        .alert(item: $propertyItem) { item in
+            Alert(
+                title: Text(item.name),
+                message: Text(propertyDescription(for: item)),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+
+    private func open(_ pane: PaneKind, _ item: DemoEntry) {
+        guard item.isDirectory else {
+            propertyItem = item
+            return
+        }
+
+        switch pane {
+        case .mac:
+            let nextPath = DemoFileSystem.childPath(leftPane.path, item.name)
+            navigate(state: &leftPane, to: nextPath)
+        case .android:
+            let nextPath = DemoFileSystem.childPath(rightPane.path, item.name)
+            navigate(state: &rightPane, to: nextPath)
+        }
+    }
+
+    private func goBack(_ pane: PaneKind) {
+        switch pane {
+        case .mac:
+            guard let previous = leftPane.back.popLast() else { return }
+            leftPane.forward.append(leftPane.path)
+            leftPane.path = previous
+            leftPane.selection.removeAll()
+        case .android:
+            guard let previous = rightPane.back.popLast() else { return }
+            rightPane.forward.append(rightPane.path)
+            rightPane.path = previous
+            rightPane.selection.removeAll()
+        }
+
+        statusMessage = "\(pane.title) went back"
+    }
+
+    private func goForward(_ pane: PaneKind) {
+        switch pane {
+        case .mac:
+            guard let next = leftPane.forward.popLast() else { return }
+            leftPane.back.append(leftPane.path)
+            leftPane.path = next
+            leftPane.selection.removeAll()
+        case .android:
+            guard let next = rightPane.forward.popLast() else { return }
+            rightPane.back.append(rightPane.path)
+            rightPane.path = next
+            rightPane.selection.removeAll()
+        }
+
+        statusMessage = "\(pane.title) went forward"
+    }
+
+    private func goUp(_ pane: PaneKind) {
+        let currentPath: String
+
+        switch pane {
+        case .mac:
+            currentPath = leftPane.path
+        case .android:
+            currentPath = rightPane.path
+        }
+
+        let parent = DemoFileSystem.parentPath(currentPath)
+        guard parent != currentPath else { return }
+
+        switch pane {
+        case .mac:
+            navigate(state: &leftPane, to: parent)
+        case .android:
+            navigate(state: &rightPane, to: parent)
+        }
+
+        statusMessage = "\(pane.title) opened parent folder"
+    }
+
+    private func navigate(state: inout PaneNavigationState, to path: String) {
+        guard path != state.path else { return }
+        state.back.append(state.path)
+        state.path = path
+        state.forward.removeAll()
+        state.selection.removeAll()
+    }
+
+    private func performAction(_ action: PaneAction, pane: PaneKind, item: DemoEntry?) {
+        guard operation == nil else { return }
+
+        let ids = selectedIDs(for: pane, item: item)
+        guard !ids.isEmpty else { return }
+
+        switch action {
+        case .properties:
+            let fallback = fileSystem.entries(
+                for: pane,
+                at: paneState(for: pane).path
+            ).first { ids.contains($0.id) }
+            propertyItem = item ?? fallback
+
+        case .copy:
+            clipboard = ClipboardPayload(
+                sourcePane: pane,
+                sourcePath: paneState(for: pane).path,
+                itemIDs: ids,
+                mode: .copy
+            )
+            statusMessage = "\(ids.count) item(s) copied"
+
+        case .cut:
+            clipboard = ClipboardPayload(
+                sourcePane: pane,
+                sourcePath: paneState(for: pane).path,
+                itemIDs: ids,
+                mode: .move
+            )
+            statusMessage = "\(ids.count) item(s) ready to move"
+
+        case .delete:
+            let path = paneState(for: pane).path
+            runOperation(title: "Deleting", count: ids.count) {
+                fileSystem.delete(itemIDs: ids, at: path, in: pane)
+                clearSelection(for: pane)
+                statusMessage = "\(ids.count) item(s) deleted"
+            }
+
+        case .copyToOther:
+            let other = pane == .mac ? PaneKind.android : .mac
+            transfer(
+                itemIDs: ids,
+                sourcePane: pane,
+                sourcePath: paneState(for: pane).path,
+                targetPane: other,
+                targetPath: paneState(for: other).path,
+                mode: .copy
+            )
+
+        case .moveToOther:
+            let other = pane == .mac ? PaneKind.android : .mac
+            transfer(
+                itemIDs: ids,
+                sourcePane: pane,
+                sourcePath: paneState(for: pane).path,
+                targetPane: other,
+                targetPath: paneState(for: other).path,
+                mode: .move
+            )
+        }
+    }
+
+    private func createFolder(_ pane: PaneKind) {
+        guard operation == nil else { return }
+
+        let path = paneState(for: pane).path
+        let created = fileSystem.createFolder(at: path, in: pane)
+        setSelection([created.id], for: pane)
+        statusMessage = "Created \(created.name)"
+    }
+
+    private func paste(_ targetPane: PaneKind) {
+        guard operation == nil, let clipboard else { return }
+
+        let targetPath = paneState(for: targetPane).path
+        if clipboard.sourcePane == targetPane,
+           clipboard.sourcePath == targetPath,
+           clipboard.mode == .move {
+            statusMessage = "Nothing to move inside the same folder"
+            return
+        }
+
+        transfer(
+            itemIDs: clipboard.itemIDs,
+            sourcePane: clipboard.sourcePane,
+            sourcePath: clipboard.sourcePath,
+            targetPane: targetPane,
+            targetPath: targetPath,
+            mode: clipboard.mode,
+            clearClipboardAfterMove: clipboard.mode == .move
+        )
+    }
+
+    private func transfer(
+        itemIDs: [UUID],
+        sourcePane: PaneKind,
+        sourcePath: String,
+        targetPane: PaneKind,
+        targetPath: String,
+        mode: ClipboardMode,
+        clearClipboardAfterMove: Bool = false
+    ) {
+        let noun = mode == .copy ? "Copying" : "Moving"
+
+        runOperation(title: noun, count: itemIDs.count) {
+            let transferred = fileSystem.transfer(
+                itemIDs: itemIDs,
+                from: sourcePane,
+                sourcePath: sourcePath,
+                to: targetPane,
+                targetPath: targetPath,
+                mode: mode
+            )
+
+            clearSelection(for: sourcePane)
+
+            if clearClipboardAfterMove {
+                clipboard = nil
+            }
+
+            statusMessage = transferred == 0
+                ? "No items transferred"
+                : "\(transferred) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
+        }
+    }
+
+    private func runOperation(title: String, count: Int, mutation: @escaping () -> Void) {
+        let steps = max(12, min(24, count * 4))
+
+        Task { @MainActor in
+            operation = DemoOperation(
+                title: title,
+                detail: "\(count) item(s)",
+                progress: 0
+            )
+
+            for step in 1...steps {
+                try? await Task.sleep(nanoseconds: 45_000_000)
+                operation?.progress = Double(step) / Double(steps)
+            }
+
+            mutation()
+
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            operation = nil
+        }
+    }
+
+    private func selectedIDs(for pane: PaneKind, item: DemoEntry?) -> [UUID] {
+        let state = paneState(for: pane)
+
+        if let item, state.selection.contains(item.id) {
+            return Array(state.selection)
+        }
+
+        return item.map { [$0.id] } ?? Array(state.selection)
+    }
+
+    private func paneState(for pane: PaneKind) -> PaneNavigationState {
+        switch pane {
+        case .mac:
+            return leftPane
+        case .android:
+            return rightPane
+        }
+    }
+
+    private func clearSelection(for pane: PaneKind) {
+        switch pane {
+        case .mac:
+            leftPane.selection.removeAll()
+        case .android:
+            rightPane.selection.removeAll()
+        }
+    }
+
+    private func setSelection(_ ids: Set<UUID>, for pane: PaneKind) {
+        switch pane {
+        case .mac:
+            leftPane.selection = ids
+        case .android:
+            rightPane.selection = ids
+        }
+    }
+
+    private func refresh() {
+        guard operation == nil else { return }
+        leftPane.selection.removeAll()
+        rightPane.selection.removeAll()
+        statusMessage = "Both panes refreshed"
+    }
+
+    private func propertyDescription(for item: DemoEntry) -> String {
+        let type = item.isDirectory ? "Folder" : item.subtitle
+        let size = item.sizeLabel ?? "—"
+        return "Type: \(type)\\nSize: \(size)\\nID: \(item.id.uuidString)"
     }
 }
 
-private struct SidebarView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Connection")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
-
-            HStack(spacing: 10) {
-                Image(systemName: "externaldrive.connected.to.line.below")
-                    .font(.title3)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Android device")
-                        .font(.subheadline.weight(.medium))
-                    Text("Not connected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Circle()
-                    .fill(.secondary.opacity(0.35))
-                    .frame(width: 7, height: 7)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-
-            Divider()
-                .padding(.top, 6)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("The two panes below are the file sources.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text("The sidebar is reserved for app-level controls and device status.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(12)
-
-            Spacer()
-
-            HStack {
-                Text("Native SwiftUI")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("0.1.0")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
-    }
+private struct DemoOperation: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    var progress: Double
 }
 
 private struct WorkspaceView: View {
+    @Binding var fileSystem: DemoFileSystem
+    @Binding var leftPane: PaneNavigationState
+    @Binding var rightPane: PaneNavigationState
+    @Binding var clipboard: ClipboardPayload?
+
+    let operation: DemoOperation?
+    let statusMessage: String
+    let onOpen: (PaneKind, DemoEntry) -> Void
+    let onBack: (PaneKind) -> Void
+    let onForward: (PaneKind) -> Void
+    let onUp: (PaneKind) -> Void
+    let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
+    let onNewFolder: (PaneKind) -> Void
+    let onPaste: (PaneKind) -> Void
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 FilePaneView(
-                    title: "This Mac",
-                    subtitle: "Local files",
-                    path: "/Users/",
-                    items: FileItem.localSamples
+                    pane: .mac,
+                    path: leftPane.path,
+                    items: fileSystem.entries(for: .mac, at: leftPane.path),
+                    selection: $leftPane.selection,
+                    canGoBack: !leftPane.back.isEmpty,
+                    canGoForward: !leftPane.forward.isEmpty,
+                    canGoUp: DemoFileSystem.parentPath(leftPane.path) != leftPane.path,
+                    canPaste: clipboard != nil,
+                    onBack: { onBack(.mac) },
+                    onForward: { onForward(.mac) },
+                    onUp: { onUp(.mac) },
+                    onOpen: { onOpen(.mac, $0) },
+                    onAction: { action, item in onAction(action, .mac, item) },
+                    onNewFolder: { onNewFolder(.mac) },
+                    onPaste: { onPaste(.mac) }
                 )
 
                 Divider()
 
                 FilePaneView(
-                    title: "Android Device",
-                    subtitle: "Not connected",
-                    path: "/Internal storage/",
-                    items: FileItem.androidSamples,
-                    showsPreviewBanner: true
+                    pane: .android,
+                    path: rightPane.path,
+                    items: fileSystem.entries(for: .android, at: rightPane.path),
+                    selection: $rightPane.selection,
+                    canGoBack: !rightPane.back.isEmpty,
+                    canGoForward: !rightPane.forward.isEmpty,
+                    canGoUp: DemoFileSystem.parentPath(rightPane.path) != rightPane.path,
+                    canPaste: clipboard != nil,
+                    onBack: { onBack(.android) },
+                    onForward: { onForward(.android) },
+                    onUp: { onUp(.android) },
+                    onOpen: { onOpen(.android, $0) },
+                    onAction: { action, item in onAction(action, .android, item) },
+                    onNewFolder: { onNewFolder(.android) },
+                    onPaste: { onPaste(.android) }
                 )
             }
 
             Divider()
 
-            HStack(spacing: 12) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.secondary)
+            if let operation {
+                OperationProgressView(operation: operation)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: clipboard == nil ? "checkmark.circle" : "doc.on.clipboard")
+                        .foregroundStyle(Color.accentColor.opacity(0.78))
 
-                Text("The native UI is ready. MTP services will be connected in the next phase.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text(statusMessage)
+                        .font(.caption)
 
-                Spacer()
+                    Spacer()
 
-                Text("SwiftUI")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    Text("SwiftUI demo • MTP bridge next")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(.bar)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(.bar)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+private struct OperationProgressView: View {
+    let operation: DemoOperation
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView(value: operation.progress)
+                .progressViewStyle(.linear)
+                .frame(maxWidth: 360)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(operation.title)
+                    .font(.caption.weight(.semibold))
+
+                Text(operation.detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text("\(Int(operation.progress * 100))%")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 38, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.bar)
     }
 }
 
