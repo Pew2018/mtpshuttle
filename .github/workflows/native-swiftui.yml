@@ -32,19 +32,34 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build and package arm64 app
+      - name: Build arm64 app
         run: ./scripts/build-app.sh
 
-      - name: Verify binary architecture
+      - name: Verify application bundle
         run: |
-          BIN="dist/OpenMTP.app/Contents/MacOS/OpenMTPNative"
+          APP="dist/OpenMTP.app"
+          BIN="$APP/Contents/MacOS/OpenMTPNative"
+
+          test -d "$APP/Contents/MacOS"
+          test -f "$APP/Contents/Info.plist"
+          test -x "$BIN"
+
+          echo "Executable:"
           file "$BIN"
+
+          echo "Architecture:"
           lipo -info "$BIN"
 
-      - name: Upload arm64 app artifact
+          echo "Bundle metadata:"
+          plutil -p "$APP/Contents/Info.plist"
+
+          echo "Code signature:"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Upload arm64 app bundle
         uses: actions/upload-artifact@v4
         with:
           name: OpenMTP-Native-ARM64
-          path: native/OpenMTPNative/dist/OpenMTPNative-arm64.zip
+          path: native/OpenMTPNative/dist/OpenMTP.app
           if-no-files-found: error
           retention-days: 14
