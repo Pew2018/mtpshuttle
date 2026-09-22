@@ -1,0 +1,50 @@
+name: Native SwiftUI CI
+
+on:
+  push:
+    branches:
+      - "native/**"
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    name: Build native SwiftUI app (arm64)
+    runs-on: macos-14
+
+    defaults:
+      run:
+        working-directory: native/OpenMTPNative
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show build environment
+        run: |
+          uname -m
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build and package arm64 app
+        run: ./scripts/build-app.sh
+
+      - name: Verify binary architecture
+        run: |
+          BIN="dist/OpenMTP.app/Contents/MacOS/OpenMTPNative"
+          file "$BIN"
+          lipo -info "$BIN"
+
+      - name: Upload arm64 app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMTP-Native-ARM64
+          path: native/OpenMTPNative/dist/OpenMTPNative-arm64.zip
+          if-no-files-found: error
+          retention-days: 14
