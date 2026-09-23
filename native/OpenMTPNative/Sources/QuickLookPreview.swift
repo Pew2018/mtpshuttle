@@ -34,16 +34,17 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
         func setPreviewURLs(_ urls: [URL]) {
             let changed = previewURLs != urls
             previewURLs = urls
-
-            guard !urls.isEmpty, changed else {
-                if isControllingPreviewPanel {
-                    QLPreviewPanel.shared()?.reloadData()
+            guard changed else { return }
+            if isControllingPreviewPanel {
+                guard let panel = QLPreviewPanel.shared() else { return }
+                if urls.isEmpty {
+                    panel.orderOut(nil)
+                } else {
+                    panel.reloadData()
+                    panel.currentPreviewItemIndex = 0
                 }
-                return
-            }
-
-            DispatchQueue.main.async { [weak self] in
-                self?.showPreviewPanel()
+            } else if !urls.isEmpty {
+                DispatchQueue.main.async { [weak self] in self?.showPreviewPanel() }
             }
         }
 

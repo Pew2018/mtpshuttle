@@ -184,6 +184,9 @@ struct ContentView: View {
                 rightPane.selection.removeAll()
                 activePane = .mac
             }
+            if !quickLookURLs.isEmpty {
+                updateQuickLookSelection()
+            }
         }
         .onChange(of: rightPane.selection) { selection in
             if !selection.isEmpty {
@@ -271,6 +274,10 @@ struct ContentView: View {
 
     private func presentQuickLook() {
         guard quickLookPreviewEnabled, activePane == .mac else { return }
+        updateQuickLookSelection()
+    }
+
+    private func updateQuickLookSelection() {
         quickLookURLs = localBrowser.entries.filter {
             leftPane.selection.contains($0.id) && !$0.isDirectory
         }.compactMap(\.localURL)
