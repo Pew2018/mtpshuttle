@@ -18,6 +18,7 @@ struct FilePaneView: View {
     let onAction: (PaneAction, DemoEntry?) -> Void
     let onNewFolder: () -> Void
     let onPaste: () -> Void
+    let showCrossPaneActions: Bool
     let onDrop: ([NSItemProvider]) -> Bool
     let onDragProvider: (DemoEntry) -> NSItemProvider
 
@@ -268,15 +269,17 @@ struct FilePaneView: View {
 
         Divider()
 
-        Button("Copy to \(otherPaneTitle)") {
-            onAction(.copyToOther, item)
-        }
+        if showCrossPaneActions {
+            Button("Copy to \(otherPaneTitle)") {
+                onAction(.copyToOther, item)
+            }
 
-        Button("Move to \(otherPaneTitle)") {
-            onAction(.moveToOther, item)
-        }
+            Button("Move to \(otherPaneTitle)") {
+                onAction(.moveToOther, item)
+            }
 
-        Divider()
+            Divider()
+        }
 
         Button("Delete", role: .destructive) {
             onAction(.delete, item)
