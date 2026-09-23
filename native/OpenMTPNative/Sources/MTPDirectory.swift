@@ -32,6 +32,7 @@ enum MTPDirectory {
         guard let records = records(from: response.data) else {
             throw KalamBridgeError.invalidResponse("Missing directory data")
         }
+        DebugLogger.verbose("MTP parse started: storage=\(storageID), records=\(records.count)")
 
         var hasMalformedNamedRecord = false
         let parsed = records.compactMap { value -> DemoEntry? in
