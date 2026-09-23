@@ -431,7 +431,7 @@ struct DemoFileSystem {
         }
 
         let exportRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent("OpenMTP-(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("OpenMTP-\\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(
             at: exportRoot,
             withIntermediateDirectories: true
@@ -545,9 +545,9 @@ struct DemoFileSystem {
         let contents = """
         OpenMTP demo export
 
-        Name: (item.name)
-        Type: (item.subtitle)
-        Simulated size: (item.sizeLabel ?? "unknown")
+        Name: \(item.name)
+        Type: \(item.subtitle)
+        Simulated size: \(item.sizeLabel ?? "unknown")
         """
 
         try Data(contents.utf8).write(to: destination, options: .atomic)
