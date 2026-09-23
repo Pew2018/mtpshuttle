@@ -594,8 +594,10 @@ struct ContentView: View {
                     await mtpService.browse(path: path)
                 }
                 statusMessage = "Created folder (name)"
+                tasks.record("创建文件夹：\(name)", state: "已完成")
             } catch {
                 statusMessage = error.localizedDescription
+                tasks.record("创建文件夹：\(name)", state: "失败：\(error.localizedDescription)")
             }
         }
     }
@@ -616,9 +618,13 @@ struct ContentView: View {
                 }
                 clearSelection(for: pane)
                 statusMessage = "\(items.count) item(s) deleted"
+                tasks.record("删除 \(items.count) 个项目", state: "已完成")
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
-            } catch { statusMessage = error.localizedDescription }
+            } catch {
+                statusMessage = error.localizedDescription
+                tasks.record("删除 \(items.count) 个项目", state: "失败：\(error.localizedDescription)")
+            }
             operation = nil
         }
     }
@@ -675,6 +681,10 @@ struct ContentView: View {
         guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
+            guard tasks.current == nil else {
+                statusMessage = "请等待当前传输结束"
+                return
+            }
             let knownBytes = transferByteCount(
                 sources,
                 sourcePane: sourcePane
@@ -707,6 +717,10 @@ struct ContentView: View {
     private func transferExternal(_ urls: [URL], targetPath: String) {
         guard let storage = MTPBrowsePath(browserPath: targetPath) else { return }
         Task { @MainActor in
+            guard tasks.current == nil else {
+                statusMessage = "请等待当前传输结束"
+                return
+            }
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
