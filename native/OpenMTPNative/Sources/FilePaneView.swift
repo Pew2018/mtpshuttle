@@ -19,6 +19,7 @@ struct FilePaneView: View {
     let onNewFolder: () -> Void
     let onPaste: () -> Void
     let onDrop: ([NSItemProvider]) -> Bool
+    let onDragProvider: (DemoEntry) -> NSItemProvider
 
     @State private var viewMode: FileViewMode = .list
     @State private var isDropTargeted = false
@@ -56,7 +57,7 @@ struct FilePaneView: View {
             }
         }
         .onDrop(
-            of: [UTType.plainText.identifier],
+            of: [UTType.fileURL.identifier, UTType.plainText.identifier],
             isTargeted: $isDropTargeted,
             perform: onDrop
         )
@@ -190,7 +191,7 @@ struct FilePaneView: View {
                         itemContextMenu(for: item)
                     }
                     .onDrag {
-                        dragProvider(for: item)
+                        onDragProvider(item)
                     }
                 }
             }
@@ -247,21 +248,6 @@ struct FilePaneView: View {
             Button("Paste", action: onPaste)
                 .disabled(!canPaste)
         }
-    }
-
-    private func dragProvider(for item: DemoEntry) -> NSItemProvider {
-        let ids = selection.contains(item.id) ? Array(selection) : [item.id]
-        let payload = DemoDragPayload(
-            sourcePane: pane,
-            sourcePath: path,
-            itemIDs: ids
-        )
-
-        guard let encoded = payload.encoded else {
-            return NSItemProvider(object: NSString(string: item.name))
-        }
-
-        return NSItemProvider(object: NSString(string: encoded))
     }
 
     @ViewBuilder
