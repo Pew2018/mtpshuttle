@@ -389,7 +389,7 @@ struct ContentView: View {
             rightPane.selection.removeAll()
             statusMessage = imported == 0
                 ? "No files copied"
-                : "\\(imported) item(s) copied from Finder"
+                : "\(imported) item(s) copied from Finder"
         }
     }
 
