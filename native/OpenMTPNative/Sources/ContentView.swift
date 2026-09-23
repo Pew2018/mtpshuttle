@@ -48,6 +48,7 @@ struct ContentView: View {
             onAction: performAction,
             onNewFolder: createFolder,
             onPaste: paste,
+            onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider
         )
@@ -712,6 +713,7 @@ private struct WorkspaceView: View {
     let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
     let onNewFolder: (PaneKind) -> Void
     let onPaste: (PaneKind) -> Void
+    let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
 
