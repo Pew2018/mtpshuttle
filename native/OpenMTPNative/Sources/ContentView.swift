@@ -24,63 +24,13 @@ struct ContentView: View {
         DragDropMode(rawValue: dragDropMode) ?? .copy
     }
 
-    private var macPane: some View {
-        FilePaneView(
-            pane: .mac,
-            path: leftPane.path,
-            items: fileSystem.entries(for: .mac, at: leftPane.path),
-            selection: $leftPane.selection,
-            canGoBack: !leftPane.back.isEmpty,
-            canGoForward: !leftPane.forward.isEmpty,
-            canPaste: clipboard != nil,
-            onBack: { onBack(.mac) },
-            onForward: { onForward(.mac) },
-            onRefresh: { onRefresh(.mac) },
-            onNavigate: { onNavigate(.mac, $0) },
-            onOpen: { onOpen(.mac, $0) },
-            onAction: { action, item in onAction(action, .mac, item) },
-            onNewFolder: { onNewFolder(.mac) },
-            onPaste: { onPaste(.mac) },
-            showCrossPaneActions: !androidOnlyMode,
-            onDrop: { providers in onDrop(providers, .mac) },
-            onDragProvider: { item in
-                onExternalDragProvider(.mac, leftPane.path, item)
-            }
-        )
-    }
-
-    private var androidPane: some View {
-        FilePaneView(
-            pane: .android,
-            path: rightPane.path,
-            items: fileSystem.entries(for: .android, at: rightPane.path),
-            selection: $rightPane.selection,
-            canGoBack: !rightPane.back.isEmpty,
-            canGoForward: !rightPane.forward.isEmpty,
-            canPaste: clipboard != nil,
-            onBack: { onBack(.android) },
-            onForward: { onForward(.android) },
-            onRefresh: { onRefresh(.android) },
-            onNavigate: { onNavigate(.android, $0) },
-            onOpen: { onOpen(.android, $0) },
-            onAction: { action, item in onAction(action, .android, item) },
-            onNewFolder: { onNewFolder(.android) },
-            onPaste: { onPaste(.android) },
-            showCrossPaneActions: !androidOnlyMode,
-            onDrop: { providers in onDrop(providers, .android) },
-            onDragProvider: { item in
-                onExternalDragProvider(.android, rightPane.path, item)
-            }
-        )
-    }
-
     var body: some View {
         WorkspaceView(
             fileSystem: $fileSystem,
             leftPane: $leftPane,
-            androidOnlyMode: androidOnlyMode,
             rightPane: $rightPane,
             clipboard: $clipboard,
+            androidOnlyMode: androidOnlyMode,
             operation: operation,
             statusMessage: statusMessage,
             onOpen: open,
@@ -652,6 +602,56 @@ private struct WorkspaceView: View {
     let onPaste: (PaneKind) -> Void
     let onDrop: ([NSItemProvider], PaneKind) -> Bool
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
+
+    private var macPane: some View {
+        FilePaneView(
+            pane: .mac,
+            path: leftPane.path,
+            items: fileSystem.entries(for: .mac, at: leftPane.path),
+            selection: $leftPane.selection,
+            canGoBack: !leftPane.back.isEmpty,
+            canGoForward: !leftPane.forward.isEmpty,
+            canPaste: clipboard != nil,
+            onBack: { onBack(.mac) },
+            onForward: { onForward(.mac) },
+            onRefresh: { onRefresh(.mac) },
+            onNavigate: { onNavigate(.mac, $0) },
+            onOpen: { onOpen(.mac, $0) },
+            onAction: { action, item in onAction(action, .mac, item) },
+            onNewFolder: { onNewFolder(.mac) },
+            onPaste: { onPaste(.mac) },
+            showCrossPaneActions: !androidOnlyMode,
+            onDrop: { providers in onDrop(providers, .mac) },
+            onDragProvider: { item in
+                onExternalDragProvider(.mac, leftPane.path, item)
+            }
+        )
+    }
+
+    private var androidPane: some View {
+        FilePaneView(
+            pane: .android,
+            path: rightPane.path,
+            items: fileSystem.entries(for: .android, at: rightPane.path),
+            selection: $rightPane.selection,
+            canGoBack: !rightPane.back.isEmpty,
+            canGoForward: !rightPane.forward.isEmpty,
+            canPaste: clipboard != nil,
+            onBack: { onBack(.android) },
+            onForward: { onForward(.android) },
+            onRefresh: { onRefresh(.android) },
+            onNavigate: { onNavigate(.android, $0) },
+            onOpen: { onOpen(.android, $0) },
+            onAction: { action, item in onAction(action, .android, item) },
+            onNewFolder: { onNewFolder(.android) },
+            onPaste: { onPaste(.android) },
+            showCrossPaneActions: !androidOnlyMode,
+            onDrop: { providers in onDrop(providers, .android) },
+            onDragProvider: { item in
+                onExternalDragProvider(.android, rightPane.path, item)
+            }
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
