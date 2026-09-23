@@ -25,6 +25,30 @@ private struct OpenMTPCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
+            Button("Quick Look") {
+                NotificationCenter.default.post(name: .openMTPQuickLook, object: nil)
+            }
+            .keyboardShortcut(.space, modifiers: [])
+
+            Divider()
+
+            Button("Copy") {
+                NotificationCenter.default.post(name: .openMTPCopy, object: nil)
+            }
+            .keyboardShortcut("c", modifiers: .command)
+
+            Button("Cut") {
+                NotificationCenter.default.post(name: .openMTPCut, object: nil)
+            }
+            .keyboardShortcut("x", modifiers: .command)
+
+            Button("Paste") {
+                NotificationCenter.default.post(name: .openMTPPaste, object: nil)
+            }
+            .keyboardShortcut("v", modifiers: .command)
+
+            Divider()
+
             Button("Settings…") {
                 openWindow(id: "settings")
             }
