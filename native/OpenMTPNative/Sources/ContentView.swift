@@ -135,7 +135,6 @@ struct ContentView: View {
         )
         .task {
             DebugLogger.startSession()
-            await mtpService.connect()
         }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
