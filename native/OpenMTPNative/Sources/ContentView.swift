@@ -42,6 +42,7 @@ struct ContentView: View {
             onNewFolder: createFolder,
             onPaste: paste,
             onDrop: handleDrop,
+            onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider
         )
         .toolbar {
@@ -245,103 +246,46 @@ struct ContentView: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider], targetPane: PaneKind) -> Bool {
-        guard operation == nil, !providers.isEmpty else {
+        guard operation == nil, let internalProvider = providers.first(where: {
+            $0.hasItemConformingToTypeIdentifier(OpenMTPDragType.payload.identifier)
+        }) else {
             return false
         }
 
-        if let internalProvider = providers.first(where: {
-            $0.hasItemConformingToTypeIdentifier(OpenMTPDragType.payload.identifier)
-        }) {
-            internalProvider.loadDataRepresentation(
-                forTypeIdentifier: OpenMTPDragType.payload.identifier
-            ) { data, _ in
-                let encoded = data.flatMap { String(data: $0, encoding: .utf8) }
+        internalProvider.loadDataRepresentation(
+            forTypeIdentifier: OpenMTPDragType.payload.identifier
+        ) { data, _ in
+            let encoded = data.flatMap { String(data: $0, encoding: .utf8) }
 
-                DispatchQueue.main.async {
-                    if let encoded, let payload = DemoDragPayload.decode(encoded) {
-                        receiveDrop(payload, targetPane: targetPane)
-                    } else {
-                        statusMessage = "Invalid OpenMTP drag payload"
-                    }
+            DispatchQueue.main.async {
+                if let encoded, let payload = DemoDragPayload.decode(encoded) {
+                    receiveDrop(payload, targetPane: targetPane)
+                } else {
+                    statusMessage = "Invalid OpenMTP drag payload"
                 }
             }
-
-            return true
         }
 
-        handleExternalFileDrop(providers, targetPane: targetPane)
         return true
     }
 
-    private func handleExternalFileDrop(
-        _ providers: [NSItemProvider],
-        targetPane: PaneKind
-    ) {
-        let fileProviders = providers.filter {
-            $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-        }
-
-        guard !fileProviders.isEmpty else {
-            statusMessage = "Unsupported drop"
-            return
-        }
-
-        let group = DispatchGroup()
-        let lock = NSLock()
-        var snapshots: [ExternalFileSnapshot] = []
-
-        for provider in fileProviders {
-            group.enter()
-
-            provider.loadFileRepresentation(
-                forTypeIdentifier: UTType.fileURL.identifier
-            ) { url, _ in
-                if let url, let snapshot = DemoFileSystem.externalSnapshot(from: url) {
-                    lock.lock()
-                    snapshots.append(snapshot)
-                    lock.unlock()
-                }
-
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .main) {
-            guard !snapshots.isEmpty else {
-                self.statusMessage = "No files could be read from the drop"
-                return
-            }
-
-            self.receiveExternalFileDrop(
-                snapshots,
-                targetPane: targetPane
-            )
-        }
-    }
-
-    private func receiveExternalFileDrop(
-        _ snapshots: [ExternalFileSnapshot],
-        targetPane: PaneKind
-    ) {
+    private func handleExternalFileDrop(_ urls: [URL], targetPane: PaneKind) {
         guard operation == nil else { return }
 
-        guard targetPane == .android else {
-            statusMessage = "Finder items can be dropped into Android Device"
-            return
-        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let snapshots = urls.compactMap(DemoFileSystem.externalSnapshot(from:))
 
-        let targetPath = rightPane.path
-        runOperation(title: "Copying", count: snapshots.count) {
-            let imported = fileSystem.importExternalFiles(
-                snapshots,
-                at: targetPath,
-                in: .android
-            )
+            DispatchQueue.main.async {
+                guard !snapshots.isEmpty else {
+                    self.statusMessage = "No files could be read from the drop"
+                    return
+                }
 
-            rightPane.selection.removeAll()
-            statusMessage = imported == 0
-                ? "No files copied"
-                : "\(imported) item(s) copied from Finder"
+                self.receiveExternalFileDrop(
+                    snapshots,
+                    targetPane: targetPane
+                )
+            }
         }
     }
 
@@ -601,6 +545,7 @@ private struct WorkspaceView: View {
     let onNewFolder: (PaneKind) -> Void
     let onPaste: (PaneKind) -> Void
     let onDrop: ([NSItemProvider], PaneKind) -> Bool
+    let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
 
     private var macPane: some View {
@@ -622,6 +567,7 @@ private struct WorkspaceView: View {
             onPaste: { onPaste(.mac) },
             showCrossPaneActions: !androidOnlyMode,
             onDrop: { providers in onDrop(providers, .mac) },
+            onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
             onDragProvider: { item in
                 onExternalDragProvider(.mac, leftPane.path, item)
             }
@@ -647,6 +593,7 @@ private struct WorkspaceView: View {
             onPaste: { onPaste(.android) },
             showCrossPaneActions: !androidOnlyMode,
             onDrop: { providers in onDrop(providers, .android) },
+            onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
             onDragProvider: { item in
                 onExternalDragProvider(.android, rightPane.path, item)
             }
