@@ -240,7 +240,7 @@ struct ContentView: View {
         case .delete:
             let path = paneState(for: pane).path
             runOperation(title: "Deleting", count: ids.count) {
-                fileSystem.delete(itemIDs: ids, at: path, in: pane)
+                _ = fileSystem.delete(itemIDs: ids, at: path, in: pane)
                 clearSelection(for: pane)
                 statusMessage = "\(ids.count) item(s) deleted"
             }
@@ -275,7 +275,7 @@ struct ContentView: View {
         }
 
         provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let object else { return }
+            guard let object = object as? NSString else { return }
 
             let raw = object as String
             guard let payload = DemoDragPayload.decode(raw) else {
