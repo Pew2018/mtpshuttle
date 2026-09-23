@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
@@ -16,14 +17,66 @@ struct ContentView: View {
     @AppStorage("dragDropMode")
     private var dragDropMode = DragDropMode.copy.rawValue
 
+    @AppStorage("androidOnlyMode")
+    private var androidOnlyMode = false
+
     private var currentDragDropMode: DragDropMode {
         DragDropMode(rawValue: dragDropMode) ?? .copy
+    }
+
+    private var macPane: some View {
+        FilePaneView(
+            pane: .mac,
+            path: leftPane.path,
+            items: fileSystem.entries(for: .mac, at: leftPane.path),
+            selection: $leftPane.selection,
+            canGoBack: !leftPane.back.isEmpty,
+            canGoForward: !leftPane.forward.isEmpty,
+            canPaste: clipboard != nil,
+            onBack: { onBack(.mac) },
+            onForward: { onForward(.mac) },
+            onRefresh: { onRefresh(.mac) },
+            onNavigate: { onNavigate(.mac, $0) },
+            onOpen: { onOpen(.mac, $0) },
+            onAction: { action, item in onAction(action, .mac, item) },
+            onNewFolder: { onNewFolder(.mac) },
+            onPaste: { onPaste(.mac) },
+            onDrop: { providers in onDrop(providers, .mac) },
+            onDragProvider: { item in
+                onExternalDragProvider(.mac, leftPane.path, item)
+            }
+        )
+    }
+
+    private var androidPane: some View {
+        FilePaneView(
+            pane: .android,
+            path: rightPane.path,
+            items: fileSystem.entries(for: .android, at: rightPane.path),
+            selection: $rightPane.selection,
+            canGoBack: !rightPane.back.isEmpty,
+            canGoForward: !rightPane.forward.isEmpty,
+            canPaste: clipboard != nil,
+            onBack: { onBack(.android) },
+            onForward: { onForward(.android) },
+            onRefresh: { onRefresh(.android) },
+            onNavigate: { onNavigate(.android, $0) },
+            onOpen: { onOpen(.android, $0) },
+            onAction: { action, item in onAction(action, .android, item) },
+            onNewFolder: { onNewFolder(.android) },
+            onPaste: { onPaste(.android) },
+            onDrop: { providers in onDrop(providers, .android) },
+            onDragProvider: { item in
+                onExternalDragProvider(.android, rightPane.path, item)
+            }
+        )
     }
 
     var body: some View {
         WorkspaceView(
             fileSystem: $fileSystem,
             leftPane: $leftPane,
+            androidOnlyMode: androidOnlyMode,
             rightPane: $rightPane,
             clipboard: $clipboard,
             operation: operation,
@@ -36,7 +89,8 @@ struct ContentView: View {
             onAction: performAction,
             onNewFolder: createFolder,
             onPaste: paste,
-            onDrop: handleDrop
+            onDrop: handleDrop,
+            onExternalDragProvider: makeExternalDragProvider
         )
         .toolbar {
             ToolbarItem(placement: .automatic) {
@@ -239,24 +293,104 @@ struct ContentView: View {
     }
 
     private func handleDrop(_ providers: [NSItemProvider], targetPane: PaneKind) -> Bool {
-        guard operation == nil, let provider = providers.first else {
+        guard operation == nil, !providers.isEmpty else {
             return false
         }
 
-        provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let object = object as? NSString else { return }
+        if let internalProvider = providers.first(where: {
+            $0.hasItemConformingToTypeIdentifier(UTType.utf8PlainText.identifier)
+        }) {
+            internalProvider.loadDataRepresentation(
+                forTypeIdentifier: UTType.utf8PlainText.identifier
+            ) { data, _ in
+                let encoded = data.flatMap { String(data: $0, encoding: .utf8) }
 
-            let raw = object as String
-            guard let payload = DemoDragPayload.decode(raw) else {
-                return
+                DispatchQueue.main.async {
+                    if let encoded, let payload = DemoDragPayload.decode(encoded) {
+                        receiveDrop(payload, targetPane: targetPane)
+                    } else {
+                        handleExternalFileDrop(providers, targetPane: targetPane)
+                    }
+                }
             }
 
-            DispatchQueue.main.async {
-                receiveDrop(payload, targetPane: targetPane)
+            return true
+        }
+
+        handleExternalFileDrop(providers, targetPane: targetPane)
+        return true
+    }
+
+    private func handleExternalFileDrop(
+        _ providers: [NSItemProvider],
+        targetPane: PaneKind
+    ) {
+        let fileProviders = providers.filter {
+            $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }
+
+        guard !fileProviders.isEmpty else {
+            statusMessage = "Unsupported drop"
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var snapshots: [ExternalFileSnapshot] = []
+
+        for provider in fileProviders {
+            group.enter()
+
+            provider.loadFileRepresentation(
+                forTypeIdentifier: UTType.fileURL.identifier
+            ) { url, _ in
+                if let url, let snapshot = DemoFileSystem.externalSnapshot(from: url) {
+                    lock.lock()
+                    snapshots.append(snapshot)
+                    lock.unlock()
+                }
+
+                group.leave()
             }
         }
 
-        return true
+        group.notify(queue: .main) {
+            guard !snapshots.isEmpty else {
+                self.statusMessage = "No files could be read from the drop"
+                return
+            }
+
+            self.receiveExternalFileDrop(
+                snapshots,
+                targetPane: targetPane
+            )
+        }
+    }
+
+    private func receiveExternalFileDrop(
+        _ snapshots: [ExternalFileSnapshot],
+        targetPane: PaneKind
+    ) {
+        guard operation == nil else { return }
+
+        guard targetPane == .android else {
+            statusMessage = "Finder items can be dropped into Android Device"
+            return
+        }
+
+        let targetPath = rightPane.path
+        runOperation(title: "Copying", count: snapshots.count) {
+            let imported = fileSystem.importExternalFiles(
+                snapshots,
+                at: targetPath,
+                in: .android
+            )
+
+            rightPane.selection.removeAll()
+            statusMessage = imported == 0
+                ? "No files copied"
+                : "(imported) item(s) copied from Finder"
+        }
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
@@ -298,6 +432,52 @@ struct ContentView: View {
             targetPath: pendingDrop.targetPath,
             mode: mode
         )
+    }
+
+    private func makeExternalDragProvider(
+        pane: PaneKind,
+        path: String,
+        item: DemoEntry
+    ) -> NSItemProvider {
+        let payload = DemoDragPayload(
+            sourcePane: pane,
+            sourcePath: path,
+            itemIDs: [item.id]
+        )
+
+        let provider = NSItemProvider()
+
+        if let encoded = payload.encoded {
+            provider.registerDataRepresentation(
+                forTypeIdentifier: UTType.utf8PlainText.identifier,
+                visibility: .all
+            ) { completionHandler in
+                completionHandler(Data(encoded.utf8), nil)
+                return nil
+            }
+        }
+
+        let snapshot = fileSystem
+        provider.registerFileRepresentation(
+            forTypeIdentifier: UTType.fileURL.identifier,
+            fileOptions: [],
+            visibility: .all
+        ) { completionHandler in
+            do {
+                let url = try snapshot.exportedFileURL(
+                    itemIDs: [item.id],
+                    at: path,
+                    in: pane
+                )
+                completionHandler(url, false, nil)
+            } catch {
+                completionHandler(nil, false, error)
+            }
+
+            return nil
+        }
+
+        return provider
     }
 
     private func createFolder(_ pane: PaneKind) {
@@ -456,6 +636,8 @@ private struct WorkspaceView: View {
     @Binding var rightPane: PaneNavigationState
     @Binding var clipboard: ClipboardPayload?
 
+    let androidOnlyMode: Bool
+
     let operation: DemoOperation?
     let statusMessage: String
     let onOpen: (PaneKind, DemoEntry) -> Void
@@ -467,49 +649,20 @@ private struct WorkspaceView: View {
     let onNewFolder: (PaneKind) -> Void
     let onPaste: (PaneKind) -> Void
     let onDrop: ([NSItemProvider], PaneKind) -> Bool
+    let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                FilePaneView(
-                    pane: .mac,
-                    path: leftPane.path,
-                    items: fileSystem.entries(for: .mac, at: leftPane.path),
-                    selection: $leftPane.selection,
-                    canGoBack: !leftPane.back.isEmpty,
-                    canGoForward: !leftPane.forward.isEmpty,
-                    canPaste: clipboard != nil,
-                    onBack: { onBack(.mac) },
-                    onForward: { onForward(.mac) },
-                    onRefresh: { onRefresh(.mac) },
-                    onNavigate: { onNavigate(.mac, $0) },
-                    onOpen: { onOpen(.mac, $0) },
-                    onAction: { action, item in onAction(action, .mac, item) },
-                    onNewFolder: { onNewFolder(.mac) },
-                    onPaste: { onPaste(.mac) },
-                    onDrop: { providers in onDrop(providers, .mac) }
-                )
+            if androidOnlyMode {
+                androidPane
+            } else {
+                HStack(spacing: 0) {
+                    macPane
 
-                Divider()
+                    Divider()
 
-                FilePaneView(
-                    pane: .android,
-                    path: rightPane.path,
-                    items: fileSystem.entries(for: .android, at: rightPane.path),
-                    selection: $rightPane.selection,
-                    canGoBack: !rightPane.back.isEmpty,
-                    canGoForward: !rightPane.forward.isEmpty,
-                    canPaste: clipboard != nil,
-                    onBack: { onBack(.android) },
-                    onForward: { onForward(.android) },
-                    onRefresh: { onRefresh(.android) },
-                    onNavigate: { onNavigate(.android, $0) },
-                    onOpen: { onOpen(.android, $0) },
-                    onAction: { action, item in onAction(action, .android, item) },
-                    onNewFolder: { onNewFolder(.android) },
-                    onPaste: { onPaste(.android) },
-                    onDrop: { providers in onDrop(providers, .android) }
-                )
+                    androidPane
+                }
             }
 
             Divider()
