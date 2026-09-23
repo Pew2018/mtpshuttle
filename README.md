@@ -2,7 +2,7 @@
 
 SwiftMTP is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
 
-SwiftMTP is developed in the native SwiftUI target of this repository. The original Electron/React OpenMTP implementation is retained in the repository for compatibility and reference, but the current preview application is built from \`native/OpenMTPNative\`.
+SwiftMTP is developed in the native SwiftUI target of this repository. The original Electron/React OpenMTP implementation is retained in the repository for compatibility and reference, but the current preview application is built from `native/OpenMTPNative`.
 
 ## 中文说明
 
@@ -118,7 +118,7 @@ app/                            原始 Electron/React 客户端
 
 SwiftMTP is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
 
-The current preview application is built from \`native/OpenMTPNative\`. The original Electron/React OpenMTP implementation remains in this repository for compatibility and reference, but it is not included in the Native SwiftUI application bundle.
+The current preview application is built from `native/OpenMTPNative`. The original Electron/React OpenMTP implementation remains in this repository for compatibility and reference, but it is not included in the Native SwiftUI application bundle.
 
 ### Current features
 
