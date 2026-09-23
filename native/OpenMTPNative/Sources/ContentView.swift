@@ -121,7 +121,7 @@ struct ContentView: View {
         ) { _ in
             presentQuickLook()
         }
-        .focusedValue(
+        .focusedSceneValue(
             \.openMTPEditActions,
             OpenMTPEditActions(
                 copy: copySelection,
