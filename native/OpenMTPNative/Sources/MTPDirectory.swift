@@ -57,11 +57,15 @@ enum MTPDirectory {
             )
         }
 
+        guard parsed.count == records.count else {
+            throw KalamBridgeError.invalidResponse("Directory entry is missing a required name")
+        }
         return parsed.sorted(by: DemoEntry.browserOrder)
     }
 
     private static func records(from value: KalamJSONValue?) -> [KalamJSONValue]? {
         guard let value else { return nil }
+        if case .null = value { return [] }
         if let array = value.arrayValue { return array }
         if let object = value.objectValue {
             for key in ["data", "files", "items", "entries", "children"] {
