@@ -265,13 +265,19 @@ struct ContentView: View {
         _ encoded: String,
         targetPane: PaneKind
     ) {
-        guard operation == nil else { return }
+        print("[OpenMTP-DND] ContentView.handleInternalDrop target=\\(targetPane) encodedLength=\\(encoded.count)")
+        guard operation == nil else {
+            print("[OpenMTP-DND] ContentView.handleInternalDrop ignored: operation active")
+            return
+        }
 
         guard let payload = DemoDragPayload.decode(encoded) else {
+            print("[OpenMTP-DND] ContentView.handleInternalDrop FAILED to decode payload")
             statusMessage = "Invalid OpenMTP drag payload"
             return
         }
 
+        print("[OpenMTP-DND] ContentView payload source=\\(payload.sourcePane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
         receiveDrop(payload, targetPane: targetPane)
     }
 
@@ -322,8 +328,13 @@ struct ContentView: View {
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
-        guard operation == nil else { return }
+        print("[OpenMTP-DND] ContentView.receiveDrop source=\\(payload.sourcePane) target=\\(targetPane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
+        guard operation == nil else {
+            print("[OpenMTP-DND] receiveDrop ignored: operation active")
+            return
+        }
         guard payload.sourcePane != targetPane else {
+            print("[OpenMTP-DND] receiveDrop rejected: same pane")
             statusMessage = "Drop between the two panes to transfer items"
             return
         }
@@ -436,6 +447,7 @@ struct ContentView: View {
             itemIDs: [item.id]
         )
 
+        print("[OpenMTP-DND] makeDragProvider source=\\(pane) path=\\(path) item=\\(item.name) id=\\(item.id)")
         let provider = NSItemProvider()
 
         if let encoded = payload.encoded {
