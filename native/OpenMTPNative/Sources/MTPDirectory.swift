@@ -35,14 +35,13 @@ enum MTPDirectory {
 
         let parsed = records.compactMap { value -> DemoEntry? in
             guard let object = value.objectValue else { return nil }
-            let name = string(object, keys: ["name", "Name", "filename", "fileName"])
-                ?? pathBase(string(object, keys: ["path", "fullPath"]) ?? "")
-            guard !name.isEmpty else { return nil }
+            guard let name = string(object, keys: ["name", "Name", "filename", "fileName"]),
+                  !name.isEmpty,
+                  let remotePath = string(object, keys: ["path", "fullPath", "fullpath"]),
+                  object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else { return nil }
 
             let isFolder = bool(object, keys: ["isFolder", "isDir", "isDirectory", "folder", "directory"])
             let size = integer(object, keys: ["size", "Size", "fileSize"])
-            let remotePath = string(object, keys: ["path", "fullPath", "fullpath"])
-                ?? name
             let objectID = UInt32(clamping: integer(object, keys: ["objectId", "objectID", "id"]) ?? 0)
 
             return DemoEntry(
