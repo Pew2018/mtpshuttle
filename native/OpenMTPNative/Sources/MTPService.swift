@@ -68,7 +68,7 @@ final class MTPService: ObservableObject {
     }
     
     var storageEntries: [DemoEntry] {
-        storages.map(\.demoEntry)
+        storages.map { $0.demoEntry() }
     }
     
     func connect() async {
