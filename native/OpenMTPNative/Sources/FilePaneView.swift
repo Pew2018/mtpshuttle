@@ -234,7 +234,7 @@ struct FilePaneView: View {
                         itemContextMenu(for: item)
                     }
                     .onDrag {
-                        dragProvider(for: item)
+                        onDragProvider(item)
                     }
                 }
             }
