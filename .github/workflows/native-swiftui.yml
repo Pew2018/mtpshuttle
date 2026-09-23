@@ -77,7 +77,8 @@ jobs:
       - name: Audit native bundle contents
         run: |
           APP="dist/SwiftMTP.app"
-          test "$(find "$APP/Contents" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "3"
+          test "$(find "$APP/Contents" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "4"
+          test -d "$APP/Contents/_CodeSignature"
           test ! -e "$APP/Contents/Resources/app"
           test ! -e "$APP/Contents/Resources/node_modules"
           test ! -e "$APP/Contents/Resources/electron"
