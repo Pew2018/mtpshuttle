@@ -5,7 +5,7 @@ struct OpenMTPNativeApp: App {
     var body: some Scene {
         WindowGroup("OpenMTP") {
             ContentView()
-                .frame(minWidth: 980, minHeight: 620)
+                .frame(minWidth: 760, minHeight: 480)
         }
         .defaultSize(width: 1180, height: 760)
         .commands {
