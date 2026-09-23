@@ -408,7 +408,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSDraggingDestination {
         var parent: OpenMTPExternalDropReceiver
-        private var activeDragSession = false
+        var activeDragSession = false
 
         init(_ parent: OpenMTPExternalDropReceiver) {
             self.parent = parent
