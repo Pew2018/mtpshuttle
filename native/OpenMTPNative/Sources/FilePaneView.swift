@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-private enum OpenMTPDNDLogger {
+enum OpenMTPDNDLogger {
     private static let queue = DispatchQueue(label: "com.pew2018.openmtp.dnd-log")
     private static let url = URL(fileURLWithPath: "/tmp/openmtp-dnd.log")
 
