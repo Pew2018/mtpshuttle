@@ -2,10 +2,18 @@ import SwiftUI
 
 @main
 struct OpenMTPNativeApp: App {
+    @NSApplicationDelegateAdaptor(OpenMTPAppDelegate.self) private var appDelegate
+    @Environment(\\.openWindow) private var openWindow
+
     var body: some Scene {
-        WindowGroup("OpenMTP") {
+        WindowGroup("OpenMTP", id: "main") {
             ContentView()
                 .frame(minWidth: 760, minHeight: 480)
+                .onAppear {
+                    appDelegate.openMainWindow = {
+                        openWindow(id: "main")
+                    }
+                }
         }
         .defaultSize(width: 1180, height: 760)
         .commands {
