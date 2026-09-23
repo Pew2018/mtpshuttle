@@ -19,7 +19,7 @@ struct FilePaneView: View {
     let onNewFolder: () -> Void
     let onPaste: () -> Void
     let showCrossPaneActions: Bool
-    let onDrop: ([NSItemProvider]) -> Bool
+    let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
     let onDragProvider: (DemoEntry) -> NSItemProvider
 
@@ -61,15 +61,11 @@ struct FilePaneView: View {
         .background {
             OpenMTPExternalDropReceiver(
                 isTargeted: $isDropTargeted,
-                onDrop: onExternalFileDrop
+                onInternalDrop: onInternalDrop,
+                onExternalFileDrop: onExternalFileDrop
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onDrop(
-            of: [OpenMTPDragType.payload.identifier],
-            isTargeted: $isDropTargeted,
-            perform: onDrop
-        )
     }
 
     private var paneHeader: some View {
@@ -352,7 +348,8 @@ struct FilePaneView: View {
 
 private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
     @Binding var isTargeted: Bool
-    let onDrop: ([URL]) -> Void
+    let onInternalDrop: (String) -> Void
+    let onExternalFileDrop: ([URL]) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -380,11 +377,12 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             self.parent = parent
         }
 
+        private var internalPasteboardType: NSPasteboard.PasteboardType {
+            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+        }
+
         private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
-            let pasteboard = draggingInfo.draggingPasteboard
-            return pasteboard.types?.contains(
-                NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-            ) == true
+            draggingInfo.draggingPasteboard.types?.contains(internalPasteboardType) == true
         }
 
         private func acceptsFinderFiles(_ draggingInfo: NSDraggingInfo) -> Bool {
@@ -396,6 +394,11 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
+            if isInternalDrag(draggingInfo) {
+                parent.isTargeted = true
+                return .copy
+            }
+
             guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
                 return []
@@ -406,6 +409,11 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
+            if isInternalDrag(draggingInfo) {
+                parent.isTargeted = true
+                return .copy
+            }
+
             guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
                 return []
@@ -420,7 +428,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
-            acceptsFinderFiles(draggingInfo)
+            isInternalDrag(draggingInfo) || acceptsFinderFiles(draggingInfo)
         }
 
         func performDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
@@ -428,11 +436,23 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 parent.isTargeted = false
             }
 
+            let pasteboard = draggingInfo.draggingPasteboard
+
+            if isInternalDrag(draggingInfo) {
+                guard let data = pasteboard.data(forType: internalPasteboardType),
+                      let encoded = String(data: data, encoding: .utf8) else {
+                    return false
+                }
+
+                parent.onInternalDrop(encoded)
+                return true
+            }
+
             guard acceptsFinderFiles(draggingInfo) else {
                 return false
             }
 
-            let objects = draggingInfo.draggingPasteboard.readObjects(
+            let objects = pasteboard.readObjects(
                 forClasses: [NSURL.self],
                 options: [.urlReadingFileURLsOnly: true]
             )
@@ -442,7 +462,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 return false
             }
 
-            parent.onDrop(urls)
+            parent.onExternalFileDrop(urls)
             return true
         }
     }
@@ -451,7 +471,6 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         weak var coordinator: Coordinator?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            // Keep the transparent receiver out of ordinary mouse hit-testing.
             if let event = NSApp.currentEvent {
                 switch event.type {
                 case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp:
