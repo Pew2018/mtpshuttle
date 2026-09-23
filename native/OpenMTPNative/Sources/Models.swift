@@ -59,6 +59,7 @@ enum FileViewMode: String, CaseIterable, Identifiable {
 
 enum DragDropMode: String, CaseIterable, Identifiable {
     case copy
+    case move
     case ask
 
     var id: String { rawValue }
@@ -67,6 +68,8 @@ enum DragDropMode: String, CaseIterable, Identifiable {
         switch self {
         case .copy:
             return "Copy"
+        case .move:
+            return "Move"
         case .ask:
             return "Ask every time"
         }
