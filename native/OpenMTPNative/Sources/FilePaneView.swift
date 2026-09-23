@@ -586,15 +586,20 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             switch event.type {
             case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
                 return self
-            case .leftMouseDown, .leftMouseUp,
-                 .rightMouseDown, .rightMouseUp,
-                 .otherMouseDown, .otherMouseUp:
+
+            case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+                if coordinator?.parent.isTargeted == true {
+                    return self
+                }
                 return nil
+
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+                return nil
+
             default:
                 return super.hitTest(point)
             }
         }
-
         override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
             coordinator?.draggingEntered(sender) ?? []
         }
