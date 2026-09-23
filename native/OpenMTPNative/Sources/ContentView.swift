@@ -737,7 +737,11 @@ struct ContentView: View {
             statusMessage = "This Mac refreshed"
         case .android:
             rightPane.selection.removeAll()
-            statusMessage = "Android Device refreshed"
+            statusMessage = mtpService.isConnected ? "Refreshing Android device…" : "Connecting to Android device…"
+            Task {
+                await mtpService.refresh()
+                statusMessage = mtpService.statusText
+            }
         }
     }
 
@@ -883,6 +887,8 @@ private struct WorkspaceView: View {
     private var androidPane: some View {
         FilePaneView(
             pane: .android,
+            subtitle: mtpService.deviceSubtitle,
+            refreshTitle: mtpService.isConnected ? "Refresh" : "Connect",
             path: rightPane.path,
             items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : fileSystem.entries(for: .android, at: rightPane.path),
             selection: $rightPane.selection,

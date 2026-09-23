@@ -31,6 +31,8 @@ enum OpenMTPDNDLogger {
 
 struct FilePaneView: View {
     let pane: PaneKind
+    var subtitle: String? = nil
+    var refreshTitle: String = "Refresh"
     let path: String
     let items: [DemoEntry]
     @Binding var selection: Set<UUID>
@@ -112,17 +114,17 @@ struct FilePaneView: View {
                     Text(pane.title)
                         .font(.headline)
 
-                    Text(pane.subtitle)
+                    Text(subtitle ?? pane.subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Button(action: onRefresh) {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label(refreshTitle, systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("Refresh this pane")
+                .help(refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane")
 
                 Spacer(minLength: 8)
 
