@@ -32,13 +32,26 @@ enum MTPDirectory {
         guard let records = records(from: response.data) else {
             throw KalamBridgeError.invalidResponse("Missing directory data")
         }
+        DebugLogger.verbose("MTP parse started: storage=\(storageID), records=\(records.count)")
 
+        var hasMalformedNamedRecord = false
         let parsed = records.compactMap { value -> DemoEntry? in
             guard let object = value.objectValue else { return nil }
-            guard let name = string(object, keys: ["name", "Name", "filename", "fileName"]),
-                  !name.isEmpty,
-                  let remotePath = string(object, keys: ["path", "fullPath", "fullpath"]),
-                  object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else { return nil }
+            // Blank separator records are ignored, but a named record missing
+            // required metadata still indicates an invalid backend response.
+            let rawName = string(object, keys: ["name", "Name", "filename", "fileName"]) ?? ""
+            let name = normalizedComponent(rawName)
+            if name.isEmpty { return nil }
+            guard let rawRemotePath = string(object, keys: ["path", "fullPath", "fullpath"]) else {
+                hasMalformedNamedRecord = true
+                return nil
+            }
+            let remotePath = normalizedRemotePath(rawRemotePath)
+            guard !remotePath.isEmpty,
+                  object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else {
+                hasMalformedNamedRecord = true
+                return nil
+            }
 
             let isFolder = bool(object, keys: ["isFolder", "isDir", "isDirectory", "folder", "directory"])
             let size = integer(object, keys: ["size", "Size", "fileSize"])
@@ -56,9 +69,12 @@ enum MTPDirectory {
             )
         }
 
-        guard parsed.count == records.count else {
-            throw KalamBridgeError.invalidResponse("Directory entry is missing a required name")
+        if hasMalformedNamedRecord {
+            DebugLogger.verbose("MTP parse failed: named malformed record present")
+            throw KalamBridgeError.invalidResponse("Directory entry is missing required metadata")
         }
+        DebugLogger.verbose("MTP parse completed: storage=\(storageID), validEntries=\(parsed.count), names=\(parsed.map(\.name).joined(separator: "|"))")
+
         return parsed.sorted(by: DemoEntry.browserOrder)
     }
 
@@ -104,6 +120,18 @@ enum MTPDirectory {
             }
         }
         return false
+    }
+
+    private static func normalizedComponent(_ value: String) -> String {
+        value.components(separatedBy: .controlCharacters).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedRemotePath(_ value: String) -> String {
+        let cleaned = value.components(separatedBy: .controlCharacters).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return "" }
+        return cleaned.hasPrefix("/") ? cleaned : "/" + cleaned
     }
 
     private static func pathBase(_ path: String) -> String {

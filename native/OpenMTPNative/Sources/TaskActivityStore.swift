@@ -23,28 +23,45 @@ final class TaskActivityStore: ObservableObject {
     @Published private(set) var cancellationRequested = false
     private var completedBytes: Int64 = 0
     private var segmentSent: Int64 = 0
+    private var segmentTotal: Int64 = 0
 
     func begin(_ title: String, total: Int64) {
         completedBytes = 0
         segmentSent = 0
+        segmentTotal = 0
         cancellationRequested = false
         current = TaskRecord(title: title, step: "准备传输", total: total)
     }
 
     func step(_ text: String) { current?.step = text }
 
+    func record(_ title: String, state: String) {
+        var record = TaskRecord(title: title, step: state)
+        record.state = state
+        history.insert(record, at: 0)
+    }
+
     func progress(name: String, sent: Int64, total: Int64) {
         guard !cancellationRequested, current != nil else { return }
         segmentSent = max(0, sent)
+        segmentTotal = max(segmentTotal, total)
         current?.step = name.isEmpty ? "正在传输" : "正在传输：\(name)"
-        if current!.total == 0 { current?.total = max(0, total) }
-        current?.sent = min(current!.total, completedBytes + segmentSent)
+        if let knownTotal = current?.total, knownTotal > 0 {
+            current?.sent = min(knownTotal, completedBytes + segmentSent)
+        } else {
+            current?.sent = completedBytes + segmentSent
+        }
     }
 
     func finishSegment() {
-        completedBytes += segmentSent
+        // A successful native call confirms its last reported byte total even
+        // when the periodic progress callback missed the final update.
+        completedBytes += max(segmentSent, segmentTotal)
         segmentSent = 0
-        if let total = current?.total { current?.sent = min(total, completedBytes) }
+        segmentTotal = 0
+        if let total = current?.total {
+            current?.sent = total > 0 ? min(total, completedBytes) : completedBytes
+        }
     }
 
     func cancel() {
@@ -80,7 +97,8 @@ struct TaskDetailsView: View {
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     } else {
                         ProgressView()
-                        Text("正在计算文件大小").font(.caption).foregroundStyle(.secondary)
+                        Text("已传输 \(ByteCountFormatter.string(fromByteCount: task.sent, countStyle: .file)) · 总量未知")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Button("取消操作") { tasks.cancel() }
                         .disabled(tasks.cancellationRequested)
