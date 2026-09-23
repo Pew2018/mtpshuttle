@@ -20,6 +20,7 @@ struct FilePaneView: View {
     let onPaste: () -> Void
     let showCrossPaneActions: Bool
     let onDrop: ([NSItemProvider]) -> Bool
+    let onExternalFileDrop: ([URL]) -> Void
     let onDragProvider: (DemoEntry) -> NSItemProvider
 
     @State private var viewMode: FileViewMode = .list
@@ -57,8 +58,15 @@ struct FilePaneView: View {
                     .allowsHitTesting(false)
             }
         }
+        .background {
+            OpenMTPExternalDropReceiver(
+                isTargeted: $isDropTargeted,
+                onDrop: onExternalFileDrop
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
         .onDrop(
-            of: [OpenMTPDragType.payload.identifier, UTType.fileURL.identifier],
+            of: [OpenMTPDragType.payload.identifier],
             isTargeted: $isDropTargeted,
             perform: onDrop
         )
@@ -338,6 +346,142 @@ struct FilePaneView: View {
             return Color(nsColor: .controlAccentColor)
         case .android:
             return Color.secondary
+        }
+    }
+}
+
+private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
+    @Binding var isTargeted: Bool
+    let onDrop: ([URL]) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> DropReceiverView {
+        let view = DropReceiverView()
+        view.registerForDraggedTypes([
+            .fileURL,
+            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+        ])
+        context.coordinator.parent = self
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: DropReceiverView, context: Context) {
+        context.coordinator.parent = self
+    }
+
+    final class Coordinator: NSObject, NSDraggingDestination {
+        var parent: OpenMTPExternalDropReceiver
+
+        init(_ parent: OpenMTPExternalDropReceiver) {
+            self.parent = parent
+        }
+
+        private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
+            let pasteboard = draggingInfo.draggingPasteboard
+            return pasteboard.types?.contains(
+                NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+            ) == true
+        }
+
+        private func acceptsFinderFiles(_ draggingInfo: NSDraggingInfo) -> Bool {
+            guard !isInternalDrag(draggingInfo) else {
+                return false
+            }
+
+            return draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
+        }
+
+        func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
+            guard acceptsFinderFiles(draggingInfo) else {
+                parent.isTargeted = false
+                return []
+            }
+
+            parent.isTargeted = true
+            return .copy
+        }
+
+        func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
+            guard acceptsFinderFiles(draggingInfo) else {
+                parent.isTargeted = false
+                return []
+            }
+
+            parent.isTargeted = true
+            return .copy
+        }
+
+        func draggingExited(_ draggingInfo: NSDraggingInfo?) {
+            parent.isTargeted = false
+        }
+
+        func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
+            acceptsFinderFiles(draggingInfo)
+        }
+
+        func performDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
+            defer {
+                parent.isTargeted = false
+            }
+
+            guard acceptsFinderFiles(draggingInfo) else {
+                return false
+            }
+
+            let objects = draggingInfo.draggingPasteboard.readObjects(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLs: true]
+            )
+
+            let urls = (objects as? [NSURL])?.map { $0 as URL } ?? []
+            guard !urls.isEmpty else {
+                return false
+            }
+
+            parent.onDrop(urls)
+            return true
+        }
+    }
+
+    final class DropReceiverView: NSView {
+        weak var coordinator: Coordinator?
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // Keep the transparent receiver out of ordinary mouse hit-testing.
+            if let event = NSApp.currentEvent {
+                switch event.type {
+                case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp:
+                    return nil
+                default:
+                    break
+                }
+            }
+
+            return super.hitTest(point)
+        }
+
+        override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+            coordinator?.draggingEntered(sender) ?? []
+        }
+
+        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+            coordinator?.draggingUpdated(sender) ?? []
+        }
+
+        override func draggingExited(_ sender: NSDraggingInfo?) {
+            coordinator?.draggingExited(sender)
+        }
+
+        override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            coordinator?.prepareForDragOperation(sender) ?? false
+        }
+
+        override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            coordinator?.performDragOperation(sender) ?? false
         }
     }
 }
