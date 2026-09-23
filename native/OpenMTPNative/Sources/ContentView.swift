@@ -567,7 +567,9 @@ struct ContentView: View {
               let storage = MTPBrowsePath(browserPath: sourcePath) else { throw KalamBridgeError.invalidResponse("Invalid MTP source") }
         let remoteSources = sources.compactMap(\.remotePath)
         try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
-        if mode == .move { /* MTP delete is intentionally left to the native delete API */ }
+        if mode == .move {
+            try await mtpService.delete(files: remoteSources, storageID: storage.storageID)
+        }
     }
 
     private func runOperation(title: String, count: Int, mutation: @escaping () -> Void) {
