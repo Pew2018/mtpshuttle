@@ -90,8 +90,7 @@ struct MTPStorageSummary: Identifiable, Equatable {
             name: name,
             subtitle: subtitle,
             sizeBytes: clampedSize,
-            isDirectory: true,
-
+            isDirectory: true
         )
     }
     
