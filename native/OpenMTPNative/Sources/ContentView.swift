@@ -265,7 +265,7 @@ struct ContentView: View {
         _ encoded: String,
         targetPane: PaneKind
     ) {
-        OpenMTPDNDLogger.log("ContentView.handleInternalDrop target=\\(targetPane) encodedLength=\\(encoded.count)")
+        OpenMTPDNDLogger.log("ContentView.handleInternalDrop target=\(targetPane) encodedLength=\(encoded.count)")
         guard operation == nil else {
             OpenMTPDNDLogger.log("ContentView.handleInternalDrop ignored: operation active")
             return
@@ -277,7 +277,7 @@ struct ContentView: View {
             return
         }
 
-        OpenMTPDNDLogger.log("ContentView payload source=\\(payload.sourcePane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
+        OpenMTPDNDLogger.log("ContentView payload source=\(payload.sourcePane) path=\(payload.sourcePath) ids=\(payload.itemIDs.count)")
         receiveDrop(payload, targetPane: targetPane)
     }
 
@@ -328,7 +328,7 @@ struct ContentView: View {
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
-        OpenMTPDNDLogger.log("ContentView.receiveDrop source=\\(payload.sourcePane) target=\\(targetPane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
+        OpenMTPDNDLogger.log("ContentView.receiveDrop source=\(payload.sourcePane) target=\(targetPane) path=\(payload.sourcePath) ids=\(payload.itemIDs.count)")
         guard operation == nil else {
             OpenMTPDNDLogger.log("receiveDrop ignored: operation active")
             return
@@ -447,25 +447,28 @@ struct ContentView: View {
             itemIDs: [item.id]
         )
 
-        OpenMTPDNDLogger.log("makeDragProvider source=\\(pane) path=\\(path) item=\\(item.name) id=\\(item.id)")
-        let provider = NSItemProvider()
+        guard let encoded = payload.encoded else {
+            OpenMTPDNDLogger.log("makeDragProvider FAILED to encode payload")
+            return NSItemProvider()
+        }
 
-        if let encoded = payload.encoded {
-            provider.registerDataRepresentation(
-                forTypeIdentifier: OpenMTPDragType.payload.identifier,
-                visibility: .all
-            ) { completionHandler in
-                completionHandler(Data(encoded.utf8), nil)
-                return nil
-            }
+        OpenMTPDNDLogger.log(
+            "makeDragProvider source=\(pane) path=\(path) item=\(item.name) id=\(item.id)"
+        )
 
-            provider.registerDataRepresentation(
-                forTypeIdentifier: UTType.plainText.identifier,
-                visibility: .all
-            ) { completionHandler in
-                completionHandler(Data(encoded.utf8), nil)
-                return nil
-            }
+        // Use NSString as the primary representation. NSItemProvider data
+        // representations are fulfilled lazily, while a standard object
+        // representation gives AppKit a directly readable pasteboard string.
+        let provider = NSItemProvider(object: NSString(string: encoded))
+
+        // Keep the custom representation for future/native consumers. The
+        // receiving side also accepts the standard string representation.
+        provider.registerDataRepresentation(
+            forTypeIdentifier: OpenMTPDragType.payload.identifier,
+            visibility: .all
+        ) { completionHandler in
+            completionHandler(Data(encoded.utf8), nil)
+            return nil
         }
 
         let snapshot = fileSystem
@@ -480,8 +483,10 @@ struct ContentView: View {
                     at: path,
                     in: pane
                 )
+                OpenMTPDNDLogger.log("makeDragProvider fileRepresentation URL=\(url.path)")
                 completionHandler(url, false, nil)
             } catch {
+                OpenMTPDNDLogger.log("makeDragProvider fileRepresentation FAILED error=\(error)")
                 completionHandler(nil, false, error)
             }
 
