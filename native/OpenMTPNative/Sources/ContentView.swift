@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var rightPane = PaneNavigationState(path: PaneKind.android.rootPath)
     @State private var clipboard: ClipboardPayload?
     @State private var pendingDrop: PendingDrop?
+    @State private var pendingFolderDrop: FolderDropRequest?
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
     @State private var statusMessage = "Ready"
@@ -19,6 +20,12 @@ struct ContentView: View {
 
     @AppStorage("androidOnlyMode")
     private var androidOnlyMode = false
+
+    @AppStorage("confirmFolderDrag")
+    private var confirmFolderDrag = true
+
+    @AppStorage("folderDragMode")
+    private var folderDragMode = ClipboardMode.copy.rawValue
 
     private var currentDragDropMode: DragDropMode {
         DragDropMode(rawValue: dragDropMode) ?? .copy
@@ -54,6 +61,15 @@ struct ContentView: View {
                 }
                 .help("Settings")
             }
+        }
+        .sheet(item: $pendingFolderDrop) { request in
+            FolderDropConfirmationView(
+                request: request,
+                onDecision: finishFolderDrop,
+                onCancel: {
+                    pendingFolderDrop = nil
+                }
+            )
         }
         .alert(item: $propertyItem) { item in
             Alert(
@@ -329,6 +345,20 @@ struct ContentView: View {
             targetPath: targetPath
         )
 
+        if let folderRequest = makeFolderDropRequest(
+            payload: payload,
+            targetPane: targetPane,
+            targetPath: targetPath
+        ) {
+            if confirmFolderDrag {
+                pendingFolderDrop = folderRequest
+            } else {
+                let mode = ClipboardMode(rawValue: folderDragMode) ?? .copy
+                executeTransfer(for: pending, mode: mode)
+            }
+            return
+        }
+
         switch currentDragDropMode {
         case .copy:
             executeTransfer(for: pending, mode: .copy)
@@ -337,6 +367,55 @@ struct ContentView: View {
         case .ask:
             pendingDrop = pending
         }
+    }
+
+    private func makeFolderDropRequest(
+        payload: DemoDragPayload,
+        targetPane: PaneKind,
+        targetPath: String
+    ) -> FolderDropRequest? {
+        let sourceItems = fileSystem.entries(
+            for: payload.sourcePane,
+            at: payload.sourcePath
+        )
+        let selected = sourceItems.filter { payload.itemIDs.contains($0.id) }
+        let folders = selected.filter(\.isDirectory)
+
+        guard !folders.isEmpty else {
+            return nil
+        }
+
+        return FolderDropRequest(
+            payload: payload,
+            targetPane: targetPane,
+            targetPath: targetPath,
+            itemNames: folders.map(\.name)
+        )
+    }
+
+    private func finishFolderDrop(
+        mode: ClipboardMode,
+        suppressFuturePrompts: Bool
+    ) {
+        guard let request = pendingFolderDrop else {
+            return
+        }
+
+        pendingFolderDrop = nil
+
+        if suppressFuturePrompts {
+            confirmFolderDrag = false
+            folderDragMode = mode.rawValue
+        }
+
+        executeTransfer(
+            for: PendingDrop(
+                payload: request.payload,
+                targetPane: request.targetPane,
+                targetPath: request.targetPath
+            ),
+            mode: mode
+        )
     }
 
     private func finishPendingDrop(mode: ClipboardMode) {
@@ -542,6 +621,80 @@ struct ContentView: View {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
         return "Type: \(type)\\nSize: \(size)\\nID: \(item.id.uuidString)"
+    }
+}
+
+private struct FolderDropConfirmationView: View {
+    let request: FolderDropRequest
+    let onDecision: (ClipboardMode, Bool) -> Void
+    let onCancel: () -> Void
+
+    @State private var suppressFuturePrompts = false
+
+    private var folderSummary: String {
+        switch request.itemNames.count {
+        case 1:
+            return "“(request.itemNames[0])”"
+        default:
+            return "(request.itemNames.count) folders"
+        }
+    }
+
+    private var title: String {
+        request.itemNames.count == 1
+            ? "Copy Folder"
+            : "Copy Folders"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "folder.fill")
+                    .font(.title2)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color(nsColor: .controlAccentColor))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.headline)
+
+                    Text("Copy (folderSummary) to (request.targetPane.title)?")
+                        .font(.body)
+                }
+            }
+
+            Text(request.targetPath)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            Toggle(
+                "Don't ask again for folder drags",
+                isOn: $suppressFuturePrompts
+            )
+            .toggleStyle(.checkbox)
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    onCancel()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button("Cut") {
+                    onDecision(.move, suppressFuturePrompts)
+                }
+
+                Button("Copy") {
+                    onDecision(.copy, suppressFuturePrompts)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(22)
+        .frame(width: 430)
     }
 }
 
