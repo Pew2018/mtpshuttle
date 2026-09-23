@@ -32,6 +32,7 @@ struct ContentView: View {
             onBack: goBack,
             onForward: goForward,
             onUp: goUp,
+            onRefresh: refresh,
             onNavigate: navigateTo,
             onAction: performAction,
             onNewFolder: createFolder,
@@ -46,14 +47,6 @@ struct ContentView: View {
                     Image(systemName: "gearshape")
                 }
                 .help("Settings")
-            }
-
-            ToolbarItem(placement: .automatic) {
-                Button(action: refresh) {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .help("Refresh both panes")
-                .disabled(operation != nil)
             }
         }
         .alert(item: $propertyItem) { item in
@@ -307,6 +300,8 @@ struct ContentView: View {
         switch currentDragDropMode {
         case .copy:
             executeTransfer(for: pending, mode: .copy)
+        case .move:
+            executeTransfer(for: pending, mode: .move)
         case .ask:
             pendingDrop = pending
         }
@@ -452,11 +447,17 @@ struct ContentView: View {
         }
     }
 
-    private func refresh() {
+    private func refresh(_ pane: PaneKind) {
         guard operation == nil else { return }
-        leftPane.selection.removeAll()
-        rightPane.selection.removeAll()
-        statusMessage = "Both panes refreshed"
+
+        switch pane {
+        case .mac:
+            leftPane.selection.removeAll()
+            statusMessage = "This Mac refreshed"
+        case .android:
+            rightPane.selection.removeAll()
+            statusMessage = "Android Device refreshed"
+        }
     }
 
     private func propertyDescription(for item: DemoEntry) -> String {
@@ -485,6 +486,7 @@ private struct WorkspaceView: View {
     let onBack: (PaneKind) -> Void
     let onForward: (PaneKind) -> Void
     let onUp: (PaneKind) -> Void
+    let onRefresh: (PaneKind) -> Void
     let onNavigate: (PaneKind, String) -> Void
     let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
     let onNewFolder: (PaneKind) -> Void
@@ -506,6 +508,7 @@ private struct WorkspaceView: View {
                     onBack: { onBack(.mac) },
                     onForward: { onForward(.mac) },
                     onUp: { onUp(.mac) },
+                    onRefresh: { onRefresh(.mac) },
                     onNavigate: { onNavigate(.mac, $0) },
                     onOpen: { onOpen(.mac, $0) },
                     onAction: { action, item in onAction(action, .mac, item) },
@@ -528,6 +531,7 @@ private struct WorkspaceView: View {
                     onBack: { onBack(.android) },
                     onForward: { onForward(.android) },
                     onUp: { onUp(.android) },
+                    onRefresh: { onRefresh(.android) },
                     onNavigate: { onNavigate(.android, $0) },
                     onOpen: { onOpen(.android, $0) },
                     onAction: { action, item in onAction(action, .android, item) },
