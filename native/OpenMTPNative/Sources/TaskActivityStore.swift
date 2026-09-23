@@ -35,6 +35,12 @@ final class TaskActivityStore: ObservableObject {
 
     func step(_ text: String) { current?.step = text }
 
+    func record(_ title: String, state: String) {
+        var record = TaskRecord(title: title, step: state)
+        record.state = state
+        history.insert(record, at: 0)
+    }
+
     func progress(name: String, sent: Int64, total: Int64) {
         guard !cancellationRequested, current != nil else { return }
         segmentSent = max(0, sent)
