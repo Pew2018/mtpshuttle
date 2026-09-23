@@ -235,6 +235,7 @@ final class MTPService: ObservableObject {
         let response = try await performNativeCall {
             try await KalamBridge.shared.upload(storageID: storageID, sources: sources, destination: destination)
         }
+        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
         guard response.isSuccess else {
             throw MTPServiceError.backend(
                 type: response.errorType ?? "Upload failed",
@@ -249,6 +250,7 @@ final class MTPService: ObservableObject {
         let response = try await performNativeCall {
             try await KalamBridge.shared.download(storageID: storageID, sources: sources, destination: destination)
         }
+        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
         guard response.isSuccess else {
             throw MTPServiceError.backend(
                 type: response.errorType ?? "Download failed",
