@@ -198,7 +198,7 @@ struct ContentView: View {
 
     private var transferConflictMessage: String {
         guard let pendingConflict else { return "" }
-        return "(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 (pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
+        return "\\(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 \\(pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
     }
 
     private var pendingDropTitle: String {
@@ -640,14 +640,14 @@ struct ContentView: View {
         guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
-            operation = DemoOperation(title: noun, detail: "(sources.count) item(s)", progress: 0.15)
+            operation = DemoOperation(title: noun, detail: "\\(sources.count) item(s)", progress: 0.15)
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
                                           targetPane: targetPane, targetPath: targetPath, mode: mode,
                                           resolution: resolution)
                 clearSelection(for: sourcePane)
                 if clearClipboardAfterMove { clipboard = nil }
-                statusMessage = "(sources.count) item(s) (mode == .copy ? "copied" : "moved") to (targetPane.title)"
+                statusMessage = "\\(sources.count) item(s) \\(mode == .copy ? "copied" : "moved") to \\(targetPane.title)"
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
             } catch {
