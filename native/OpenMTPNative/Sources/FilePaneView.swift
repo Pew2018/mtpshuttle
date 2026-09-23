@@ -73,12 +73,6 @@ struct FilePaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
-        .onDrop(
-            of: [OpenMTPDragType.payload.identifier],
-            isTargeted: $isDropTargeted
-        ) { providers in
-            handleInternalDrop(providers)
-        }
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -94,6 +88,7 @@ struct FilePaneView: View {
         .background {
             OpenMTPExternalDropReceiver(
                 isTargeted: $isDropTargeted,
+                onInternalDrop: onInternalDrop,
                 onExternalFileDrop: onExternalFileDrop
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -102,46 +97,6 @@ struct FilePaneView: View {
             OpenMTPDNDLogger.reset()
             OpenMTPDNDLogger.log("FilePane appeared")
         }
-    }
-
-    private func handleInternalDrop(_ providers: [NSItemProvider]) -> Bool {
-        let typeIdentifier = OpenMTPDragType.payload.identifier
-
-        OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop fired, providers=\\(providers.count)")
-        for (index, provider) in providers.enumerated() {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] provider[\\(index)] types=\\(provider.registeredTypeIdentifiers)")
-        }
-
-        guard let provider = providers.first(where: {
-            $0.registeredTypeIdentifiers.contains(typeIdentifier)
-        }) else {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop: internal UTI NOT found")
-            return false
-        }
-
-        OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop: internal UTI found")
-
-        provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
-            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload callback data=\\(data?.count ?? -1) error=\\(String(describing: error))")
-
-            guard let data,
-                  let encoded = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async {
-                    OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload decode FAILED")
-                    onInternalDrop("")
-                }
-                return
-            }
-
-            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload decode OK length=\\(encoded.count)")
-
-            DispatchQueue.main.async {
-                OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI -> ContentView")
-                onInternalDrop(encoded)
-            }
-        }
-
-        return true
     }
 
     private var paneHeader: some View {
@@ -424,6 +379,7 @@ struct FilePaneView: View {
 
 private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
     @Binding var isTargeted: Bool
+    let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -432,7 +388,11 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     func makeNSView(context: Context) -> DropReceiverView {
         let view = DropReceiverView()
-        view.registerForDraggedTypes([.fileURL])
+        view.registerForDraggedTypes([
+            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
+            .string,
+            .fileURL
+        ])
         context.coordinator.parent = self
         view.coordinator = context.coordinator
         return view
@@ -449,9 +409,32 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             self.parent = parent
         }
 
+        private var internalPasteboardType: NSPasteboard.PasteboardType {
+            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+        }
+
+        private func hasInternalPayload(_ draggingInfo: NSDraggingInfo) -> Bool {
+            let types = draggingInfo.draggingPasteboard.types ?? []
+            return types.contains(internalPasteboardType)
+                || types.contains(.string)
+        }
+
         private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
-            let type = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-            return draggingInfo.draggingPasteboard.types?.contains(type) == true
+            let pasteboard = draggingInfo.draggingPasteboard
+
+            if pasteboard.types?.contains(internalPasteboardType) == true {
+                return true
+            }
+
+            guard pasteboard.types?.contains(.string) == true else {
+                return false
+            }
+
+            if let value = pasteboard.string(forType: .string) {
+                return DemoDragPayload.decode(value) != nil
+            }
+
+            return false
         }
 
         private func acceptsFinderFiles(_ draggingInfo: NSDraggingInfo) -> Bool {
@@ -462,23 +445,70 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             return draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
         }
 
+        private func readInternalPayload(from pasteboard: NSPasteboard) -> String? {
+            if let data = pasteboard.data(forType: internalPasteboardType),
+               let encoded = String(data: data, encoding: .utf8),
+               DemoDragPayload.decode(encoded) != nil {
+                return encoded
+            }
+
+            if let encoded = pasteboard.string(forType: .string),
+               DemoDragPayload.decode(encoded) != nil {
+                return encoded
+            }
+
+            for item in pasteboard.pasteboardItems ?? [] {
+                if let data = item.data(forType: internalPasteboardType),
+                   let encoded = String(data: data, encoding: .utf8),
+                   DemoDragPayload.decode(encoded) != nil {
+                    return encoded
+                }
+
+                if let encoded = item.string(forType: .string),
+                   DemoDragPayload.decode(encoded) != nil {
+                    return encoded
+                }
+            }
+
+            if let objects = pasteboard.readObjects(
+                forClasses: [NSString.self],
+                options: nil
+            ) as? [NSString],
+               let encoded = objects.first as String?,
+               DemoDragPayload.decode(encoded) != nil {
+                return encoded
+            }
+
+            return nil
+        }
+
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingEntered types=\\(draggingInfo.draggingPasteboard.types ?? [])")
-            let accepts = acceptsFinderFiles(draggingInfo)
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingEntered acceptsFinder=\\(accepts)")
-            guard accepts else {
+            OpenMTPDNDLogger.log("AppKit draggingEntered types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+
+            if isInternalDrag(draggingInfo) {
+                parent.isTargeted = true
+                OpenMTPDNDLogger.log("AppKit draggingEntered INTERNAL accepted")
+                return .copy
+            }
+
+            guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
+                OpenMTPDNDLogger.log("AppKit draggingEntered rejected")
                 return []
             }
 
             parent.isTargeted = true
+            OpenMTPDNDLogger.log("AppKit draggingEntered FINDER accepted")
             return .copy
         }
 
         func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingUpdated types=\\(draggingInfo.draggingPasteboard.types ?? [])")
-            let accepts = acceptsFinderFiles(draggingInfo)
-            guard accepts else {
+            if isInternalDrag(draggingInfo) {
+                parent.isTargeted = true
+                return .copy
+            }
+
+            guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
                 return []
             }
@@ -488,14 +518,14 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingExited(_ draggingInfo: NSDraggingInfo?) {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingExited")
             parent.isTargeted = false
+            OpenMTPDNDLogger.log("AppKit draggingExited")
         }
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
-            let accepts = acceptsFinderFiles(draggingInfo)
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit prepareForDragOperation acceptsFinder=\\(accepts)")
-            return accepts
+            let accepted = isInternalDrag(draggingInfo) || acceptsFinderFiles(draggingInfo)
+            OpenMTPDNDLogger.log("AppKit prepareForDragOperation accepted=\\(accepted)")
+            return accepted
         }
 
         func performDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
@@ -503,24 +533,36 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 parent.isTargeted = false
             }
 
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit performDragOperation types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+            let pasteboard = draggingInfo.draggingPasteboard
+
+            if isInternalDrag(draggingInfo) {
+                OpenMTPDNDLogger.log("AppKit perform INTERNAL types=\\(pasteboard.types ?? [])")
+
+                guard let encoded = readInternalPayload(from: pasteboard) else {
+                    OpenMTPDNDLogger.log("AppKit INTERNAL payload read FAILED")
+                    return false
+                }
+
+                OpenMTPDNDLogger.log("AppKit INTERNAL payload read OK length=\\(encoded.count)")
+                parent.onInternalDrop(encoded)
+                return true
+            }
 
             guard acceptsFinderFiles(draggingInfo) else {
-                OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit perform rejected")
+                OpenMTPDNDLogger.log("AppKit perform rejected")
                 return false
             }
 
-            let pasteboard = draggingInfo.draggingPasteboard
             let objects = pasteboard.readObjects(
                 forClasses: [NSURL.self],
                 options: [.urlReadingFileURLsOnly: true]
             )
 
             let urls = (objects as? [NSURL])?.map { $0 as URL } ?? []
-            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit Finder URLs=\\(urls)")
+            OpenMTPDNDLogger.log("AppKit Finder URLs=\\(urls)")
 
             guard !urls.isEmpty else {
-                OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit Finder URL read FAILED")
+                OpenMTPDNDLogger.log("AppKit Finder URL read FAILED")
                 return false
             }
 
@@ -542,11 +584,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 }
             }
 
-            let result = super.hitTest(point)
-            if NSApp.currentEvent?.type == .leftMouseDragged {
-                OpenMTPDNDLogger.log("[OpenMTP-DND] DropReceiver hitTest result=\\(String(describing: result))")
-            }
-            return result
+            return super.hitTest(point)
         }
 
         override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
