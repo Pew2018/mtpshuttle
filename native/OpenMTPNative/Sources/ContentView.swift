@@ -446,6 +446,11 @@ struct ContentView: View {
                 completionHandler(Data(encoded.utf8), nil)
                 return nil
             }
+
+            provider.registerObject(
+                encoded as NSString,
+                visibility: .ownProcess
+            )
         }
 
         let snapshot = fileSystem
