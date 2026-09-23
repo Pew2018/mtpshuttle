@@ -761,8 +761,21 @@ struct ContentView: View {
                             storageID: storage.storageID
                         )
                     } else {
+                        // Upload a temporary copy whose basename is the resolved
+                        // conflict name. Uploading the original URL here would
+                        // silently recreate the source basename on the device.
+                        let temporary = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("SwiftMTP-rename-(UUID().uuidString)", isDirectory: true)
+                        try FileManager.default.createDirectory(
+                            at: temporary,
+                            withIntermediateDirectories: true
+                        )
+                        defer { try? FileManager.default.removeItem(at: temporary) }
+
+                        let renamedURL = temporary.appendingPathComponent(remoteName)
+                        try FileManager.default.copyItem(at: url, to: renamedURL)
                         try await mtpService.upload(
-                            sources: [url.path],
+                            sources: [renamedURL.path],
                             destination: storage.fullPath,
                             storageID: storage.storageID
                         )
