@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct FilePaneView: View {
@@ -13,6 +14,7 @@ struct FilePaneView: View {
     let onBack: () -> Void
     let onForward: () -> Void
     let onUp: () -> Void
+    let onRefresh: () -> Void
     let onNavigate: (String) -> Void
     let onOpen: (DemoEntry) -> Void
     let onAction: (PaneAction, DemoEntry?) -> Void
@@ -82,7 +84,7 @@ struct FilePaneView: View {
 
                 Spacer(minLength: 8)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 2) {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
                     }
@@ -103,6 +105,12 @@ struct FilePaneView: View {
                     .buttonStyle(.borderless)
                     .disabled(!canGoUp)
                     .help("Open parent folder")
+
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Refresh this pane")
 
                     Menu {
                         Button("New Folder", action: onNewFolder)
@@ -135,15 +143,17 @@ struct FilePaneView: View {
     }
 
     private var pathBreadcrumb: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let components = DemoFileSystem.breadcrumbComponents(for: path)
+
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 3) {
                 Image(systemName: "folder")
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
                     .frame(width: 20)
 
-                ForEach(DemoFileSystem.breadcrumbComponents(for: path)) { component in
-                    if component.path != DemoFileSystem.breadcrumbComponents(for: path).first?.path {
+                ForEach(Array(components.enumerated()), id: \.element.id) { index, component in
+                    if index > 0 {
                         Image(systemName: "chevron.right")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.tertiary)
@@ -157,11 +167,7 @@ struct FilePaneView: View {
                             .lineLimit(1)
                     }
                     .buttonStyle(.borderless)
-                    .foregroundStyle(
-                        component.path == path
-                            ? .primary
-                            : Color.accentColor
-                    )
+                    .foregroundStyle(component.path == path ? .primary : .tint)
                     .disabled(component.path == path)
                     .help("Open \(component.path)")
                 }
@@ -177,17 +183,11 @@ struct FilePaneView: View {
     }
 
     private var listView: some View {
-        ScrollView {
-            LazyVStack(spacing: 2) {
-                ForEach(items) { item in
-                    FileRowView(
-                        item: item,
-                        isSelected: selection.contains(item.id)
-                    )
+        List(selection: $selection) {
+            ForEach(items) { item in
+                FileRowView(item: item)
+                    .tag(item.id)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        selection = [item.id]
-                    }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
                             onOpen(item)
@@ -199,11 +199,9 @@ struct FilePaneView: View {
                     .onDrag {
                         dragProvider(for: item)
                     }
-                }
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 4)
         }
+        .listStyle(.inset)
         .contextMenu {
             Button("New Folder", action: onNewFolder)
 
@@ -309,7 +307,7 @@ struct FilePaneView: View {
             Image(systemName: "folder")
                 .font(.system(size: 34))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor.opacity(0.72))
+                .foregroundStyle(.tint)
 
             Text("This folder is empty")
                 .font(.headline)
@@ -351,36 +349,33 @@ struct FilePaneView: View {
     }
 
     private var deviceColor: Color {
-        pane == .mac
-            ? Color.blue.opacity(0.74)
-            : Color.purple.opacity(0.70)
+        switch pane {
+        case .mac:
+            return .tint
+        case .android:
+            return .secondary
+        }
     }
 }
 
 private struct FileRowView: View {
     let item: DemoEntry
-    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 11) {
             Image(systemName: item.systemImage)
                 .font(.title3)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    isSelected
-                        ? Color.accentColor
-                        : (item.isDirectory ? Color.accentColor.opacity(0.82) : .secondary)
-                )
+                .foregroundStyle(item.isDirectory ? .tint : .secondary)
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
                     .font(.body.weight(.medium))
-                    .foregroundStyle(isSelected ? Color.accentColor : .primary)
 
                 Text(item.subtitle)
                     .font(.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : .secondary)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -388,33 +383,14 @@ private struct FileRowView: View {
             if let size = item.sizeLabel {
                 Text(size)
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : .secondary)
+                    .foregroundStyle(.secondary)
             } else {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : Color.secondary)
+                    .foregroundStyle(.tertiary)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    isSelected
-                        ? Color.accentColor.opacity(0.14)
-                        : Color.clear
-                )
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(
-                    isSelected
-                        ? Color.accentColor.opacity(0.30)
-                        : Color.clear,
-                    lineWidth: 1
-                )
-        }
-        .animation(.easeOut(duration: 0.10), value: isSelected)
+        .padding(.vertical, 3)
     }
 }
 
@@ -427,26 +403,22 @@ private struct FileGridItemView: View {
             Image(systemName: item.systemImage)
                 .font(.system(size: 34))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    isSelected
-                        ? Color.accentColor
-                        : (item.isDirectory ? Color.accentColor.opacity(0.82) : .secondary)
-                )
+                .foregroundStyle(item.isDirectory ? .tint : .secondary)
 
             Text(item.name)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                .foregroundStyle(isSelected ? .primary : .primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
 
             if let size = item.sizeLabel {
                 Text(size)
                     .font(.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : .secondary)
+                    .foregroundStyle(.secondary)
             } else {
                 Text(item.subtitle)
                     .font(.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : .secondary)
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 118)
@@ -455,17 +427,18 @@ private struct FileGridItemView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(
                     isSelected
-                        ? Color.accentColor.opacity(0.11)
+                        ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.18)
                         : Color(nsColor: .controlBackgroundColor)
                 )
         )
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(
-                    isSelected ? Color.accentColor.opacity(0.42) : .clear,
+                    isSelected
+                        ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.40)
+                        : .clear,
                     lineWidth: 1
                 )
         }
-        .animation(.easeOut(duration: 0.10), value: isSelected)
     }
 }
