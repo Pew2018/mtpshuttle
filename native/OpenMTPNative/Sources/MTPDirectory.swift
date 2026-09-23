@@ -35,9 +35,14 @@ enum MTPDirectory {
 
         let parsed = records.compactMap { value -> DemoEntry? in
             guard let object = value.objectValue else { return nil }
-            guard let name = string(object, keys: ["name", "Name", "filename", "fileName"]),
-                  !name.isEmpty,
-                  let remotePath = string(object, keys: ["path", "fullPath", "fullpath"]),
+            // Some Android/MTP devices include blank separator records or names
+            // containing line breaks and control characters. If they reach the
+            // SwiftUI list they still consume a row, which appears as empty gaps.
+            guard let rawName = string(object, keys: ["name", "Name", "filename", "fileName"]),
+                  let rawRemotePath = string(object, keys: ["path", "fullPath", "fullpath"]) else { return nil }
+            let name = normalizedComponent(rawName)
+            let remotePath = normalizedRemotePath(rawRemotePath)
+            guard !name.isEmpty, !remotePath.isEmpty,
                   object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else { return nil }
 
             let isFolder = bool(object, keys: ["isFolder", "isDir", "isDirectory", "folder", "directory"])
@@ -56,9 +61,8 @@ enum MTPDirectory {
             )
         }
 
-        guard parsed.count == records.count else {
-            throw KalamBridgeError.invalidResponse("Directory entry is missing a required name")
-        }
+        // Ignore malformed separator/metadata records returned by some devices.
+        // Valid entries remain visible and the caller can still show a partial list.
         return parsed.sorted(by: DemoEntry.browserOrder)
     }
 
@@ -104,6 +108,18 @@ enum MTPDirectory {
             }
         }
         return false
+    }
+
+    private static func normalizedComponent(_ value: String) -> String {
+        value.components(separatedBy: .controlCharacters).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedRemotePath(_ value: String) -> String {
+        let cleaned = value.components(separatedBy: .controlCharacters).joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return "" }
+        return cleaned.hasPrefix("/") ? cleaned : "/" + cleaned
     }
 
     private static func pathBase(_ path: String) -> String {
