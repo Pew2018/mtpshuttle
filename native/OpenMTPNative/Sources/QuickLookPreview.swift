@@ -75,8 +75,15 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             panel.dataSource = nil
             panel.delegate = nil
             isControllingPreviewPanel = false
-            previewURLs = []
-            onPreviewEnded?(endedURLs)
+
+            // Clicking another row gives the app window focus and can end
+            // control even while the Quick Look panel is still visible.
+            // Keep the URLs so the next selection can take control again.
+            DispatchQueue.main.async { [weak self, weak panel] in
+                guard let self, let panel, !panel.isVisible else { return }
+                self.previewURLs = []
+                self.onPreviewEnded?(endedURLs)
+            }
         }
 
         func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
