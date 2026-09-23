@@ -1,47 +1,36 @@
 #!/bin/bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
+cd "`git rev-parse --show-toplevel`/native/OpenMTPNative"
 
-DIST_DIR="$ROOT_DIR/dist"
-APP_DIR="$DIST_DIR/OpenMTP.app"
-BIN_NAME="OpenMTPNative"
+rm -rf dist
+mkdir -p dist/OpenMTP.app/Contents/MacOS
+mkdir -p dist/OpenMTP.app/Contents/Resources/Kalam/standard
+mkdir -p dist/OpenMTP.app/Contents/Resources/Kalam/seg5
 
-rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR"
+test "`uname -m`" = "arm64"
 
-echo "Swift version:"
-swift --version
-
-ARCH="$(uname -m)"
-if [[ "$ARCH" != "arm64" ]]; then
-  echo "Expected an arm64 runner, got: $ARCH"
-  exit 1
-fi
-
-echo "Building SwiftUI app for arm64..."
 swift build -c release
+BIN="`swift build -c release --show-bin-path`/OpenMTPNative"
+test -x "`swift build -c release --show-bin-path`/OpenMTPNative"
 
-BIN_DIR="$(swift build -c release --show-bin-path)"
-BIN_PATH="$BIN_DIR/$BIN_NAME"
+cp "`swift build -c release --show-bin-path`/OpenMTPNative" dist/OpenMTP.app/Contents/MacOS/OpenMTPNative
+cp Info.plist dist/OpenMTP.app/Contents/Info.plist
 
-if [[ ! -x "$BIN_PATH" ]]; then
-  echo "Built executable not found: $BIN_PATH"
-  exit 1
+cp ../../build/mac/bin/arm64/kalam.dylib dist/OpenMTP.app/Contents/Resources/Kalam/standard/kalam.dylib
+cp ../../build/mac/bin/arm64/libusb.dylib dist/OpenMTP.app/Contents/Resources/Kalam/standard/libusb.dylib
+
+if [[ -f ../../build/mac/bin/arm64/kalam-seg5.dylib ]]; then
+  cp ../../build/mac/bin/arm64/kalam-seg5.dylib dist/OpenMTP.app/Contents/Resources/Kalam/seg5/kalam-seg5.dylib
+fi
+if [[ -f ../../build/mac/bin/arm64/libusb-seg5.dylib ]]; then
+  cp ../../build/mac/bin/arm64/libusb-seg5.dylib dist/OpenMTP.app/Contents/Resources/Kalam/seg5/libusb-seg5.dylib
 fi
 
-echo "Built binary:"
-file "$BIN_PATH"
+find dist/OpenMTP.app/Contents/Resources/Kalam -name "*.dylib" -print0 |
+  while IFS= read -r -d '' dylib; do
+    codesign --force --sign - "${dylib}"
+  done
 
-mkdir -p "$APP_DIR/Contents/MacOS"
-mkdir -p "$APP_DIR/Contents/Resources"
-
-cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$BIN_NAME"
-cp "$ROOT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
-
-# Ad-hoc signing makes the local test artifact easier to launch without a Developer ID.
-codesign --force --deep --sign - "$APP_DIR"
-
-echo "Created app bundle:"
-ls -la "$APP_DIR"
+codesign --force --deep --sign - dist/OpenMTP.app
+file dist/OpenMTP.app/Contents/MacOS/OpenMTPNative
