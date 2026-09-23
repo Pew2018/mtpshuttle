@@ -695,7 +695,7 @@ struct ContentView: View {
                 reserved.insert(item.name)
             }
         }
-        let conflictNames = Set(sources.map(\.name).filter { destinationEntries.contains(where: { $0.name == $0 }) })
+        let conflictNames = Set(sources.map(\.name).filter { name in destinationEntries.contains(where: { $0.name == name }) })
         if sourcePane == .mac && targetPane == .mac {
             let destination = URL(fileURLWithPath: targetPath, isDirectory: true)
             for (index, item) in sources.enumerated() {
