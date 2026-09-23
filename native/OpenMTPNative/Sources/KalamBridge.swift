@@ -173,20 +173,14 @@ final class KalamBridge {
     }
     
     private let stateLock = NSLock()
-    private let callbackPointer: UnsafeMutablePointer<Callback>
     private var handle: UnsafeMutableRawPointer?
     private var pendingContinuation: CheckedContinuation<KalamResponse, Error>?
     private var pendingOperation: String?
     private var loadedPath: String?
     
-    private init() {
-        callbackPointer = UnsafeMutablePointer<Callback>.allocate(capacity: 1)
-        callbackPointer.initialize(to: Self.callback)
-    }
+    private init() {}
     
     deinit {
-        callbackPointer.deinitialize(count: 1)
-        callbackPointer.deallocate()
         if let handle {
             dlclose(handle)
         }
@@ -234,7 +228,8 @@ final class KalamBridge {
             
             do {
                 let function = try resolve(symbol)
-                function(UnsafeMutableRawPointer(callbackPointer))
+                let callbackAddress = unsafeBitCast(Self.callback, to: UnsafeMutableRawPointer.self)
+                function(callbackAddress)
             } catch {
                 finish(with: error)
             }
