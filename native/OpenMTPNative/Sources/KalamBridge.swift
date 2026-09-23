@@ -167,11 +167,21 @@ final class KalamBridge {
     
     private typealias Callback = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
     private typealias JSONFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Void
+    private typealias TransferFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
     private let callQueue = DispatchQueue(label: "com.pew2018.openmtp.kalam", qos: .userInitiated)
 
     private typealias OneShotFunction = @convention(c) (UnsafeMutableRawPointer?) -> Void
     
     private static let callback: Callback = { pointer in
+        KalamBridge.shared.receive(pointer)
+    }
+    private static let preprocessCallback: Callback = { pointer in
+        KalamBridge.shared.receiveTransferProgress(pointer)
+    }
+    private static let progressCallback: Callback = { pointer in
+        KalamBridge.shared.receiveTransferProgress(pointer)
+    }
+    private static let doneCallback: Callback = { pointer in
         KalamBridge.shared.receive(pointer)
     }
     
@@ -203,6 +213,20 @@ final class KalamBridge {
     
     func walk(_ location: MTPBrowsePath) async throws -> KalamResponse {
         try await call("Walk", input: location.walkJSON)
+    }
+
+    func upload(storageID: UInt32, sources: [String], destination: String) async throws -> KalamResponse {
+        try await transfer(
+            symbol: "UploadFiles",
+            input: ["storageId": storageID, "sources": sources, "destination": destination, "preprocessFiles": true]
+        )
+    }
+
+    func download(storageID: UInt32, sources: [String], destination: String) async throws -> KalamResponse {
+        try await transfer(
+            symbol: "DownloadFiles",
+            input: ["storageId": storageID, "sources": sources, "destination": destination, "preprocessFiles": true]
+        )
     }
 
     func dispose() async throws -> KalamResponse {
@@ -244,6 +268,40 @@ final class KalamBridge {
                         let function = unsafeBitCast(address, to: OneShotFunction.self)
                         function(callbackAddress)
                     }
+                } catch {
+                    finish(with: error)
+                }
+            }
+        }
+    }
+
+    private func transfer(symbol: String, input: [String: Any]) async throws -> KalamResponse {
+        let data = try JSONSerialization.data(withJSONObject: input)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw KalamBridgeError.invalidResponse("Unable to encode (symbol) input")
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            callQueue.async { [self] in
+                stateLock.lock()
+                guard pendingContinuation == nil else {
+                    let operation = pendingOperation ?? "unknown"
+                    stateLock.unlock()
+                    continuation.resume(throwing: KalamBridgeError.busy(operation))
+                    return
+                }
+                pendingContinuation = continuation
+                pendingOperation = symbol
+                stateLock.unlock()
+                do {
+                    try ensureLoaded()
+                    guard let handle, let address = dlsym(handle, symbol) else {
+                        throw KalamBridgeError.symbolNotFound(symbol)
+                    }
+                    let function = unsafeBitCast(address, to: TransferFunction.self)
+                    let preprocess = unsafeBitCast(Self.preprocessCallback, to: UnsafeMutableRawPointer.self)
+                    let progress = unsafeBitCast(Self.progressCallback, to: UnsafeMutableRawPointer.self)
+                    let done = unsafeBitCast(Self.doneCallback, to: UnsafeMutableRawPointer.self)
+                    json.withCString { function($0, preprocess, progress, done) }
                 } catch {
                     finish(with: error)
                 }
@@ -343,6 +401,12 @@ final class KalamBridge {
             finish(with: response)
         } catch {
             finish(with: error)
+        }
+    }
+
+    private func receiveTransferProgress(_ pointer: UnsafeMutablePointer<CChar>?) {
+        if let pointer {
+            free(pointer)
         }
     }
     

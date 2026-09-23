@@ -12,7 +12,11 @@ struct OpenMTPNativeApp: App {
                 .onAppear {
                     appDelegate.openMainWindow = {
                         openWindow(id: "main")
+                        DispatchQueue.main.async {
+                            appDelegate.restoreMainWindowFrame()
+                        }
                     }
+                    appDelegate.restoreMainWindowFrame()
                 }
         }
         .defaultSize(width: 1180, height: 760)

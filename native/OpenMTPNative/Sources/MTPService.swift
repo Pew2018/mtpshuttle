@@ -208,6 +208,30 @@ final class MTPService: ObservableObject {
         device = nil
         storages = []
     }
+
+    func upload(sources: [String], destination: String, storageID: UInt32) async throws {
+        let response = try await performNativeCall {
+            try await KalamBridge.shared.upload(storageID: storageID, sources: sources, destination: destination)
+        }
+        guard response.isSuccess else {
+            throw MTPServiceError.backend(
+                type: response.errorType ?? "Upload failed",
+                message: response.errorMessage ?? "Unable to upload files"
+            )
+        }
+    }
+
+    func download(sources: [String], destination: String, storageID: UInt32) async throws {
+        let response = try await performNativeCall {
+            try await KalamBridge.shared.download(storageID: storageID, sources: sources, destination: destination)
+        }
+        guard response.isSuccess else {
+            throw MTPServiceError.backend(
+                type: response.errorType ?? "Download failed",
+                message: response.errorMessage ?? "Unable to download files"
+            )
+        }
+    }
 }
 
 enum MTPServiceError: LocalizedError {

@@ -28,11 +28,8 @@ struct ContentView: View {
     @AppStorage("quickLookPreviewEnabled")
     private var quickLookPreviewEnabled = true
 
-    @AppStorage("confirmFolderDrag")
-    private var confirmFolderDrag = true
-
-    @AppStorage("folderDragMode")
-    private var folderDragMode = ClipboardMode.copy.rawValue
+    @State private var suppressFolderPromptThisSession = false
+    @State private var folderDragSessionMode: ClipboardMode = .copy
 
     private var currentDragDropMode: DragDropMode {
         DragDropMode(rawValue: dragDropMode) ?? .copy
@@ -131,8 +128,8 @@ struct ContentView: View {
                 copy: copySelection,
                 cut: cutSelection,
                 paste: pasteSelection,
-                canCopy: false,
-                canPaste: false
+                canCopy: !activePaneSelection.isEmpty,
+                canPaste: clipboard != nil
             )
         )
         .task {
@@ -150,11 +147,15 @@ struct ContentView: View {
         }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
+                leftPane.selection = Set(selection.prefix(1))
+                rightPane.selection.removeAll()
                 activePane = .mac
             }
         }
         .onChange(of: rightPane.selection) { selection in
             if !selection.isEmpty {
+                rightPane.selection = Set(selection.prefix(1))
+                leftPane.selection.removeAll()
                 activePane = .android
             }
         }
@@ -295,12 +296,8 @@ struct ContentView: View {
     private func performAction(_ action: PaneAction, pane: PaneKind, item: DemoEntry?) {
         guard operation == nil else { return }
 
-        guard action == .properties else {
-            statusMessage = "File transfers and editing are not available yet"
-            return
-        }
         let ids = selectedIDs(for: pane, item: item)
-        guard !ids.isEmpty else { return }
+        guard !ids.isEmpty || action == .properties else { return }
 
         switch action {
         case .properties:
@@ -327,12 +324,7 @@ struct ContentView: View {
             statusMessage = "\(ids.count) item(s) ready to move"
 
         case .delete:
-            let path = paneState(for: pane).path
-            runOperation(title: "Deleting", count: ids.count) {
-                _ = fileSystem.delete(itemIDs: ids, at: path, in: pane)
-                clearSelection(for: pane)
-                statusMessage = "\(ids.count) item(s) deleted"
-            }
+            statusMessage = "Delete is not available yet"
 
         case .copyToOther:
             let other = pane == .mac ? PaneKind.android : .mac
@@ -359,15 +351,17 @@ struct ContentView: View {
     }
 
     private func handleInternalDrop(_ encoded: String, targetPane: PaneKind) {
-        statusMessage = "File transfers are not available yet"
+        guard let payload = DemoDragPayload.decode(encoded) else { return }
+        receiveDrop(payload, targetPane: targetPane)
     }
 
     private func handleExternalFileDrop(_ urls: [URL], targetPane: PaneKind) {
-        statusMessage = "File transfers are not available yet"
+        guard !urls.isEmpty else { return }
+        receiveExternalFileDrop(urls, targetPane: targetPane)
     }
 
     private func receiveExternalFileDrop(
-        _ snapshots: [ExternalFileSnapshot],
+        _ urls: [URL],
         targetPane: PaneKind
     ) {
         guard operation == nil else { return }
@@ -377,19 +371,7 @@ struct ContentView: View {
             return
         }
 
-        let targetPath = rightPane.path
-        runOperation(title: "Copying", count: snapshots.count) {
-            let imported = fileSystem.importExternalFiles(
-                snapshots,
-                at: targetPath,
-                in: .android
-            )
-
-            rightPane.selection.removeAll()
-            statusMessage = imported == 0
-                ? "No files copied"
-                : "(imported) item(s) copied from Finder"
-        }
+        transferExternal(urls, targetPath: rightPane.path)
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
@@ -416,11 +398,10 @@ struct ContentView: View {
             targetPane: targetPane,
             targetPath: targetPath
         ) {
-            if confirmFolderDrag {
+            if !suppressFolderPromptThisSession {
                 pendingFolderDrop = folderRequest
             } else {
-                let mode = ClipboardMode(rawValue: folderDragMode) ?? .copy
-                executeTransfer(for: pending, mode: mode)
+                executeTransfer(for: pending, mode: folderDragSessionMode)
             }
             return
         }
@@ -440,10 +421,7 @@ struct ContentView: View {
         targetPane: PaneKind,
         targetPath: String
     ) -> FolderDropRequest? {
-        let sourceItems = fileSystem.entries(
-            for: payload.sourcePane,
-            at: payload.sourcePath
-        )
+        let sourceItems = entries(for: payload.sourcePane, path: payload.sourcePath)
         let selected = sourceItems.filter { payload.itemIDs.contains($0.id) }
         let folders = selected.filter(\.isDirectory)
 
@@ -470,8 +448,8 @@ struct ContentView: View {
         pendingFolderDrop = nil
 
         if suppressFuturePrompts {
-            confirmFolderDrag = false
-            folderDragMode = mode.rawValue
+            suppressFolderPromptThisSession = true
+            folderDragSessionMode = mode
         }
 
         executeTransfer(
@@ -507,11 +485,15 @@ struct ContentView: View {
     }
 
     private func createFolder(_ pane: PaneKind) {
-        statusMessage = "File editing is not available yet"
+        statusMessage = "New folders are not available yet"
     }
 
     private func paste(_ targetPane: PaneKind) {
-        statusMessage = "File transfers are not available yet"
+        guard let clipboard else { return }
+        transfer(itemIDs: clipboard.itemIDs, sourcePane: clipboard.sourcePane,
+                 sourcePath: clipboard.sourcePath, targetPane: targetPane,
+                 targetPath: paneState(for: targetPane).path, mode: clipboard.mode,
+                 clearClipboardAfterMove: clipboard.mode == .move)
     }
 
     private func transfer(
@@ -523,28 +505,69 @@ struct ContentView: View {
         mode: ClipboardMode,
         clearClipboardAfterMove: Bool = false
     ) {
+        let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
+        guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
-
-        runOperation(title: noun, count: itemIDs.count) {
-            let transferred = fileSystem.transfer(
-                itemIDs: itemIDs,
-                from: sourcePane,
-                sourcePath: sourcePath,
-                to: targetPane,
-                targetPath: targetPath,
-                mode: mode
-            )
-
-            clearSelection(for: sourcePane)
-
-            if clearClipboardAfterMove {
-                clipboard = nil
+        Task { @MainActor in
+            operation = DemoOperation(title: noun, detail: "\(sources.count) item(s)", progress: 0.15)
+            do {
+                try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
+                                          targetPane: targetPane, targetPath: targetPath, mode: mode)
+                clearSelection(for: sourcePane)
+                if clearClipboardAfterMove { clipboard = nil }
+                statusMessage = "\(sources.count) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
+                await localBrowser.load(path: leftPane.path)
+                await mtpService.browse(path: rightPane.path)
+            } catch {
+                statusMessage = error.localizedDescription
             }
-
-            statusMessage = transferred == 0
-                ? "No items transferred"
-                : "\(transferred) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
+            operation = nil
         }
+    }
+
+    private func entries(for pane: PaneKind, path: String) -> [DemoEntry] {
+        switch pane {
+        case .mac: return localBrowser.entries
+        case .android: return path == "/" ? mtpService.storageEntries : mtpService.entries
+        }
+    }
+
+    private func transferExternal(_ urls: [URL], targetPath: String) {
+        guard let storage = MTPBrowsePath(browserPath: targetPath) else { return }
+        Task { @MainActor in
+            operation = DemoOperation(title: "Copying", detail: "\(urls.count) item(s)", progress: 0.15)
+            do {
+                try await mtpService.upload(sources: urls.map(\.path), destination: storage.fullPath, storageID: storage.storageID)
+                statusMessage = "\(urls.count) item(s) copied to Android Device"
+                await mtpService.browse(path: targetPath)
+            } catch { statusMessage = error.localizedDescription }
+            operation = nil
+        }
+    }
+
+    private func performTransfer(sources: [DemoEntry], sourcePane: PaneKind, sourcePath: String,
+                                 targetPane: PaneKind, targetPath: String, mode: ClipboardMode) async throws {
+        if sourcePane == .mac && targetPane == .mac {
+            let destination = URL(fileURLWithPath: targetPath, isDirectory: true)
+            for item in sources {
+                guard let url = item.localURL else { continue }
+                let target = destination.appendingPathComponent(item.name)
+                if mode == .move { try FileManager.default.moveItem(at: url, to: target) }
+                else { try FileManager.default.copyItem(at: url, to: target) }
+            }
+            return
+        }
+        if sourcePane == .mac && targetPane == .android {
+            guard let storage = MTPBrowsePath(browserPath: targetPath) else { throw KalamBridgeError.invalidResponse("Invalid Android destination") }
+            try await mtpService.upload(sources: sources.compactMap(\.localURL).map(\.path), destination: storage.fullPath, storageID: storage.storageID)
+            if mode == .move { for item in sources { if let url = item.localURL { try FileManager.default.removeItem(at: url) } } }
+            return
+        }
+        guard sourcePane == .android && targetPane == .mac,
+              let storage = MTPBrowsePath(browserPath: sourcePath) else { throw KalamBridgeError.invalidResponse("Invalid MTP source") }
+        let remoteSources = sources.compactMap(\.remotePath)
+        try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
+        if mode == .move { /* MTP delete is intentionally left to the native delete API */ }
     }
 
     private func runOperation(title: String, count: Int, mutation: @escaping () -> Void) {
@@ -751,6 +774,7 @@ private struct WorkspaceView: View {
             canGoBack: !leftPane.back.isEmpty,
             canGoForward: !leftPane.forward.isEmpty,
             canPaste: clipboard != nil,
+            canModifyFiles: true,
             onBack: { onBack(.mac) },
             onForward: { onForward(.mac) },
             onRefresh: { onRefresh(.mac) },
@@ -785,6 +809,7 @@ private struct WorkspaceView: View {
             canGoBack: !rightPane.back.isEmpty,
             canGoForward: !rightPane.forward.isEmpty,
             canPaste: clipboard != nil,
+            canModifyFiles: true,
             onBack: { onBack(.android) },
             onForward: { onForward(.android) },
             onRefresh: { onRefresh(.android) },
