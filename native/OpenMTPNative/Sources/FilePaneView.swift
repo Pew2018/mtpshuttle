@@ -46,6 +46,12 @@ struct FilePaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
+        .onDrop(
+            of: [OpenMTPDragType.payload.identifier],
+            isTargeted: $isDropTargeted
+        ) { providers in
+            handleInternalDrop(providers)
+        }
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -61,11 +67,36 @@ struct FilePaneView: View {
         .background {
             OpenMTPExternalDropReceiver(
                 isTargeted: $isDropTargeted,
-                onInternalDrop: onInternalDrop,
                 onExternalFileDrop: onExternalFileDrop
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func handleInternalDrop(_ providers: [NSItemProvider]) -> Bool {
+        let typeIdentifier = OpenMTPDragType.payload.identifier
+
+        guard let provider = providers.first(where: {
+            $0.registeredTypeIdentifiers.contains(typeIdentifier)
+        }) else {
+            return false
+        }
+
+        provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, _ in
+            guard let data,
+                  let encoded = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async {
+                    onInternalDrop("")
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                onInternalDrop(encoded)
+            }
+        }
+
+        return true
     }
 
     private var paneHeader: some View {
@@ -348,7 +379,6 @@ struct FilePaneView: View {
 
 private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
     @Binding var isTargeted: Bool
-    let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -357,10 +387,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     func makeNSView(context: Context) -> DropReceiverView {
         let view = DropReceiverView()
-        view.registerForDraggedTypes([
-            .fileURL,
-            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-        ])
+        view.registerForDraggedTypes([.fileURL])
         context.coordinator.parent = self
         view.coordinator = context.coordinator
         return view
@@ -377,28 +404,11 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             self.parent = parent
         }
 
-        private var internalPasteboardType: NSPasteboard.PasteboardType {
-            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-        }
-
-        private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
-            draggingInfo.draggingPasteboard.types?.contains(internalPasteboardType) == true
-        }
-
         private func acceptsFinderFiles(_ draggingInfo: NSDraggingInfo) -> Bool {
-            guard !isInternalDrag(draggingInfo) else {
-                return false
-            }
-
-            return draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
+            draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            if isInternalDrag(draggingInfo) {
-                parent.isTargeted = true
-                return .copy
-            }
-
             guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
                 return []
@@ -409,11 +419,6 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            if isInternalDrag(draggingInfo) {
-                parent.isTargeted = true
-                return .copy
-            }
-
             guard acceptsFinderFiles(draggingInfo) else {
                 parent.isTargeted = false
                 return []
@@ -428,7 +433,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
-            isInternalDrag(draggingInfo) || acceptsFinderFiles(draggingInfo)
+            acceptsFinderFiles(draggingInfo)
         }
 
         func performDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
@@ -436,21 +441,11 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 parent.isTargeted = false
             }
 
-            let pasteboard = draggingInfo.draggingPasteboard
-
-            if isInternalDrag(draggingInfo) {
-                if let encoded = readInternalPayload(from: pasteboard) {
-                    parent.onInternalDrop(encoded)
-                    return true
-                }
-
-                return false
-            }
-
             guard acceptsFinderFiles(draggingInfo) else {
                 return false
             }
 
+            let pasteboard = draggingInfo.draggingPasteboard
             let objects = pasteboard.readObjects(
                 forClasses: [NSURL.self],
                 options: [.urlReadingFileURLsOnly: true]
@@ -463,41 +458,6 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
             parent.onExternalFileDrop(urls)
             return true
-        }
-
-        private func readInternalPayload(from pasteboard: NSPasteboard) -> String? {
-            if let data = pasteboard.data(forType: internalPasteboardType),
-               let encoded = String(data: data, encoding: .utf8) {
-                return encoded
-            }
-
-            if let encoded = pasteboard.string(forType: internalPasteboardType) {
-                return encoded
-            }
-
-            for item in pasteboard.pasteboardItems ?? [] {
-                if let data = item.data(forType: internalPasteboardType),
-                   let encoded = String(data: data, encoding: .utf8) {
-                    return encoded
-                }
-
-                if let encoded = item.string(forType: internalPasteboardType) {
-                    return encoded
-                }
-
-                if let data = item.data(forType: .string),
-                   let encoded = String(data: data, encoding: .utf8),
-                   DemoDragPayload.decode(encoded) != nil {
-                    return encoded
-                }
-
-                if let encoded = item.string(forType: .string),
-                   DemoDragPayload.decode(encoded) != nil {
-                    return encoded
-                }
-            }
-
-            return nil
         }
     }
 
