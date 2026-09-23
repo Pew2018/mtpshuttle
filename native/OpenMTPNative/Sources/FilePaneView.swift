@@ -58,7 +58,7 @@ struct FilePaneView: View {
             }
         }
         .onDrop(
-            of: [UTType.fileURL.identifier, UTType.plainText.identifier],
+            of: [OpenMTPDragType.payload.identifier, UTType.fileURL.identifier],
             isTargeted: $isDropTargeted,
             perform: onDrop
         )
