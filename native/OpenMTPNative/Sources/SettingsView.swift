@@ -17,7 +17,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.radioGroup)
 
-                Text("Copy is used by default. Choose “Ask every time” to be prompted to Copy or Move after each drop.")
+                Text("Choose whether a drag between panes copies items, moves them, or asks each time.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
