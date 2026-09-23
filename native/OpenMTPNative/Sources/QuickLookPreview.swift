@@ -38,7 +38,11 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
 
         override var acceptsFirstResponder: Bool { true }
 
-        func setPreviewURLs(_ urls: [URL]) {\n            let changed = previewURLs != urls\n            DebugLogger.verbose("QuickLook set URLs: count=\(urls.count), changed=\(changed), controlling=\(isControllingPreviewPanel), names=\(urls.map(\\.lastPathComponent).joined(separator: "|"))")\n            previewURLs = urls\n            guard changed else { return }
+        func setPreviewURLs(_ urls: [URL]) {
+            let changed = previewURLs != urls
+            DebugLogger.verbose("QuickLook set URLs: count=\(urls.count), changed=\(changed), controlling=\(isControllingPreviewPanel), names=\(urls.map(\.lastPathComponent).joined(separator: "|"))")
+            previewURLs = urls
+            guard changed else { return }
             if isControllingPreviewPanel {
                 guard let panel = QLPreviewPanel.shared() else { return }
                 if urls.isEmpty {
@@ -74,12 +78,18 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             true
         }
 
-        override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {\n            DebugLogger.verbose("QuickLook begin control")\n            isControllingPreviewPanel = true\n            panel.dataSource = self
+        override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+            DebugLogger.verbose("QuickLook begin control")
+            isControllingPreviewPanel = true
+            panel.dataSource = self
             panel.delegate = self
             panel.reloadData()
         }
 
-        override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {\n            DebugLogger.verbose("QuickLook end control")\n            let endedURLs = previewURLs\n            panel.dataSource = nil
+        override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+            DebugLogger.verbose("QuickLook end control")
+            let endedURLs = previewURLs
+            panel.dataSource = nil
             panel.delegate = nil
             isControllingPreviewPanel = false
             previewURLs = []
