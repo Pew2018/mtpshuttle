@@ -1,13 +1,24 @@
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
+    @Environment(\.openWindow) private var openWindow
+
     @State private var fileSystem = DemoFileSystem()
     @State private var leftPane = PaneNavigationState(path: PaneKind.mac.rootPath)
     @State private var rightPane = PaneNavigationState(path: PaneKind.android.rootPath)
     @State private var clipboard: ClipboardPayload?
+    @State private var pendingDrop: PendingDrop?
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
     @State private var statusMessage = "Ready"
+
+    @AppStorage("dragDropMode")
+    private var dragDropMode = DragDropMode.copy.rawValue
+
+    private var currentDragDropMode: DragDropMode {
+        DragDropMode(rawValue: dragDropMode) ?? .copy
+    }
 
     var body: some View {
         WorkspaceView(
@@ -21,11 +32,22 @@ struct ContentView: View {
             onBack: goBack,
             onForward: goForward,
             onUp: goUp,
+            onNavigate: navigateTo,
             onAction: performAction,
             onNewFolder: createFolder,
-            onPaste: paste
+            onPaste: paste,
+            onDrop: handleDrop
         )
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    openWindow(id: "settings")
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings")
+            }
+
             ToolbarItem(placement: .automatic) {
                 Button(action: refresh) {
                     Image(systemName: "arrow.clockwise")
@@ -41,6 +63,50 @@ struct ContentView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .confirmationDialog(
+            pendingDropTitle,
+            isPresented: Binding(
+                get: { pendingDrop != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        pendingDrop = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Copy") {
+                finishPendingDrop(mode: .copy)
+            }
+
+            Button("Move (Cut)") {
+                finishPendingDrop(mode: .move)
+            }
+
+            Button("Cancel", role: .cancel) {
+                pendingDrop = nil
+            }
+        } message: {
+            Text(pendingDropMessage)
+        }
+    }
+
+    private var pendingDropTitle: String {
+        guard let pendingDrop else {
+            return "Drop items"
+        }
+
+        let count = pendingDrop.payload.itemIDs.count
+        let noun = count == 1 ? "item" : "items"
+        return "Drop \(count) \(noun) into \(pendingDrop.targetPane.title)?"
+    }
+
+    private var pendingDropMessage: String {
+        guard let pendingDrop else {
+            return ""
+        }
+
+        return "\(pendingDrop.payload.sourcePane.title) → \(pendingDrop.targetPane.title)"
     }
 
     private func open(_ pane: PaneKind, _ item: DemoEntry) {
@@ -116,8 +182,23 @@ struct ContentView: View {
         statusMessage = "\(pane.title) opened parent folder"
     }
 
+    private func navigateTo(_ pane: PaneKind, _ path: String) {
+        switch pane {
+        case .mac:
+            navigate(state: &leftPane, to: path)
+        case .android:
+            navigate(state: &rightPane, to: path)
+        }
+
+        statusMessage = "\(pane.title) opened \(path)"
+    }
+
     private func navigate(state: inout PaneNavigationState, to path: String) {
-        guard path != state.path else { return }
+        guard path != state.path else {
+            state.selection.removeAll()
+            return
+        }
+
         state.back.append(state.path)
         state.path = path
         state.forward.removeAll()
@@ -186,6 +267,66 @@ struct ContentView: View {
                 mode: .move
             )
         }
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider], targetPane: PaneKind) -> Bool {
+        guard operation == nil, let provider = providers.first else {
+            return false
+        }
+
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let object else { return }
+
+            let raw = object as String
+            guard let payload = DemoDragPayload.decode(raw) else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                receiveDrop(payload, targetPane: targetPane)
+            }
+        }
+
+        return true
+    }
+
+    private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
+        guard operation == nil else { return }
+        guard payload.sourcePane != targetPane else {
+            statusMessage = "Drop between the two panes to transfer items"
+            return
+        }
+
+        let targetPath = paneState(for: targetPane).path
+        let pending = PendingDrop(
+            payload: payload,
+            targetPane: targetPane,
+            targetPath: targetPath
+        )
+
+        switch currentDragDropMode {
+        case .copy:
+            executeTransfer(for: pending, mode: .copy)
+        case .ask:
+            pendingDrop = pending
+        }
+    }
+
+    private func finishPendingDrop(mode: ClipboardMode) {
+        guard let pendingDrop else { return }
+        self.pendingDrop = nil
+        executeTransfer(for: pendingDrop, mode: mode)
+    }
+
+    private func executeTransfer(for pendingDrop: PendingDrop, mode: ClipboardMode) {
+        transfer(
+            itemIDs: pendingDrop.payload.itemIDs,
+            sourcePane: pendingDrop.payload.sourcePane,
+            sourcePath: pendingDrop.payload.sourcePath,
+            targetPane: pendingDrop.targetPane,
+            targetPath: pendingDrop.targetPath,
+            mode: mode
+        )
     }
 
     private func createFolder(_ pane: PaneKind) {
@@ -344,9 +485,11 @@ private struct WorkspaceView: View {
     let onBack: (PaneKind) -> Void
     let onForward: (PaneKind) -> Void
     let onUp: (PaneKind) -> Void
+    let onNavigate: (PaneKind, String) -> Void
     let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
     let onNewFolder: (PaneKind) -> Void
     let onPaste: (PaneKind) -> Void
+    let onDrop: ([NSItemProvider], PaneKind) -> Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -363,10 +506,12 @@ private struct WorkspaceView: View {
                     onBack: { onBack(.mac) },
                     onForward: { onForward(.mac) },
                     onUp: { onUp(.mac) },
+                    onNavigate: { onNavigate(.mac, $0) },
                     onOpen: { onOpen(.mac, $0) },
                     onAction: { action, item in onAction(action, .mac, item) },
                     onNewFolder: { onNewFolder(.mac) },
-                    onPaste: { onPaste(.mac) }
+                    onPaste: { onPaste(.mac) },
+                    onDrop: { providers in onDrop(providers, .mac) }
                 )
 
                 Divider()
@@ -383,10 +528,12 @@ private struct WorkspaceView: View {
                     onBack: { onBack(.android) },
                     onForward: { onForward(.android) },
                     onUp: { onUp(.android) },
+                    onNavigate: { onNavigate(.android, $0) },
                     onOpen: { onOpen(.android, $0) },
                     onAction: { action, item in onAction(action, .android, item) },
                     onNewFolder: { onNewFolder(.android) },
-                    onPaste: { onPaste(.android) }
+                    onPaste: { onPaste(.android) },
+                    onDrop: { providers in onDrop(providers, .android) }
                 )
             }
 
