@@ -903,7 +903,7 @@ struct ContentView: View {
         // Keep partial MTP downloads out of the user's destination. In
         // particular, a cancelled move must never delete an Android source.
         let staging = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwiftMTP-download-\\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("SwiftMTP-download-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: staging) }
         for remoteSource in remoteSources {
@@ -917,7 +917,7 @@ struct ContentView: View {
             let staged = staging.appendingPathComponent(item.name)
             let target = destination.appendingPathComponent(targetNames[index])
             guard FileManager.default.fileExists(atPath: staged.path) else {
-                throw KalamBridgeError.invalidResponse("Downloaded item missing: \\(item.name)")
+                throw KalamBridgeError.invalidResponse("Downloaded item missing: \(item.name)")
             }
             if resolution == .overwrite && FileManager.default.fileExists(atPath: target.path) {
                 try FileManager.default.removeItem(at: target)
