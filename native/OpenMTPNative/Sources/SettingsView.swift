@@ -7,6 +7,9 @@ struct SettingsView: View {
     @AppStorage("androidOnlyMode")
     private var androidOnlyMode = false
 
+    @AppStorage("quickLookPreviewEnabled")
+    private var quickLookPreviewEnabled = true
+
     var body: some View {
         Form {
             Section("Workspace") {
@@ -34,10 +37,19 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Section("Preview") {
+                Toggle("Enable Quick Look with Space", isOn: $quickLookPreviewEnabled)
+
+                Text("Select a file and press Space to open the macOS Quick Look preview. Press Space again in the preview to close it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 520, height: 320)
+        .frame(width: 520, height: 400)
     }
 }
 
