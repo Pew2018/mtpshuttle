@@ -86,7 +86,7 @@ enum PaneAction: Hashable {
     case moveToOther
 }
 
-enum ClipboardMode: Hashable {
+enum ClipboardMode: String, Hashable {
     case copy
     case move
 }
