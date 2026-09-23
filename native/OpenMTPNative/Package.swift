@@ -15,6 +15,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "OpenMTPNative"
+        ),
+        .testTarget(
+            name: "OpenMTPNativeTests",
+            dependencies: ["OpenMTPNative"]
         )
     ]
 )

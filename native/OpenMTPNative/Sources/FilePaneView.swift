@@ -33,6 +33,11 @@ struct FilePaneView: View {
     let pane: PaneKind
     var subtitle: String? = nil
     var refreshTitle: String = "Refresh"
+    var isLoading = false
+    var errorMessage: String? = nil
+    var emptyMessage: String? = nil
+    var breadcrumbs: [BreadcrumbComponent]? = nil
+    var canModifyFiles = false
     let path: String
     let items: [DemoEntry]
     @Binding var selection: Set<UUID>
@@ -61,7 +66,18 @@ struct FilePaneView: View {
 
             Divider()
 
-            if items.isEmpty {
+            if isLoading {
+                ProgressView("Loading folder…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let message = errorMessage ?? emptyMessage {
+                VStack(spacing: 12) {
+                    Image(systemName: errorMessage == nil ? "externaldrive" : "exclamationmark.triangle")
+                        .font(.largeTitle).foregroundStyle(.secondary)
+                    Text(message).multilineTextAlignment(.center).textSelection(.enabled)
+                    Button(refreshTitle, action: onRefresh)
+                }
+                .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if items.isEmpty {
                 emptyState
             } else if viewMode == .list {
                 listView
@@ -124,6 +140,7 @@ struct FilePaneView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .disabled(isLoading)
                 .help(refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane")
 
                 Spacer(minLength: 8)
@@ -164,7 +181,7 @@ struct FilePaneView: View {
     }
 
     private var pathBreadcrumb: some View {
-        let components = DemoFileSystem.breadcrumbComponents(for: path)
+        let components = breadcrumbs ?? ((pane == .mac && path != "/" ? [BreadcrumbComponent(id: "/", name: "/", path: "/")] : []) + DemoFileSystem.breadcrumbComponents(for: path))
 
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 3) {
@@ -237,12 +254,12 @@ struct FilePaneView: View {
             .padding(.vertical, 4)
         }
         .contextMenu {
-            Button("New Folder", action: onNewFolder)
+            Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Divider()
 
             Button("Paste", action: onPaste)
-                .disabled(!canPaste)
+                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -279,12 +296,12 @@ struct FilePaneView: View {
             .padding(14)
         }
         .contextMenu {
-            Button("New Folder", action: onNewFolder)
+            Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Divider()
 
             Button("Paste", action: onPaste)
-                .disabled(!canPaste)
+                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -298,29 +315,29 @@ struct FilePaneView: View {
 
         Button("Copy") {
             onAction(.copy, item)
-        }
+        }.disabled(!canModifyFiles)
 
         Button("Cut") {
             onAction(.cut, item)
-        }
+        }.disabled(!canModifyFiles)
 
         Divider()
 
         if showCrossPaneActions {
             Button("Copy to \(otherPaneTitle)") {
                 onAction(.copyToOther, item)
-            }
+            }.disabled(!canModifyFiles)
 
             Button("Move to \(otherPaneTitle)") {
                 onAction(.moveToOther, item)
-            }
+            }.disabled(!canModifyFiles)
 
             Divider()
         }
 
         Button("Delete", role: .destructive) {
             onAction(.delete, item)
-        }
+        }.disabled(!canModifyFiles)
     }
 
     private var emptyState: some View {
@@ -333,7 +350,7 @@ struct FilePaneView: View {
             Text("This folder is empty")
                 .font(.headline)
 
-            Text("Create a folder, paste items, or drop something here.")
+            Text("No visible files in this folder.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

@@ -27,6 +27,37 @@ final class MTPService: ObservableObject {
     @Published private(set) var device: MTPDeviceSummary?
     @Published private(set) var storages: [MTPStorageSummary] = []
     
+    @Published private(set) var entries: [DemoEntry] = []
+    @Published private(set) var isBrowsing = false
+    @Published private(set) var browseError: String?
+    private var browseGeneration = UUID()
+
+    func browse(path: String) async {
+        let request = UUID()
+        browseGeneration = request
+        entries = []
+        browseError = nil
+        isBrowsing = false
+        guard isConnected, path != "/" else { return }
+        guard let location = MTPBrowsePath(browserPath: path),
+              storages.contains(where: { $0.storageID == location.storageID }) else {
+            browseError = "This storage is no longer available. Return to Storages and refresh."
+            return
+        }
+        isBrowsing = true
+        do {
+            let response = try await KalamBridge.shared.walk(location)
+            guard request == browseGeneration else { return }
+            entries = try MTPDirectory.entries(from: response, storageID: location.storageID)
+            DebugLogger.info("MTP directory loaded: \(entries.count) entries")
+        } catch {
+            guard request == browseGeneration else { return }
+            browseError = "Unable to read this folder: \(error.localizedDescription)"
+            DebugLogger.error("MTP directory read failed: \(error.localizedDescription)")
+        }
+        isBrowsing = false
+    }
+
     var isConnected: Bool {
         if case .connected = state {
             return true
@@ -169,6 +200,10 @@ final class MTPService: ObservableObject {
             DebugLogger.error("MTP dispose failed: \(error.localizedDescription)")
         }
         
+        browseGeneration = UUID()
+        entries = []
+        browseError = nil
+        isBrowsing = false
         state = .disconnected
         device = nil
         storages = []

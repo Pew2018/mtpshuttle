@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var statusMessage = "Ready"
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
+    @StateObject private var localBrowser = LocalBrowserService()
     @StateObject private var mtpService = MTPService()
 
     @AppStorage("dragDropMode")
@@ -57,7 +58,8 @@ struct ContentView: View {
             onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider,
-            mtpService: mtpService
+            mtpService: mtpService,
+            localBrowser: localBrowser
         )
         .toolbar {
             ToolbarItem(placement: .automatic) {
@@ -129,12 +131,22 @@ struct ContentView: View {
                 copy: copySelection,
                 cut: cutSelection,
                 paste: pasteSelection,
-                canCopy: !activePaneSelection.isEmpty,
-                canPaste: clipboard != nil
+                canCopy: false,
+                canPaste: false
             )
         )
         .task {
             DebugLogger.startSession()
+            await localBrowser.load(path: leftPane.path)
+        }
+        .onChange(of: leftPane.path) { path in
+            Task { await localBrowser.load(path: path) }
+        }
+        .onChange(of: rightPane.path) { path in
+            Task { await mtpService.browse(path: path) }
+        }
+        .onChange(of: mtpService.isConnected) { _ in
+            Task { await mtpService.browse(path: rightPane.path) }
         }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
@@ -190,51 +202,23 @@ struct ContentView: View {
     }
 
     private func presentQuickLook() {
-        guard quickLookPreviewEnabled,
-              operation == nil
-        else {
-            return
-        }
-
-        let selectedIDs = Array(activePaneSelection)
-        guard !selectedIDs.isEmpty else {
-            return
-        }
-
-        let pane = activePane
-        let path = paneState(for: pane).path
-        var urls: [URL] = []
-
-        for itemID in selectedIDs {
-            guard let url = try? fileSystem.exportedFileURL(
-                itemIDs: [itemID],
-                at: path,
-                in: pane
-            ) else {
-                continue
-            }
-
-            urls.append(url)
-        }
-
-        guard !urls.isEmpty else {
-            statusMessage = "Unable to preview the selected item"
-            return
-        }
-
-        quickLookURLs = urls
+        guard quickLookPreviewEnabled, activePane == .mac else { return }
+        quickLookURLs = localBrowser.entries.filter {
+            leftPane.selection.contains($0.id) && !$0.isDirectory
+        }.compactMap(\.localURL)
     }
 
     private func handleQuickLookEnded(_ urls: [URL]) {
+        // These are real local files, not temporary demo exports.
         quickLookURLs = []
-
-        for url in urls {
-            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
-        }
     }
 
     private func open(_ pane: PaneKind, _ item: DemoEntry) {
         guard item.isDirectory else {
+            if pane == .mac, let url = item.localURL {
+                NSWorkspace.shared.open(url)
+                return
+            }
             propertyItem = item
             return
         }
@@ -244,7 +228,9 @@ struct ContentView: View {
             let nextPath = DemoFileSystem.childPath(leftPane.path, item.name)
             navigate(state: &leftPane, to: nextPath)
         case .android:
-            let nextPath = DemoFileSystem.childPath(rightPane.path, item.name)
+            guard let storageID = item.storageID, let remotePath = item.remotePath else { return }
+            let suffix = remotePath.split(separator: "/").joined(separator: "/")
+            let nextPath = "/\(storageID)/" + (suffix.isEmpty ? "" : suffix + "/")
             navigate(state: &rightPane, to: nextPath)
         }
     }
@@ -309,15 +295,17 @@ struct ContentView: View {
     private func performAction(_ action: PaneAction, pane: PaneKind, item: DemoEntry?) {
         guard operation == nil else { return }
 
+        guard action == .properties else {
+            statusMessage = "File transfers and editing are not available yet"
+            return
+        }
         let ids = selectedIDs(for: pane, item: item)
         guard !ids.isEmpty else { return }
 
         switch action {
         case .properties:
-            let fallback = fileSystem.entries(
-                for: pane,
-                at: paneState(for: pane).path
-            ).first { ids.contains($0.id) }
+            let items = pane == .mac ? localBrowser.entries : (rightPane.path == "/" ? mtpService.storageEntries : mtpService.entries)
+            let fallback = items.first { ids.contains($0.id) }
             propertyItem = item ?? fallback
 
         case .copy:
@@ -370,44 +358,12 @@ struct ContentView: View {
         }
     }
 
-    private func handleInternalDrop(
-        _ encoded: String,
-        targetPane: PaneKind
-    ) {
-        OpenMTPDNDLogger.log("ContentView.handleInternalDrop target=\(targetPane) encodedLength=\(encoded.count)")
-        guard operation == nil else {
-            OpenMTPDNDLogger.log("ContentView.handleInternalDrop ignored: operation active")
-            return
-        }
-
-        guard let payload = DemoDragPayload.decode(encoded) else {
-            OpenMTPDNDLogger.log("ContentView.handleInternalDrop FAILED to decode payload")
-            statusMessage = "Invalid OpenMTP drag payload"
-            return
-        }
-
-        OpenMTPDNDLogger.log("ContentView payload source=\(payload.sourcePane) path=\(payload.sourcePath) ids=\(payload.itemIDs.count)")
-        receiveDrop(payload, targetPane: targetPane)
+    private func handleInternalDrop(_ encoded: String, targetPane: PaneKind) {
+        statusMessage = "File transfers are not available yet"
     }
 
     private func handleExternalFileDrop(_ urls: [URL], targetPane: PaneKind) {
-        guard operation == nil else { return }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let snapshots = urls.compactMap(DemoFileSystem.externalSnapshot(from:))
-
-            DispatchQueue.main.async {
-                guard !snapshots.isEmpty else {
-                    self.statusMessage = "No files could be read from the drop"
-                    return
-                }
-
-                self.receiveExternalFileDrop(
-                    snapshots,
-                    targetPane: targetPane
-                )
-            }
-        }
+        statusMessage = "File transfers are not available yet"
     }
 
     private func receiveExternalFileDrop(
@@ -545,95 +501,17 @@ struct ContentView: View {
         )
     }
 
-    private func makeExternalDragProvider(
-        pane: PaneKind,
-        path: String,
-        item: DemoEntry
-    ) -> NSItemProvider {
-        let payload = DemoDragPayload(
-            sourcePane: pane,
-            sourcePath: path,
-            itemIDs: [item.id]
-        )
-
-        guard let encoded = payload.encoded else {
-            OpenMTPDNDLogger.log("makeDragProvider FAILED to encode payload")
-            return NSItemProvider()
-        }
-
-        OpenMTPDNDLogger.log(
-            "makeDragProvider source=\(pane) path=\(path) item=\(item.name) id=\(item.id)"
-        )
-
-        // Use NSString as the primary representation. NSItemProvider data
-        // representations are fulfilled lazily, while a standard object
-        // representation gives AppKit a directly readable pasteboard string.
-        let provider = NSItemProvider(object: NSString(string: encoded))
-
-        // Keep the custom representation for future/native consumers. The
-        // receiving side also accepts the standard string representation.
-        provider.registerDataRepresentation(
-            forTypeIdentifier: OpenMTPDragType.payload.identifier,
-            visibility: .all
-        ) { completionHandler in
-            completionHandler(Data(encoded.utf8), nil)
-            return nil
-        }
-
-        let snapshot = fileSystem
-        provider.registerFileRepresentation(
-            forTypeIdentifier: UTType.fileURL.identifier,
-            fileOptions: [],
-            visibility: .all
-        ) { completionHandler in
-            do {
-                let url = try snapshot.exportedFileURL(
-                    itemIDs: [item.id],
-                    at: path,
-                    in: pane
-                )
-                OpenMTPDNDLogger.log("makeDragProvider fileRepresentation URL=\(url.path)")
-                completionHandler(url, false, nil)
-            } catch {
-                OpenMTPDNDLogger.log("makeDragProvider fileRepresentation FAILED error=\(error)")
-                completionHandler(nil, false, error)
-            }
-
-            return nil
-        }
-
-        return provider
+    private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry) -> NSItemProvider {
+        guard pane == .mac, let url = item.localURL else { return NSItemProvider() }
+        return NSItemProvider(object: url as NSURL)
     }
 
     private func createFolder(_ pane: PaneKind) {
-        guard operation == nil else { return }
-
-        let path = paneState(for: pane).path
-        let created = fileSystem.createFolder(at: path, in: pane)
-        setSelection([created.id], for: pane)
-        statusMessage = "Created \(created.name)"
+        statusMessage = "File editing is not available yet"
     }
 
     private func paste(_ targetPane: PaneKind) {
-        guard operation == nil, let clipboard else { return }
-
-        let targetPath = paneState(for: targetPane).path
-        if clipboard.sourcePane == targetPane,
-           clipboard.sourcePath == targetPath,
-           clipboard.mode == .move {
-            statusMessage = "Nothing to move inside the same folder"
-            return
-        }
-
-        transfer(
-            itemIDs: clipboard.itemIDs,
-            sourcePane: clipboard.sourcePane,
-            sourcePath: clipboard.sourcePath,
-            targetPane: targetPane,
-            targetPath: targetPath,
-            mode: clipboard.mode,
-            clearClipboardAfterMove: clipboard.mode == .move
-        )
+        statusMessage = "File transfers are not available yet"
     }
 
     private func transfer(
@@ -734,13 +612,17 @@ struct ContentView: View {
         switch pane {
         case .mac:
             leftPane.selection.removeAll()
-            statusMessage = "This Mac refreshed"
+            Task {
+                await localBrowser.load(path: leftPane.path)
+                statusMessage = localBrowser.errorMessage ?? "This Mac refreshed"
+            }
         case .android:
             rightPane.selection.removeAll()
             statusMessage = mtpService.isConnected ? "Refreshing Android device…" : "Connecting to Android device…"
             Task {
                 await mtpService.refresh()
-                statusMessage = mtpService.statusText
+                await mtpService.browse(path: rightPane.path)
+                statusMessage = mtpService.browseError ?? mtpService.statusText
             }
         }
     }
@@ -855,12 +737,15 @@ private struct WorkspaceView: View {
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
     @ObservedObject var mtpService: MTPService
+    @ObservedObject var localBrowser: LocalBrowserService
 
     private var macPane: some View {
         FilePaneView(
             pane: .mac,
+            isLoading: localBrowser.isLoading,
+            errorMessage: localBrowser.errorMessage,
             path: leftPane.path,
-            items: fileSystem.entries(for: .mac, at: leftPane.path),
+            items: localBrowser.entries,
             selection: $leftPane.selection,
             canGoBack: !leftPane.back.isEmpty,
             canGoForward: !leftPane.forward.isEmpty,
@@ -889,8 +774,12 @@ private struct WorkspaceView: View {
             pane: .android,
             subtitle: mtpService.deviceSubtitle,
             refreshTitle: mtpService.isConnected ? "Refresh" : "Connect",
+            isLoading: mtpService.isBrowsing || mtpService.state == .connecting,
+            errorMessage: mtpService.browseError,
+            emptyMessage: mtpService.isConnected ? nil : mtpService.statusText,
+            breadcrumbs: MTPDirectory.breadcrumbs(path: rightPane.path, storages: mtpService.storages),
             path: rightPane.path,
-            items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : fileSystem.entries(for: .android, at: rightPane.path),
+            items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : mtpService.entries,
             selection: $rightPane.selection,
             canGoBack: !rightPane.back.isEmpty,
             canGoForward: !rightPane.forward.isEmpty,
@@ -921,7 +810,7 @@ private struct WorkspaceView: View {
                 Text(mtpService.statusText).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if case .connecting = mtpService.state { ProgressView().controlSize(.small) }
-                else { Button { Task { await mtpService.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Refresh Android device") }
+                else { Button { onRefresh(.android) } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Refresh Android device") }
             }
             .padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
             if androidOnlyMode {

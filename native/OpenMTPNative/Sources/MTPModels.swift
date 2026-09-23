@@ -90,7 +90,9 @@ struct MTPStorageSummary: Identifiable, Equatable {
             name: name,
             subtitle: subtitle,
             sizeBytes: clampedSize,
-            isDirectory: true
+            isDirectory: true,
+            storageID: storageID,
+            remotePath: "/"
         )
     }
     
@@ -127,7 +129,7 @@ struct MTPStorageSummary: Identifiable, Equatable {
                 ?? storageObject.value(forKeyIgnoringCase: "FreeSpace")?.intValue.map(Int64.init)
             
             return MTPStorageSummary(
-                id: UUID(),
+                id: MTPDirectory.identity(storageID: UInt32(clamping: rawStorageID), objectID: 0),
                 storageID: UInt32(clamping: rawStorageID),
                 name: storageName,
                 maxCapacity: maxCapacity,

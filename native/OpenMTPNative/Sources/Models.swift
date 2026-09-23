@@ -20,7 +20,7 @@ enum PaneKind: String, CaseIterable, Codable, Hashable {
         case .mac:
             return "Local files"
         case .android:
-            return "MTP demo device"
+            return "MTP device"
         }
     }
 
@@ -36,9 +36,9 @@ enum PaneKind: String, CaseIterable, Codable, Hashable {
     var rootPath: String {
         switch self {
         case .mac:
-            return "/Users/Patrick/"
+            return FileManager.default.homeDirectoryForCurrentUser.path + "/"
         case .android:
-            return "/Internal storage/"
+            return "/"
         }
     }
 }
@@ -177,19 +177,36 @@ struct DemoEntry: Identifiable, Hashable {
     var subtitle: String
     var sizeBytes: Int?
     var isDirectory: Bool
+    var localURL: URL?
+    var storageID: UInt32?
+    var remotePath: String?
+    var objectID: UInt32?
+
+    static func browserOrder(_ lhs: DemoEntry, _ rhs: DemoEntry) -> Bool {
+        if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory }
+        return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+    }
 
     init(
         id: UUID = UUID(),
         name: String,
         subtitle: String,
         sizeBytes: Int? = nil,
-        isDirectory: Bool
+        isDirectory: Bool,
+        localURL: URL? = nil,
+        storageID: UInt32? = nil,
+        remotePath: String? = nil,
+        objectID: UInt32? = nil
     ) {
         self.id = id
         self.name = name
         self.subtitle = subtitle
         self.sizeBytes = sizeBytes
         self.isDirectory = isDirectory
+        self.localURL = localURL
+        self.storageID = storageID
+        self.remotePath = remotePath
+        self.objectID = objectID
     }
 
     var systemImage: String {
@@ -237,8 +254,8 @@ struct DemoFileSystem {
     private var android: [String: [DemoEntry]]
 
     init() {
-        local = Self.makeLocalData()
-        android = Self.makeAndroidData()
+        local = [:]
+        android = [:]
     }
 
     func entries(for pane: PaneKind, at path: String) -> [DemoEntry] {

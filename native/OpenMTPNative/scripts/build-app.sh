@@ -16,6 +16,8 @@ test -x "`swift build -c release --show-bin-path`/OpenMTPNative"
 
 cp "`swift build -c release --show-bin-path`/OpenMTPNative" dist/OpenMTP.app/Contents/MacOS/OpenMTPNative
 cp Info.plist dist/OpenMTP.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER:-1}" dist/OpenMTP.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Add :OpenMTPGitCommit string $(git rev-parse HEAD)" dist/OpenMTP.app/Contents/Info.plist
 
 cp ../../build/mac/bin/arm64/kalam.dylib dist/OpenMTP.app/Contents/Resources/Kalam/standard/kalam.dylib
 cp ../../build/mac/bin/arm64/libusb.dylib dist/OpenMTP.app/Contents/Resources/Kalam/standard/libusb.dylib
@@ -34,3 +36,5 @@ find dist/OpenMTP.app/Contents/Resources/Kalam -name "*.dylib" -print0 |
 
 codesign --force --deep --sign - dist/OpenMTP.app
 file dist/OpenMTP.app/Contents/MacOS/OpenMTPNative
+# Keep executable permissions inside the Actions artifact.
+ditto -c -k --sequesterRsrc --keepParent dist/OpenMTP.app dist/OpenMTP-arm64.zip

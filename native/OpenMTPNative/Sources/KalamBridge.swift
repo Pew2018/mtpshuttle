@@ -166,6 +166,9 @@ final class KalamBridge {
     static let shared = KalamBridge()
     
     private typealias Callback = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
+    private typealias JSONFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Void
+    private let callQueue = DispatchQueue(label: "com.pew2018.openmtp.kalam", qos: .userInitiated)
+
     private typealias OneShotFunction = @convention(c) (UnsafeMutableRawPointer?) -> Void
     
     private static let callback: Callback = { pointer in
@@ -198,6 +201,10 @@ final class KalamBridge {
         try await call("FetchStorages")
     }
     
+    func walk(_ location: MTPBrowsePath) async throws -> KalamResponse {
+        try await call("Walk", input: location.walkJSON)
+    }
+
     func dispose() async throws -> KalamResponse {
         try await call("Dispose")
     }
@@ -208,34 +215,42 @@ final class KalamBridge {
         return loadedPath
     }
     
-    private func call(_ symbol: String) async throws -> KalamResponse {
-        try ensureLoaded()
-        
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<KalamResponse, Error>) in
-            stateLock.lock()
-            guard pendingContinuation == nil else {
-                let operation = pendingOperation ?? "unknown"
+    private func call(_ symbol: String, input: String? = nil) async throws -> KalamResponse {
+        try await withCheckedThrowingContinuation { continuation in
+            // Native Kalam functions invoke their completion callback before returning.
+            // Serialize the whole native call, including argument buffer lifetime.
+            callQueue.async { [self] in
+                stateLock.lock()
+                guard pendingContinuation == nil else {
+                    let operation = pendingOperation ?? "unknown"
+                    stateLock.unlock()
+                    continuation.resume(throwing: KalamBridgeError.busy(operation))
+                    return
+                }
+                pendingContinuation = continuation
+                pendingOperation = symbol
                 stateLock.unlock()
-                continuation.resume(throwing: KalamBridgeError.busy(operation))
-                return
-            }
-            
-            pendingContinuation = continuation
-            pendingOperation = symbol
-            stateLock.unlock()
-            
-            DebugLogger.info("Kalam call started: \(symbol)")
-            
-            do {
-                let function = try resolve(symbol)
-                let callbackAddress = unsafeBitCast(Self.callback, to: UnsafeMutableRawPointer.self)
-                function(callbackAddress)
-            } catch {
-                finish(with: error)
+                do {
+                    try ensureLoaded()
+                    guard let handle, let address = dlsym(handle, symbol) else {
+                        throw KalamBridgeError.symbolNotFound(symbol)
+                    }
+                    DebugLogger.info("Kalam call started: \(symbol)")
+                    let callbackAddress = unsafeBitCast(Self.callback, to: UnsafeMutableRawPointer.self)
+                    if let input {
+                        let function = unsafeBitCast(address, to: JSONFunction.self)
+                        input.withCString { function($0, callbackAddress) }
+                    } else {
+                        let function = unsafeBitCast(address, to: OneShotFunction.self)
+                        function(callbackAddress)
+                    }
+                } catch {
+                    finish(with: error)
+                }
             }
         }
     }
-    
+
     private func ensureLoaded() throws {
         stateLock.lock()
         if handle != nil {

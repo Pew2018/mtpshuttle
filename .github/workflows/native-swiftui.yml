@@ -34,6 +34,8 @@ jobs:
           test -f ../../build/mac/bin/arm64/libusb.dylib
           file ../../build/mac/bin/arm64/kalam.dylib
           file ../../build/mac/bin/arm64/libusb.dylib
+      - name: Check directory browsing and Kalam response mapping
+        run: swift test
       - name: Build arm64 app
         run: ./scripts/build-app.sh
       - name: Verify application bundle
@@ -55,6 +57,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenMTP-Native-MTP-ARM64
-          path: native/OpenMTPNative/dist
+          path: native/OpenMTPNative/dist/OpenMTP-arm64.zip
           if-no-files-found: error
           retention-days: 14
