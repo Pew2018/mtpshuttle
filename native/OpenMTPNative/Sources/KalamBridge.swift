@@ -142,7 +142,7 @@ enum KalamJSONValue: Decodable {
     }
 }
 
-private extension Dictionary where Key == String, Value == KalamJSONValue {
+extension Dictionary where Key == String, Value == KalamJSONValue {
     func value(forKeyIgnoringCase key: String) -> KalamJSONValue? {
         if let exact = self[key] {
             return exact
