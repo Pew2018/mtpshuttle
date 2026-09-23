@@ -70,8 +70,10 @@ enum MTPDirectory {
         }
 
         if hasMalformedNamedRecord {
+            DebugLogger.verbose("MTP parse failed: named malformed record present")
             throw KalamBridgeError.invalidResponse("Directory entry is missing required metadata")
         }
+        DebugLogger.verbose("MTP parse completed: storage=\\(storageID), validEntries=\\(parsed.count), names=\\(parsed.map(\\\\.name).joined(separator: "|"))")
 
         return parsed.sorted(by: DemoEntry.browserOrder)
     }
