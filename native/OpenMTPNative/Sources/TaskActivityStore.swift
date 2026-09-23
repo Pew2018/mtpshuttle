@@ -23,10 +23,12 @@ final class TaskActivityStore: ObservableObject {
     @Published private(set) var cancellationRequested = false
     private var completedBytes: Int64 = 0
     private var segmentSent: Int64 = 0
+    private var segmentTotal: Int64 = 0
 
     func begin(_ title: String, total: Int64) {
         completedBytes = 0
         segmentSent = 0
+        segmentTotal = 0
         cancellationRequested = false
         current = TaskRecord(title: title, step: "准备传输", total: total)
     }
@@ -36,14 +38,20 @@ final class TaskActivityStore: ObservableObject {
     func progress(name: String, sent: Int64, total: Int64) {
         guard !cancellationRequested, current != nil else { return }
         segmentSent = max(0, sent)
+        segmentTotal = max(segmentTotal, total)
         current?.step = name.isEmpty ? "正在传输" : "正在传输：\(name)"
-        if current!.total == 0 { current?.total = max(0, total) }
+        if current!.total <= 0 {
+            current?.total = completedBytes + segmentTotal
+        }
         current?.sent = min(current!.total, completedBytes + segmentSent)
     }
 
     func finishSegment() {
-        completedBytes += segmentSent
+        // A successful native call confirms its last reported byte total even
+        // when the periodic progress callback missed the final update.
+        completedBytes += max(segmentSent, segmentTotal)
         segmentSent = 0
+        segmentTotal = 0
         if let total = current?.total { current?.sent = min(total, completedBytes) }
     }
 
