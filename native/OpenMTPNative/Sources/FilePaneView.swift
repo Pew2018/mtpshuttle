@@ -152,12 +152,13 @@ struct FilePaneView: View {
                     .foregroundStyle(.tint)
                     .frame(width: 20)
 
-                ForEach(components) { component in
-                    if component.path != components.first?.path {
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
+                ForEach(components.indices, id: \.self) { index in
+                    let component = components[index]
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .opacity(index == 0 ? 0 : 1)
 
                     Button {
                         onNavigate(component.path)
@@ -167,7 +168,11 @@ struct FilePaneView: View {
                             .lineLimit(1)
                     }
                     .buttonStyle(.borderless)
-                    .foregroundStyle(component.path == path ? .primary : .tint)
+                    .foregroundStyle(
+                        component.path == path
+                            ? Color.primary
+                            : Color(nsColor: .controlAccentColor)
+                    )
                     .disabled(component.path == path)
                     .help("Open \(component.path)")
                 }
@@ -403,7 +408,7 @@ private struct FileGridItemView: View {
             Image(systemName: item.systemImage)
                 .font(.system(size: 34))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(item.isDirectory ? .tint : .secondary)
+                .foregroundStyle(item.isDirectory ? Color(nsColor: .controlAccentColor) : Color.secondary)
 
             Text(item.name)
                 .font(.subheadline.weight(.medium))
