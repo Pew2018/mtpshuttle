@@ -189,6 +189,15 @@ struct DemoEntry: Identifiable, Hashable {
     }
 }
 
+
+struct ExternalFileSnapshot: Hashable {
+    let name: String
+    let subtitle: String
+    let sizeBytes: Int?
+    let isDirectory: Bool
+    let children: [ExternalFileSnapshot]
+}
+
 struct DemoFileSystem {
     private var local: [String: [DemoEntry]]
     private var android: [String: [DemoEntry]]
@@ -325,6 +334,142 @@ struct DemoFileSystem {
         return transferred
     }
 
+    static func externalSnapshot(from url: URL) -> ExternalFileSnapshot? {
+        let fileManager = FileManager.default
+        var isDirectory = ObjCBool(false)
+
+        guard fileManager.fileExists(
+            atPath: url.path,
+            isDirectory: &isDirectory
+        ) else {
+            return nil
+        }
+
+        let isFolder = isDirectory.boolValue
+        let values = try? url.resourceValues(
+            forKeys: [
+                .localizedTypeDescriptionKey,
+                .fileSizeKey
+            ]
+        )
+
+        let subtitle = values?.localizedTypeDescription
+            ?? (isFolder ? "Folder" : "File")
+        let sizeBytes = isFolder ? nil : values?.fileSize
+
+        let children: [ExternalFileSnapshot]
+        if isFolder {
+            let childURLs = (try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [
+                    .isDirectoryKey,
+                    .fileSizeKey,
+                    .localizedTypeDescriptionKey
+                ],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+
+            children = childURLs.compactMap(Self.externalSnapshot(from:))
+        } else {
+            children = []
+        }
+
+        return ExternalFileSnapshot(
+            name: url.lastPathComponent,
+            subtitle: subtitle,
+            sizeBytes: sizeBytes,
+            isDirectory: isFolder,
+            children: children
+        )
+    }
+
+    mutating func importExternalFiles(
+        _ snapshots: [ExternalFileSnapshot],
+        at targetPath: String,
+        in targetPane: PaneKind
+    ) -> Int {
+        guard !snapshots.isEmpty else { return 0 }
+
+        var destination = entries(for: targetPane, at: targetPath)
+
+        for snapshot in snapshots {
+            let name = uniqueName(for: snapshot.name, in: destination)
+            let entry = DemoEntry(
+                name: name,
+                subtitle: snapshot.subtitle,
+                sizeBytes: snapshot.sizeBytes,
+                isDirectory: snapshot.isDirectory
+            )
+
+            destination.append(entry)
+
+            if snapshot.isDirectory {
+                let childTargetPath = Self.childPath(targetPath, name)
+                setEntries([], at: childTargetPath, in: targetPane)
+                importExternalChildren(
+                    snapshot.children,
+                    at: childTargetPath,
+                    in: targetPane
+                )
+            }
+        }
+
+        setEntries(destination, at: targetPath, in: targetPane)
+        return snapshots.count
+    }
+
+    func exportedFileURL(
+        itemIDs: [UUID],
+        at sourcePath: String,
+        in sourcePane: PaneKind
+    ) throws -> URL {
+        let selected = entries(for: sourcePane, at: sourcePath)
+            .filter { itemIDs.contains($0.id) }
+
+        guard !selected.isEmpty else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
+        let exportRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("OpenMTP-(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: exportRoot,
+            withIntermediateDirectories: true
+        )
+
+        if selected.count == 1, let item = selected.first {
+            let destination = exportRoot.appendingPathComponent(item.name)
+            try materialize(
+                item: item,
+                from: sourcePath,
+                in: sourcePane,
+                to: destination
+            )
+            return destination
+        }
+
+        let bundle = exportRoot.appendingPathComponent(
+            "OpenMTP Items",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: bundle,
+            withIntermediateDirectories: true
+        )
+
+        for item in selected {
+            let destination = bundle.appendingPathComponent(item.name)
+            try materialize(
+                item: item,
+                from: sourcePath,
+                in: sourcePane,
+                to: destination
+            )
+        }
+
+        return bundle
+    }
+
     static func childPath(_ parent: String, _ child: String) -> String {
         let normalized = parent.hasSuffix("/") ? String(parent.dropLast()) : parent
         return normalized.isEmpty ? "/\(child)/" : "\(normalized)/\(child)/"
@@ -338,6 +483,74 @@ struct DemoFileSystem {
 
         let parent = String(trimmed[..<slash])
         return parent.isEmpty ? "/" : "\(parent)/"
+    }
+
+    private mutating func importExternalChildren(
+        _ children: [ExternalFileSnapshot],
+        at path: String,
+        in pane: PaneKind
+    ) {
+        var destination = entries(for: pane, at: path)
+
+        for child in children {
+            let name = uniqueName(for: child.name, in: destination)
+            let entry = DemoEntry(
+                name: name,
+                subtitle: child.subtitle,
+                sizeBytes: child.sizeBytes,
+                isDirectory: child.isDirectory
+            )
+            destination.append(entry)
+
+            if child.isDirectory {
+                let childPath = Self.childPath(path, name)
+                setEntries([], at: childPath, in: pane)
+                importExternalChildren(
+                    child.children,
+                    at: childPath,
+                    in: pane
+                )
+            }
+        }
+
+        setEntries(destination, at: path, in: pane)
+    }
+
+    private func materialize(
+        item: DemoEntry,
+        from sourcePath: String,
+        in sourcePane: PaneKind,
+        to destination: URL
+    ) throws {
+        let fileManager = FileManager.default
+
+        if item.isDirectory {
+            try fileManager.createDirectory(
+                at: destination,
+                withIntermediateDirectories: true
+            )
+
+            let childSourcePath = Self.childPath(sourcePath, item.name)
+            for child in entries(for: sourcePane, at: childSourcePath) {
+                try materialize(
+                    item: child,
+                    from: childSourcePath,
+                    in: sourcePane,
+                    to: destination.appendingPathComponent(child.name)
+                )
+            }
+            return
+        }
+
+        let contents = """
+        OpenMTP demo export
+
+        Name: (item.name)
+        Type: (item.subtitle)
+        Simulated size: (item.sizeLabel ?? "unknown")
+        """
+
+        try Data(contents.utf8).write(to: destination, options: .atomic)
     }
 
     private mutating func append(_ entry: DemoEntry, to path: String, in pane: PaneKind) {
