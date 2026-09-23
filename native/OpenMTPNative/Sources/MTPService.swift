@@ -1,0 +1,174 @@
+import Combine
+import Foundation
+
+enum MTPConnectionState: Equatable {
+    case disconnected
+    case connecting
+    case connected
+    case failed(String)
+    
+    var label: String {
+        switch self {
+        case .disconnected:
+            return "Not connected"
+        case .connecting:
+            return "Connecting…"
+        case .connected:
+            return "Connected"
+        case .failed:
+            return "Connection failed"
+        }
+    }
+}
+
+@MainActor
+final class MTPService: ObservableObject {
+    @Published private(set) var state: MTPConnectionState = .disconnected
+    @Published private(set) var device: MTPDeviceSummary?
+    @Published private(set) var storages: [MTPStorageSummary] = []
+    
+    var isConnected: Bool {
+        if case .connected = state {
+            return true
+        }
+        return false
+    }
+    
+    var deviceTitle: String {
+        device?.displayName ?? "Android Device"
+    }
+    
+    var deviceSubtitle: String {
+        switch state {
+        case .connected:
+            if let device {
+                return "MTP · \(device.detail)"
+            }
+            return "MTP · Connected"
+        case .connecting:
+            return "MTP · Connecting…"
+        case .failed(let message):
+            return "MTP · \(message)"
+        case .disconnected:
+            return "MTP · Not connected"
+        }
+    }
+    
+    var statusText: String {
+        switch state {
+        case .connected:
+            return "\(deviceTitle) · \(storages.count) storage(s)"
+        case .connecting:
+            return "Connecting to Android device…"
+        case .failed(let message):
+            return message
+        case .disconnected:
+            return "Connect an Android device in MTP mode"
+        }
+    }
+    
+    var storageEntries: [DemoEntry] {
+        storages.map(\.demoEntry)
+    }
+    
+    func connect() async {
+        guard state != .connecting else { return }
+        
+        state = .connecting
+        device = nil
+        storages = []
+        DebugLogger.info("Starting MTP connection")
+        
+        do {
+            let initialize = try await KalamBridge.shared.initialize()
+            guard initialize.isSuccess else {
+                throw MTPServiceError.backend(
+                    type: initialize.errorType ?? "Unknown",
+                    message: initialize.errorMessage ?? "Kalam initialization failed"
+                )
+            }
+            
+            let summary = MTPDeviceSummary.from(initialize)
+            device = summary
+            DebugLogger.info(
+                "MTP device detected: \(summary.displayName), \(summary.detail)"
+            )
+            
+            let storageResponse = try await KalamBridge.shared.fetchStorages()
+            guard storageResponse.isSuccess else {
+                throw MTPServiceError.backend(
+                    type: storageResponse.errorType ?? "Unknown",
+                    message: storageResponse.errorMessage ?? "Unable to fetch MTP storages"
+                )
+            }
+            
+            storages = MTPStorageSummary.fromArray(storageResponse.data)
+            if storages.isEmpty {
+                throw MTPServiceError.noStorages
+            }
+            
+            state = .connected
+            DebugLogger.info("MTP connection ready; storages=\(storages.count)")
+        } catch {
+            state = .failed(error.localizedDescription)
+            DebugLogger.error("MTP connection failed: \(error.localizedDescription)")
+        }
+    }
+    
+    func refresh() async {
+        guard state != .connecting else { return }
+        
+        if !isConnected {
+            await connect()
+            return
+        }
+        
+        DebugLogger.info("Refreshing MTP storages")
+        
+        do {
+            let response = try await KalamBridge.shared.fetchStorages()
+            guard response.isSuccess else {
+                throw MTPServiceError.backend(
+                    type: response.errorType ?? "Unknown",
+                    message: response.errorMessage ?? "Unable to refresh MTP storages"
+                )
+            }
+            
+            let updated = MTPStorageSummary.fromArray(response.data)
+            storages = updated
+            DebugLogger.info("MTP storages refreshed; count=\(updated.count)")
+        } catch {
+            state = .failed(error.localizedDescription)
+            DebugLogger.error("MTP storage refresh failed: \(error.localizedDescription)")
+        }
+    }
+    
+    func disconnect() async {
+        guard isConnected else { return }
+        
+        do {
+            _ = try await KalamBridge.shared.dispose()
+            DebugLogger.info("MTP disposed")
+        } catch {
+            DebugLogger.error("MTP dispose failed: \(error.localizedDescription)")
+        }
+        
+        state = .disconnected
+        device = nil
+        storages = []
+    }
+}
+
+enum MTPServiceError: LocalizedError {
+    case backend(type: String, message: String)
+    case noStorages
+    
+    var errorDescription: String? {
+        switch self {
+        case .backend(let type, let message):
+            return "\(type): \(message)"
+        case .noStorages:
+            return "Kalam connected to the device but returned no storage volumes."
+        }
+    }
+}
