@@ -4,8 +4,20 @@ struct SettingsView: View {
     @AppStorage("dragDropMode")
     private var dragDropMode = DragDropMode.copy.rawValue
 
+    @AppStorage("androidOnlyMode")
+    private var androidOnlyMode = false
+
     var body: some View {
         Form {
+            Section("Workspace") {
+                Toggle("Show only Android Device", isOn: $androidOnlyMode)
+
+                Text("Hide the This Mac pane and use the window as a single-pane Android file browser.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Drag & Drop") {
                 Picker(
                     "When dragging items between panes",
@@ -25,7 +37,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 520, height: 220)
+        .frame(width: 520, height: 320)
     }
 }
 
