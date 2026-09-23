@@ -38,7 +38,7 @@ struct ContentView: View {
         DragDropMode(rawValue: dragDropMode) ?? .copy
     }
 
-    var body: some View {
+    private var workspaceView: some View {
         WorkspaceView(
             fileSystem: $fileSystem,
             leftPane: $leftPane,
@@ -61,6 +61,10 @@ struct ContentView: View {
             mtpService: mtpService,
             localBrowser: localBrowser
         )
+    }
+
+    var body: some View {
+        workspaceView
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
