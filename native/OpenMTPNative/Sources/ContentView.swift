@@ -236,9 +236,9 @@ struct ContentView: View {
             copy: copySelection,
             cut: cutSelection,
             paste: pasteSelection,
+            selectAll: selectAllCurrentDirectory,
             canCopy: !activePaneSelection.isEmpty,
             canPaste: clipboard != nil,
-            selectAll: selectAllCurrentDirectory,
             canSelectAll: !activePaneEntries.isEmpty
         )
     }
