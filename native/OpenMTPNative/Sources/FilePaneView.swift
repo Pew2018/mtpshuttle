@@ -408,6 +408,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSDraggingDestination {
         var parent: OpenMTPExternalDropReceiver
+        private var activeDragSession = false
 
         init(_ parent: OpenMTPExternalDropReceiver) {
             self.parent = parent
@@ -490,17 +491,20 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             OpenMTPDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
 
             if isInternalDrag(draggingInfo) {
+                activeDragSession = true
                 parent.isTargeted = true
                 OpenMTPDNDLogger.log("AppKit draggingEntered INTERNAL accepted")
                 return .copy
             }
 
             guard acceptsFinderFiles(draggingInfo) else {
+                activeDragSession = false
                 parent.isTargeted = false
                 OpenMTPDNDLogger.log("AppKit draggingEntered rejected")
                 return []
             }
 
+            activeDragSession = true
             parent.isTargeted = true
             OpenMTPDNDLogger.log("AppKit draggingEntered FINDER accepted")
             return .copy
@@ -508,20 +512,24 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
         func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
             if isInternalDrag(draggingInfo) {
+                activeDragSession = true
                 parent.isTargeted = true
                 return .copy
             }
 
             guard acceptsFinderFiles(draggingInfo) else {
+                activeDragSession = false
                 parent.isTargeted = false
                 return []
             }
 
+            activeDragSession = true
             parent.isTargeted = true
             return .copy
         }
 
         func draggingExited(_ draggingInfo: NSDraggingInfo?) {
+            activeDragSession = false
             parent.isTargeted = false
             OpenMTPDNDLogger.log("AppKit draggingExited")
         }
@@ -534,6 +542,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
         func performDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
             defer {
+                activeDragSession = false
                 parent.isTargeted = false
             }
 
@@ -584,14 +593,9 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             }
 
             switch event.type {
-            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
-                return self
-
-            case .leftMouseUp, .rightMouseUp, .otherMouseUp:
-                if coordinator?.parent.isTargeted == true {
-                    return self
-                }
-                return nil
+            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+                 .leftMouseUp, .rightMouseUp, .otherMouseUp:
+                return coordinator?.activeDragSession == true ? self : nil
 
             case .leftMouseDown, .rightMouseDown, .otherMouseDown:
                 return nil
