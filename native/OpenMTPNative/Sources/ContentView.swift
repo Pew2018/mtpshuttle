@@ -250,10 +250,10 @@ struct ContentView: View {
         }
 
         if let internalProvider = providers.first(where: {
-            $0.hasItemConformingToTypeIdentifier(UTType.utf8PlainText.identifier)
+            $0.hasItemConformingToTypeIdentifier(OpenMTPDragType.payload.identifier)
         }) {
             internalProvider.loadDataRepresentation(
-                forTypeIdentifier: UTType.utf8PlainText.identifier
+                forTypeIdentifier: OpenMTPDragType.payload.identifier
             ) { data, _ in
                 let encoded = data.flatMap { String(data: $0, encoding: .utf8) }
 
@@ -261,7 +261,7 @@ struct ContentView: View {
                     if let encoded, let payload = DemoDragPayload.decode(encoded) {
                         receiveDrop(payload, targetPane: targetPane)
                     } else {
-                        handleExternalFileDrop(providers, targetPane: targetPane)
+                        statusMessage = "Invalid OpenMTP drag payload"
                     }
                 }
             }
@@ -401,7 +401,7 @@ struct ContentView: View {
 
         if let encoded = payload.encoded {
             provider.registerDataRepresentation(
-                forTypeIdentifier: UTType.utf8PlainText.identifier,
+                forTypeIdentifier: OpenMTPDragType.payload.identifier,
                 visibility: .all
             ) { completionHandler in
                 completionHandler(Data(encoded.utf8), nil)
