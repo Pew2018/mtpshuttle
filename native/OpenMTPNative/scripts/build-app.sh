@@ -10,11 +10,12 @@ mkdir -p dist/SwiftMTP.app/Contents/Resources/Kalam/seg5
 
 test "`uname -m`" = "arm64"
 
+BIN_DIR="`swift build -c release --show-bin-path`"
 swift build -c release
-BIN="`swift build -c release --show-bin-path`/SwiftMTP"
-test -x "`swift build -c release --show-bin-path`/SwiftMTP"
+BIN="$BIN_DIR/SwiftMTP"
+test -x "$BIN"
 
-cp "`swift build -c release --show-bin-path`/SwiftMTP" dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
+cp "$BIN" dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
 cp Info.plist dist/SwiftMTP.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER:-1}" dist/SwiftMTP.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Add :SwiftMTPGitCommit string $(git rev-parse HEAD)" dist/SwiftMTP.app/Contents/Info.plist
