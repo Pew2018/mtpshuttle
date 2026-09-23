@@ -160,15 +160,7 @@ struct ContentView: View {
         }
         .focusedSceneValue(
             \.openMTPEditActions,
-            OpenMTPEditActions(
-                copy: copySelection,
-                cut: cutSelection,
-                paste: pasteSelection,
-                canCopy: !activePaneSelection.isEmpty,
-                canPaste: clipboard != nil,
-                selectAll: selectAllCurrentDirectory,
-                canSelectAll: !activePaneEntries.isEmpty
-            )
+            editActions
         )
         .task {
             DebugLogger.startSession()
@@ -237,6 +229,18 @@ struct ContentView: View {
 
     private func pasteSelection() {
         paste(activePane)
+    }
+
+    private var editActions: OpenMTPEditActions {
+        OpenMTPEditActions(
+            copy: copySelection,
+            cut: cutSelection,
+            paste: pasteSelection,
+            canCopy: !activePaneSelection.isEmpty,
+            canPaste: clipboard != nil,
+            selectAll: selectAllCurrentDirectory,
+            canSelectAll: !activePaneEntries.isEmpty
+        )
     }
 
     private var activePaneEntries: [DemoEntry] {
