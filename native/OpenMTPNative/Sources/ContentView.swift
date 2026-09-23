@@ -677,6 +677,37 @@ struct ContentView: View {
         }
     }
 
+    private func uploadLocalFolderContents(
+        _ folderURL: URL,
+        remotePath: String,
+        storageID: UInt32
+    ) async throws {
+        let children = try FileManager.default.contentsOfDirectory(
+            at: folderURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+
+        for child in children {
+            let values = try child.resourceValues(forKeys: [.isDirectoryKey])
+            if values.isDirectory == true {
+                let remoteFolder = remotePath + "/" + child.lastPathComponent
+                try await mtpService.makeDirectory(path: remoteFolder, storageID: storageID)
+                try await uploadLocalFolderContents(
+                    child,
+                    remotePath: remoteFolder,
+                    storageID: storageID
+                )
+            } else {
+                try await mtpService.upload(
+                    sources: [child.path],
+                    destination: remotePath,
+                    storageID: storageID
+                )
+            }
+        }
+    }
+
     private func performTransfer(sources: [DemoEntry], sourcePane: PaneKind, sourcePath: String,
                                  targetPane: PaneKind, targetPath: String, mode: ClipboardMode,
                                  resolution: TransferConflictResolution?) async throws {
@@ -710,22 +741,47 @@ struct ContentView: View {
         if sourcePane == .mac && targetPane == .android {
             guard let storage = MTPBrowsePath(browserPath: targetPath) else { throw KalamBridgeError.invalidResponse("Invalid Android destination") }
             let conflictingRemote = destinationEntries.filter { conflictNames.contains($0.name) }.compactMap(\.remotePath)
-            if resolution == .overwrite && !conflictingRemote.isEmpty { try await mtpService.delete(files: conflictingRemote, storageID: storage.storageID) }
-            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftMTP-(UUID().uuidString)", isDirectory: true)
-            var uploadPaths = sources.compactMap(\.localURL).map(\.path)
+            if resolution == .overwrite && !conflictingRemote.isEmpty {
+                try await mtpService.delete(files: conflictingRemote, storageID: storage.storageID)
+            }
+
+            // Kalam can time out when a renamed local folder is handed to its
+            // recursive uploader. Materialize renamed folders on the device
+            // first, then upload their contents into the new remote path.
             if resolution == .rename {
-                try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
-                uploadPaths = []
                 for (index, item) in sources.enumerated() {
                     guard let url = item.localURL else { continue }
-                    let copy = temporary.appendingPathComponent(targetNames[index])
-                    try FileManager.default.copyItem(at: url, to: copy)
-                    uploadPaths.append(copy.path)
+                    let remoteName = targetNames[index]
+                    if item.isDirectory {
+                        let remoteFolder = storage.fullPath + "/" + remoteName
+                        try await mtpService.makeDirectory(path: remoteFolder, storageID: storage.storageID)
+                        try await uploadLocalFolderContents(
+                            url,
+                            remotePath: remoteFolder,
+                            storageID: storage.storageID
+                        )
+                    } else {
+                        try await mtpService.upload(
+                            sources: [url.path],
+                            destination: storage.fullPath,
+                            storageID: storage.storageID
+                        )
+                    }
+                }
+            } else {
+                let uploadPaths = sources.compactMap(\.localURL).map(\.path)
+                try await mtpService.upload(
+                    sources: uploadPaths,
+                    destination: storage.fullPath,
+                    storageID: storage.storageID
+                )
+            }
+
+            if mode == .move {
+                for item in sources {
+                    if let url = item.localURL { try FileManager.default.removeItem(at: url) }
                 }
             }
-            defer { try? FileManager.default.removeItem(at: temporary) }
-            try await mtpService.upload(sources: uploadPaths, destination: storage.fullPath, storageID: storage.storageID)
-            if mode == .move { for item in sources { if let url = item.localURL { try FileManager.default.removeItem(at: url) } } }
             return
         }
         guard sourcePane == .android && targetPane == .mac,
