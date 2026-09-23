@@ -121,21 +121,16 @@ struct ContentView: View {
         ) { _ in
             presentQuickLook()
         }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .openMTPCopy)
-        ) { _ in
-            copySelection()
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .openMTPCut)
-        ) { _ in
-            cutSelection()
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .openMTPPaste)
-        ) { _ in
-            pasteSelection()
-        }
+        .focusedValue(
+            \.openMTPEditActions,
+            OpenMTPEditActions(
+                copy: copySelection,
+                cut: cutSelection,
+                paste: pasteSelection,
+                canCopy: !activePaneSelection.isEmpty,
+                canPaste: clipboard != nil
+            )
+        )
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
                 activePane = .mac
