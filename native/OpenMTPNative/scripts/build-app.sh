@@ -4,7 +4,7 @@ set -euo pipefail
 cd "`git rev-parse --show-toplevel`/native/OpenMTPNative"
 
 rm -rf dist
-APP=""$APP""
+APP="dist/MTP Shuttle.app"
 mkdir -p "$APP"/Contents/MacOS
 mkdir -p "$APP"/Contents/Resources/Kalam/standard
 mkdir -p "$APP"/Contents/Resources/Kalam/seg5
