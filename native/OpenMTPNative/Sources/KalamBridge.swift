@@ -234,6 +234,11 @@ final class KalamBridge {
         return try await call("DeleteFile", input: String(decoding: data, as: UTF8.self))
     }
 
+    func makeDirectory(storageID: UInt32, path: String) async throws -> KalamResponse {
+        let data = try JSONSerialization.data(withJSONObject: ["storageId": storageID, "fullPath": path])
+        return try await call("MakeDirectory", input: String(decoding: data, as: UTF8.self))
+    }
+
     func dispose() async throws -> KalamResponse {
         try await call("Dispose")
     }

@@ -242,6 +242,16 @@ final class MTPService: ObservableObject {
                                           message: response.errorMessage ?? "Unable to delete files")
         }
     }
+
+    func makeDirectory(path: String, storageID: UInt32) async throws {
+        let response = try await performNativeCall {
+            try await KalamBridge.shared.makeDirectory(storageID: storageID, path: path)
+        }
+        guard response.isSuccess else {
+            throw MTPServiceError.backend(type: response.errorType ?? "Create folder failed",
+                                          message: response.errorMessage ?? "Unable to create folder")
+        }
+    }
 }
 
 enum MTPServiceError: LocalizedError {

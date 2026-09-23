@@ -119,6 +119,23 @@ struct ClipboardPayload: Hashable {
     let mode: ClipboardMode
 }
 
+enum TransferConflictResolution: String, Hashable {
+    case overwrite
+    case rename
+}
+
+struct TransferConflictRequest: Identifiable, Hashable {
+    let id = UUID()
+    let itemIDs: [UUID]
+    let sourcePane: PaneKind
+    let sourcePath: String
+    let targetPane: PaneKind
+    let targetPath: String
+    let mode: ClipboardMode
+    let clearClipboardAfterMove: Bool
+    let conflictNames: [String]
+}
+
 enum OpenMTPDragType {
     static let payload = UTType(exportedAs: "com.pew2018.openmtp.internal-drag-payload")
 }

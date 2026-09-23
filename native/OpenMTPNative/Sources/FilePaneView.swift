@@ -316,6 +316,10 @@ struct FilePaneView: View {
 
     @ViewBuilder
     private func itemContextMenu(for item: DemoEntry) -> some View {
+        Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
+
+        Divider()
+
         Button("Properties") {
             onAction(.properties, item)
         }

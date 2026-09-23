@@ -11,6 +11,9 @@ struct ContentView: View {
     @State private var clipboard: ClipboardPayload?
     @State private var pendingDrop: PendingDrop?
     @State private var pendingFolderDrop: FolderDropRequest?
+    @State private var pendingConflict: TransferConflictRequest?
+    @State private var newFolderPane: PaneKind?
+    @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
     @State private var statusMessage = "Ready"
@@ -85,6 +88,35 @@ struct ContentView: View {
             )
         }
         .confirmationDialog(
+            transferConflictTitle,
+            isPresented: Binding(
+                get: { pendingConflict != nil },
+                set: { if !$0 { pendingConflict = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("覆盖已有文件") { resolveConflict(.overwrite) }
+            Button("全部重命名（添加 .1、.2…）") { resolveConflict(.rename) }
+            Button("取消", role: .cancel) { pendingConflict = nil }
+        } message: {
+            Text(transferConflictMessage)
+        }
+        .alert(
+            "新建文件夹",
+            isPresented: Binding(
+                get: { newFolderPane != nil },
+                set: { if !$0 { newFolderPane = nil } }
+            )
+        ) {
+            TextField("文件夹名称", text: $newFolderName)
+            Button("取消", role: .cancel) {}
+            Button("创建") { commitNewFolder() }
+                .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } message: {
+            Text("将在当前目录创建文件夹")
+        }
+
+        .confirmationDialog(
             pendingDropTitle,
             isPresented: Binding(
                 get: { pendingDrop != nil },
@@ -157,6 +189,16 @@ struct ContentView: View {
                 activePane = .android
             }
         }
+    }
+
+    private var transferConflictTitle: String {
+        let count = pendingConflict?.conflictNames.count ?? 0
+        return count == 1 ? "发现同名项目" : "发现 (count) 个同名项目"
+    }
+
+    private var transferConflictMessage: String {
+        guard let pendingConflict else { return "" }
+        return "(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 (pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
     }
 
     private var pendingDropTitle: String {
@@ -495,7 +537,32 @@ struct ContentView: View {
     }
 
     private func createFolder(_ pane: PaneKind) {
-        statusMessage = "New folders are not available yet"
+        newFolderPane = pane
+        newFolderName = "New Folder"
+    }
+
+    private func commitNewFolder() {
+        guard let pane = newFolderPane else { return }
+        let name = newFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        newFolderPane = nil
+        let path = paneState(for: pane).path
+        Task { @MainActor in
+            do {
+                if pane == .mac {
+                    let destination = URL(fileURLWithPath: path, isDirectory: true).appendingPathComponent(name, isDirectory: true)
+                    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+                    await localBrowser.load(path: path)
+                } else if let location = MTPBrowsePath(browserPath: path) {
+                    let base = location.fullPath.hasSuffix("/") ? location.fullPath : location.fullPath + "/"
+                    try await mtpService.makeDirectory(path: base + name + "/", storageID: location.storageID)
+                    await mtpService.browse(path: path)
+                }
+                statusMessage = "Created folder (name)"
+            } catch {
+                statusMessage = error.localizedDescription
+            }
+        }
     }
 
     private func deleteItems(_ ids: [UUID], pane: PaneKind) {
@@ -540,15 +607,47 @@ struct ContentView: View {
     ) {
         let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
         guard !sources.isEmpty else { statusMessage = "No items selected"; return }
+        let existing = Set(entries(for: targetPane, path: targetPath).map(\.name))
+        let conflicts = sources.map(\.name).filter { existing.contains($0) }
+        if !conflicts.isEmpty {
+            pendingConflict = TransferConflictRequest(
+                itemIDs: itemIDs, sourcePane: sourcePane, sourcePath: sourcePath,
+                targetPane: targetPane, targetPath: targetPath, mode: mode,
+                clearClipboardAfterMove: clearClipboardAfterMove,
+                conflictNames: Array(NSOrderedSet(array: conflicts)) as? [String] ?? conflicts
+            )
+            return
+        }
+        beginTransfer(itemIDs: itemIDs, sourcePane: sourcePane, sourcePath: sourcePath,
+                      targetPane: targetPane, targetPath: targetPath, mode: mode,
+                      clearClipboardAfterMove: clearClipboardAfterMove, resolution: nil)
+    }
+
+    private func resolveConflict(_ resolution: TransferConflictResolution) {
+        guard let request = pendingConflict else { return }
+        pendingConflict = nil
+        beginTransfer(itemIDs: request.itemIDs, sourcePane: request.sourcePane, sourcePath: request.sourcePath,
+                      targetPane: request.targetPane, targetPath: request.targetPath, mode: request.mode,
+                      clearClipboardAfterMove: request.clearClipboardAfterMove, resolution: resolution)
+    }
+
+    private func beginTransfer(
+        itemIDs: [UUID], sourcePane: PaneKind, sourcePath: String,
+        targetPane: PaneKind, targetPath: String, mode: ClipboardMode,
+        clearClipboardAfterMove: Bool, resolution: TransferConflictResolution?
+    ) {
+        let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
+        guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
-            operation = DemoOperation(title: noun, detail: "\(sources.count) item(s)", progress: 0.15)
+            operation = DemoOperation(title: noun, detail: "(sources.count) item(s)", progress: 0.15)
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
-                                          targetPane: targetPane, targetPath: targetPath, mode: mode)
+                                          targetPane: targetPane, targetPath: targetPath, mode: mode,
+                                          resolution: resolution)
                 clearSelection(for: sourcePane)
                 if clearClipboardAfterMove { clipboard = nil }
-                statusMessage = "\(sources.count) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
+                statusMessage = "(sources.count) item(s) (mode == .copy ? "copied" : "moved") to (targetPane.title)"
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
             } catch {
@@ -579,12 +678,30 @@ struct ContentView: View {
     }
 
     private func performTransfer(sources: [DemoEntry], sourcePane: PaneKind, sourcePath: String,
-                                 targetPane: PaneKind, targetPath: String, mode: ClipboardMode) async throws {
+                                 targetPane: PaneKind, targetPath: String, mode: ClipboardMode,
+                                 resolution: TransferConflictResolution?) async throws {
+        let destinationEntries = entries(for: targetPane, path: targetPath)
+        var reserved = Set(destinationEntries.map(\.name))
+        var targetNames: [String] = []
+        for item in sources {
+            if resolution == .rename && reserved.contains(item.name) {
+                var index = 1
+                var candidate = "(item.name).(index)"
+                while reserved.contains(candidate) { index += 1; candidate = "(item.name).(index)" }
+                targetNames.append(candidate)
+                reserved.insert(candidate)
+            } else {
+                targetNames.append(item.name)
+                reserved.insert(item.name)
+            }
+        }
+        let conflictNames = Set(sources.map(\.name).filter { destinationEntries.contains(where: { $0.name == $0 }) })
         if sourcePane == .mac && targetPane == .mac {
             let destination = URL(fileURLWithPath: targetPath, isDirectory: true)
-            for item in sources {
+            for (index, item) in sources.enumerated() {
                 guard let url = item.localURL else { continue }
-                let target = destination.appendingPathComponent(item.name)
+                let target = destination.appendingPathComponent(targetNames[index])
+                if resolution == .overwrite && FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
                 if mode == .move { try FileManager.default.moveItem(at: url, to: target) }
                 else { try FileManager.default.copyItem(at: url, to: target) }
             }
@@ -592,17 +709,48 @@ struct ContentView: View {
         }
         if sourcePane == .mac && targetPane == .android {
             guard let storage = MTPBrowsePath(browserPath: targetPath) else { throw KalamBridgeError.invalidResponse("Invalid Android destination") }
-            try await mtpService.upload(sources: sources.compactMap(\.localURL).map(\.path), destination: storage.fullPath, storageID: storage.storageID)
+            let conflictingRemote = destinationEntries.filter { conflictNames.contains($0.name) }.compactMap(\.remotePath)
+            if resolution == .overwrite && !conflictingRemote.isEmpty { try await mtpService.delete(files: conflictingRemote, storageID: storage.storageID) }
+            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftMTP-(UUID().uuidString)", isDirectory: true)
+            var uploadPaths = sources.compactMap(\.localURL).map(\.path)
+            if resolution == .rename {
+                try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+                uploadPaths = []
+                for (index, item) in sources.enumerated() {
+                    guard let url = item.localURL else { continue }
+                    let copy = temporary.appendingPathComponent(targetNames[index])
+                    try FileManager.default.copyItem(at: url, to: copy)
+                    uploadPaths.append(copy.path)
+                }
+            }
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try await mtpService.upload(sources: uploadPaths, destination: storage.fullPath, storageID: storage.storageID)
             if mode == .move { for item in sources { if let url = item.localURL { try FileManager.default.removeItem(at: url) } } }
             return
         }
         guard sourcePane == .android && targetPane == .mac,
               let storage = MTPBrowsePath(browserPath: sourcePath) else { throw KalamBridgeError.invalidResponse("Invalid MTP source") }
         let remoteSources = sources.compactMap(\.remotePath)
-        try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
-        if mode == .move {
-            try await mtpService.delete(files: remoteSources, storageID: storage.storageID)
+        let destination = URL(fileURLWithPath: targetPath, isDirectory: true)
+        if resolution == .overwrite {
+            for name in conflictNames {
+                let target = destination.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
+            }
         }
+        if resolution == .rename {
+            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftMTP-(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try await mtpService.download(sources: remoteSources, destination: temporary.path, storageID: storage.storageID)
+            for (index, item) in sources.enumerated() {
+                try FileManager.default.moveItem(at: temporary.appendingPathComponent(item.name),
+                                                 to: destination.appendingPathComponent(targetNames[index]))
+            }
+        } else {
+            try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
+        }
+        if mode == .move { try await mtpService.delete(files: remoteSources, storageID: storage.storageID) }
     }
 
     private func runOperation(title: String, count: Int, mutation: @escaping () -> Void) {
