@@ -289,6 +289,32 @@ struct ContentView: View {
         }
     }
 
+    private func receiveExternalFileDrop(
+        _ snapshots: [ExternalFileSnapshot],
+        targetPane: PaneKind
+    ) {
+        guard operation == nil else { return }
+
+        guard targetPane == .android else {
+            statusMessage = "Finder items can be dropped into Android Device"
+            return
+        }
+
+        let targetPath = rightPane.path
+        runOperation(title: "Copying", count: snapshots.count) {
+            let imported = fileSystem.importExternalFiles(
+                snapshots,
+                at: targetPath,
+                in: .android
+            )
+
+            rightPane.selection.removeAll()
+            statusMessage = imported == 0
+                ? "No files copied"
+                : "(imported) item(s) copied from Finder"
+        }
+    }
+
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
         guard operation == nil else { return }
         guard payload.sourcePane != targetPane else {
