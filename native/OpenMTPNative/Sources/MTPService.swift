@@ -71,6 +71,14 @@ final class MTPService: ObservableObject {
         storages.map { $0.demoEntry() }
     }
     
+    private func performNativeCall<T: Sendable>(
+        _ operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await Task.detached(priority: .userInitiated) {
+            try await operation()
+        }.value
+    }
+    
     func connect() async {
         guard state != .connecting else { return }
         
@@ -80,7 +88,9 @@ final class MTPService: ObservableObject {
         DebugLogger.info("Starting MTP connection")
         
         do {
-            let initialize = try await KalamBridge.shared.initialize()
+            let initialize = try await performNativeCall {
+                try await KalamBridge.shared.initialize()
+            }
             guard initialize.isSuccess else {
                 throw MTPServiceError.backend(
                     type: initialize.errorType ?? "Unknown",
@@ -94,7 +104,9 @@ final class MTPService: ObservableObject {
                 "MTP device detected: \(summary.displayName), \(summary.detail)"
             )
             
-            let storageResponse = try await KalamBridge.shared.fetchStorages()
+            let storageResponse = try await performNativeCall {
+                try await KalamBridge.shared.fetchStorages()
+            }
             guard storageResponse.isSuccess else {
                 throw MTPServiceError.backend(
                     type: storageResponse.errorType ?? "Unknown",
@@ -126,7 +138,9 @@ final class MTPService: ObservableObject {
         DebugLogger.info("Refreshing MTP storages")
         
         do {
-            let response = try await KalamBridge.shared.fetchStorages()
+            let response = try await performNativeCall {
+                try await KalamBridge.shared.fetchStorages()
+            }
             guard response.isSuccess else {
                 throw MTPServiceError.backend(
                     type: response.errorType ?? "Unknown",
@@ -147,7 +161,9 @@ final class MTPService: ObservableObject {
         guard isConnected else { return }
         
         do {
-            _ = try await KalamBridge.shared.dispose()
+            _ = try await performNativeCall {
+                try await KalamBridge.shared.dispose()
+            }
             DebugLogger.info("MTP disposed")
         } catch {
             DebugLogger.error("MTP dispose failed: \(error.localizedDescription)")
