@@ -1056,8 +1056,8 @@ private struct WorkspaceView: View {
                 onInternalDrop(encoded, .mac)
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
-            onDragProvider: { item in
-                onExternalDragProvider(.mac, leftPane.path, item, leftPane.selection)
+            onDragProvider: { item, selectedIDs in
+                onExternalDragProvider(.mac, leftPane.path, item, selectedIDs)
             }
         )
     }
@@ -1091,8 +1091,8 @@ private struct WorkspaceView: View {
                 onInternalDrop(encoded, .android)
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
-            onDragProvider: { item in
-                onExternalDragProvider(.android, rightPane.path, item, rightPane.selection)
+            onDragProvider: { item, selectedIDs in
+                onExternalDragProvider(.android, rightPane.path, item, selectedIDs)
             }
         )
     }
