@@ -152,8 +152,8 @@ struct FilePaneView: View {
                     .foregroundStyle(.tint)
                     .frame(width: 20)
 
-                ForEach(Array(components.enumerated()), id: \.element.id) { index, component in
-                    if index > 0 {
+                ForEach(components) { component in
+                    if component.path != components.first?.path {
                         Image(systemName: "chevron.right")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.tertiary)
@@ -351,9 +351,9 @@ struct FilePaneView: View {
     private var deviceColor: Color {
         switch pane {
         case .mac:
-            return .tint
+            return Color(nsColor: .controlAccentColor)
         case .android:
-            return .secondary
+            return Color.secondary
         }
     }
 }
@@ -366,7 +366,7 @@ private struct FileRowView: View {
             Image(systemName: item.systemImage)
                 .font(.title3)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(item.isDirectory ? .tint : .secondary)
+                .foregroundStyle(item.isDirectory ? Color(nsColor: .controlAccentColor) : Color.secondary)
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 2) {
