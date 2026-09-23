@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UniformTypeIdentifiers
 
 enum PaneKind: String, CaseIterable, Codable, Hashable {
@@ -89,6 +90,26 @@ enum PaneAction: Hashable {
 enum ClipboardMode: String, Hashable {
     case copy
     case move
+}
+
+
+struct OpenMTPEditActions {
+    let copy: () -> Void
+    let cut: () -> Void
+    let paste: () -> Void
+    let canCopy: Bool
+    let canPaste: Bool
+}
+
+private struct OpenMTPEditActionsKey: FocusedValueKey {
+    typealias Value = OpenMTPEditActions
+}
+
+extension FocusedValues {
+    var openMTPEditActions: OpenMTPEditActions? {
+        get { self[OpenMTPEditActionsKey.self] }
+        set { self[OpenMTPEditActionsKey.self] = newValue }
+    }
 }
 
 struct ClipboardPayload: Hashable {
