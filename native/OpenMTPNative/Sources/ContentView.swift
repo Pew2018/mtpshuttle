@@ -31,7 +31,6 @@ struct ContentView: View {
             onOpen: open,
             onBack: goBack,
             onForward: goForward,
-            onUp: goUp,
             onRefresh: refresh,
             onNavigate: navigateTo,
             onAction: performAction,
@@ -150,29 +149,6 @@ struct ContentView: View {
         }
 
         statusMessage = "\(pane.title) went forward"
-    }
-
-    private func goUp(_ pane: PaneKind) {
-        let currentPath: String
-
-        switch pane {
-        case .mac:
-            currentPath = leftPane.path
-        case .android:
-            currentPath = rightPane.path
-        }
-
-        let parent = DemoFileSystem.parentPath(currentPath)
-        guard parent != currentPath else { return }
-
-        switch pane {
-        case .mac:
-            navigate(state: &leftPane, to: parent)
-        case .android:
-            navigate(state: &rightPane, to: parent)
-        }
-
-        statusMessage = "\(pane.title) opened parent folder"
     }
 
     private func navigateTo(_ pane: PaneKind, _ path: String) {
@@ -485,7 +461,6 @@ private struct WorkspaceView: View {
     let onOpen: (PaneKind, DemoEntry) -> Void
     let onBack: (PaneKind) -> Void
     let onForward: (PaneKind) -> Void
-    let onUp: (PaneKind) -> Void
     let onRefresh: (PaneKind) -> Void
     let onNavigate: (PaneKind, String) -> Void
     let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
@@ -503,11 +478,9 @@ private struct WorkspaceView: View {
                     selection: $leftPane.selection,
                     canGoBack: !leftPane.back.isEmpty,
                     canGoForward: !leftPane.forward.isEmpty,
-                    canGoUp: DemoFileSystem.parentPath(leftPane.path) != leftPane.path,
                     canPaste: clipboard != nil,
                     onBack: { onBack(.mac) },
                     onForward: { onForward(.mac) },
-                    onUp: { onUp(.mac) },
                     onRefresh: { onRefresh(.mac) },
                     onNavigate: { onNavigate(.mac, $0) },
                     onOpen: { onOpen(.mac, $0) },
@@ -526,11 +499,9 @@ private struct WorkspaceView: View {
                     selection: $rightPane.selection,
                     canGoBack: !rightPane.back.isEmpty,
                     canGoForward: !rightPane.forward.isEmpty,
-                    canGoUp: DemoFileSystem.parentPath(rightPane.path) != rightPane.path,
                     canPaste: clipboard != nil,
                     onBack: { onBack(.android) },
                     onForward: { onForward(.android) },
-                    onUp: { onUp(.android) },
                     onRefresh: { onRefresh(.android) },
                     onNavigate: { onNavigate(.android, $0) },
                     onOpen: { onOpen(.android, $0) },
