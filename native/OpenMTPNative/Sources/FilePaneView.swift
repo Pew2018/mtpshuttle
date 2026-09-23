@@ -386,7 +386,43 @@ private struct FileRowView: View {
 
                 Text(item.subtitle)
                     .font(.caption)
-                  private struct FileGridItemView: View {
+                    .foregroundStyle(
+                        isSelected
+                            ? selectionText.opacity(0.82)
+                            : Color.secondary
+                    )
+            }
+
+            Spacer()
+
+            if let size = item.sizeLabel {
+                Text(size)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(
+                        isSelected
+                            ? selectionText.opacity(0.82)
+                            : Color.secondary
+                    )
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(
+                        isSelected
+                            ? selectionText.opacity(0.82)
+                            : Color.secondary
+                    )
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isSelected ? selectionBackground : Color.clear)
+        )
+    }
+}
+
+private struct FileGridItemView: View {
     let item: DemoEntry
     let isSelected: Bool
 
@@ -421,13 +457,17 @@ private struct FileRowView: View {
                 Text(size)
                     .font(.caption)
                     .foregroundStyle(
-                        isSelected ? selectionText.opacity(0.82) : Color.secondary
+                        isSelected
+                            ? selectionText.opacity(0.82)
+                            : Color.secondary
                     )
             } else {
                 Text(item.subtitle)
                     .font(.caption)
                     .foregroundStyle(
-                        isSelected ? selectionText.opacity(0.82) : Color.secondary
+                        isSelected
+                            ? selectionText.opacity(0.82)
+                            : Color.secondary
                     )
             }
         }
@@ -443,4 +483,3 @@ private struct FileRowView: View {
         )
     }
 }
-
