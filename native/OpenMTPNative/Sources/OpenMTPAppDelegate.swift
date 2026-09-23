@@ -29,7 +29,11 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func windowClosed(_ notification: Notification) {
-        saveMainWindowFrame(notification.object as? NSWindow)
+        let window = notification.object as? NSWindow
+        saveMainWindowFrame(window)
+        if window?.title == "SwiftMTP" || window?.title == "OpenMTP" {
+            OpenMTPQuickLookHost.closeSharedPanel()
+        }
     }
 
     @objc private func windowBecameKey(_ notification: Notification) {
