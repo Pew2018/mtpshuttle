@@ -229,6 +229,11 @@ final class KalamBridge {
         )
     }
 
+    func delete(storageID: UInt32, files: [String]) async throws -> KalamResponse {
+        let data = try JSONSerialization.data(withJSONObject: ["storageId": storageID, "files": files])
+        return try await call("DeleteFile", input: String(decoding: data, as: UTF8.self))
+    }
+
     func dispose() async throws -> KalamResponse {
         try await call("Dispose")
     }

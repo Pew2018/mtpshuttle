@@ -147,14 +147,12 @@ struct ContentView: View {
         }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
-                leftPane.selection = Set(selection.prefix(1))
                 rightPane.selection.removeAll()
                 activePane = .mac
             }
         }
         .onChange(of: rightPane.selection) { selection in
             if !selection.isEmpty {
-                rightPane.selection = Set(selection.prefix(1))
                 leftPane.selection.removeAll()
                 activePane = .android
             }
@@ -324,7 +322,7 @@ struct ContentView: View {
             statusMessage = "\(ids.count) item(s) ready to move"
 
         case .delete:
-            statusMessage = "Delete is not available yet"
+            deleteItems(ids, pane: pane)
 
         case .copyToOther:
             let other = pane == .mac ? PaneKind.android : .mac
@@ -480,12 +478,49 @@ struct ContentView: View {
     }
 
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry) -> NSItemProvider {
-        guard pane == .mac, let url = item.localURL else { return NSItemProvider() }
-        return NSItemProvider(object: url as NSURL)
+        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: [item.id])
+        if let encoded = payload.encoded {
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
+                                                visibility: .all) { completion in
+                completion(encoded.data(using: .utf8), nil)
+                return nil
+            }
+            provider.registerDataRepresentation(forTypeIdentifier: UTType.plainText.identifier,
+                                                visibility: .all) { completion in
+                completion(encoded.data(using: .utf8), nil)
+                return nil
+            }
+            return provider
+        }
+        return item.localURL.map { NSItemProvider(object: $0 as NSURL) } ?? NSItemProvider()
     }
 
     private func createFolder(_ pane: PaneKind) {
         statusMessage = "New folders are not available yet"
+    }
+
+    private func deleteItems(_ ids: [UUID], pane: PaneKind) {
+        let items = entries(for: pane, path: paneState(for: pane).path).filter { ids.contains($0.id) }
+        guard !items.isEmpty else { return }
+        let path = paneState(for: pane).path
+        Task { @MainActor in
+            operation = DemoOperation(title: "Deleting", detail: "\(items.count) item(s)", progress: 0.2)
+            do {
+                if pane == .mac {
+                    for item in items {
+                        if let url = item.localURL { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+                    }
+                } else if let storage = MTPBrowsePath(browserPath: path) {
+                    try await mtpService.delete(files: items.compactMap(\.remotePath), storageID: storage.storageID)
+                }
+                clearSelection(for: pane)
+                statusMessage = "\(items.count) item(s) deleted"
+                await localBrowser.load(path: leftPane.path)
+                await mtpService.browse(path: rightPane.path)
+            } catch { statusMessage = error.localizedDescription }
+            operation = nil
+        }
     }
 
     private func paste(_ targetPane: PaneKind) {
@@ -567,7 +602,9 @@ struct ContentView: View {
               let storage = MTPBrowsePath(browserPath: sourcePath) else { throw KalamBridgeError.invalidResponse("Invalid MTP source") }
         let remoteSources = sources.compactMap(\.remotePath)
         try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
-        if mode == .move { /* MTP delete is intentionally left to the native delete API */ }
+        if mode == .move {
+            try await mtpService.delete(files: remoteSources, storageID: storage.storageID)
+        }
     }
 
     private func runOperation(title: String, count: Int, mutation: @escaping () -> Void) {
@@ -668,9 +705,9 @@ private struct FolderDropConfirmationView: View {
     private var folderSummary: String {
         switch request.itemNames.count {
         case 1:
-            return "“(request.itemNames[0])”"
+            return "“\(request.itemNames[0])”"
         default:
-            return "(request.itemNames.count) folders"
+            return "\(request.itemNames.count) folders"
         }
     }
 
@@ -692,7 +729,7 @@ private struct FolderDropConfirmationView: View {
                     Text(title)
                         .font(.headline)
 
-                    Text("Copy (folderSummary) to (request.targetPane.title)?")
+                    Text("Copy \(folderSummary) to \(request.targetPane.title)?")
                         .font(.body)
                 }
             }
@@ -768,13 +805,13 @@ private struct WorkspaceView: View {
             pane: .mac,
             isLoading: localBrowser.isLoading,
             errorMessage: localBrowser.errorMessage,
+            canModifyFiles: true,
             path: leftPane.path,
             items: localBrowser.entries,
             selection: $leftPane.selection,
             canGoBack: !leftPane.back.isEmpty,
             canGoForward: !leftPane.forward.isEmpty,
             canPaste: clipboard != nil,
-            canModifyFiles: true,
             onBack: { onBack(.mac) },
             onForward: { onForward(.mac) },
             onRefresh: { onRefresh(.mac) },
@@ -803,13 +840,13 @@ private struct WorkspaceView: View {
             errorMessage: mtpService.browseError,
             emptyMessage: mtpService.isConnected ? nil : mtpService.statusText,
             breadcrumbs: MTPDirectory.breadcrumbs(path: rightPane.path, storages: mtpService.storages),
+            canModifyFiles: true,
             path: rightPane.path,
             items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : mtpService.entries,
             selection: $rightPane.selection,
             canGoBack: !rightPane.back.isEmpty,
             canGoForward: !rightPane.forward.isEmpty,
             canPaste: clipboard != nil,
-            canModifyFiles: true,
             onBack: { onBack(.android) },
             onForward: { onForward(.android) },
             onRefresh: { onRefresh(.android) },
