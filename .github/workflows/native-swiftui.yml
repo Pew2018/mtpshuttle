@@ -74,6 +74,17 @@ jobs:
           otool -L "$APP/Contents/Resources/Kalam/standard/libusb.dylib"
           plutil -p "$APP/Contents/Info.plist"
           codesign --verify --deep --strict --verbose=2 "$APP"
+      - name: Audit native bundle contents
+        run: |
+          APP="dist/SwiftMTP.app"
+          test "$(find "$APP/Contents" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "3"
+          test ! -e "$APP/Contents/Resources/app"
+          test ! -e "$APP/Contents/Resources/node_modules"
+          test ! -e "$APP/Contents/Resources/electron"
+          test ! -e "$APP/Contents/Resources/package.json"
+          test ! -e "$APP/Contents/Resources/webpack"
+          du -sh "$APP"
+          find "$APP/Contents" -maxdepth 4 -type f -print | sort
       - name: Verify artifact has a single app at its root
         run: |
           test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
