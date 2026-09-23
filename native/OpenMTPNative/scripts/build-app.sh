@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-cd "`git rev-parse --show-toplevel`/native/SwiftMTP"
+cd "`git rev-parse --show-toplevel`/native/OpenMTPNative"
 
 rm -rf dist
 mkdir -p dist/SwiftMTP.app/Contents/MacOS
