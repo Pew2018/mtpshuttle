@@ -480,13 +480,11 @@ struct ContentView: View {
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry) -> NSItemProvider {
         let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: [item.id])
         if let encoded = payload.encoded {
-            let provider = NSItemProvider()
+            // Register the payload as a concrete NSString as well as a custom
+            // data representation. AppKit may expose the custom type during
+            // dragging but omit its lazy data when the drop is performed.
+            let provider = NSItemProvider(object: encoded as NSString)
             provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
-                                                visibility: .all) { completion in
-                completion(encoded.data(using: .utf8), nil)
-                return nil
-            }
-            provider.registerDataRepresentation(forTypeIdentifier: UTType.plainText.identifier,
                                                 visibility: .all) { completion in
                 completion(encoded.data(using: .utf8), nil)
                 return nil
