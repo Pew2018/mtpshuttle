@@ -10,6 +10,14 @@ extension Notification.Name {
 }
 
 struct OpenMTPQuickLookHost: NSViewRepresentable {
+    /// QLPreviewPanel is shared and can outlive the SwiftUI owner.
+    static func closeSharedPanel() {
+        guard let panel = QLPreviewPanel.shared() else { return }
+        panel.orderOut(nil)
+        panel.dataSource = nil
+        panel.delegate = nil
+    }
+
     @Binding var urls: [URL]
     let onPreviewEnded: ([URL]) -> Void
 
