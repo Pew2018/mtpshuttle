@@ -675,8 +675,10 @@ struct ContentView: View {
         guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
-            let knownBytes = sources.contains(where: \.isDirectory) ? -1 :
-                sources.reduce(Int64(0)) { $0 + Int64($1.sizeBytes ?? 0) }
+            let knownBytes = transferByteCount(
+                sources,
+                sourcePane: sourcePane
+            )
             tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
@@ -706,7 +708,7 @@ struct ContentView: View {
         guard let storage = MTPBrowsePath(browserPath: targetPath) else { return }
         Task { @MainActor in
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
-                sum + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+                sum + localByteCount(at: url)
             }
             tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
             do {
@@ -751,6 +753,46 @@ struct ContentView: View {
                 )
             }
         }
+    }
+
+    private func transferByteCount(_ sources: [DemoEntry], sourcePane: PaneKind) -> Int64 {
+        var total: Int64 = 0
+
+        for item in sources {
+            switch sourcePane {
+            case .mac:
+                guard let url = item.localURL else { return -1 }
+                total += localByteCount(at: url)
+            case .android:
+                guard let size = item.sizeBytes else { return -1 }
+                total += Int64(size)
+            }
+        }
+
+        return total
+    }
+
+    private func localByteCount(at url: URL) -> Int64 {
+        guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]),
+              values.isDirectory == true else {
+            return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+        }
+
+        guard let enumerator = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+            options: []
+        ) else {
+            return 0
+        }
+
+        var total: Int64 = 0
+        for case let child as URL in enumerator {
+            guard let values = try? child.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                  values.isRegularFile == true else { continue }
+            total += Int64(values.fileSize ?? 0)
+        }
+        return total
     }
 
     private func performTransfer(sources: [DemoEntry], sourcePane: PaneKind, sourcePath: String,
@@ -829,12 +871,15 @@ struct ContentView: View {
                     }
                 }
             } else {
-                let uploadPaths = sources.compactMap(\.localURL).map(\.path)
-                try await mtpService.upload(
-                    sources: uploadPaths,
-                    destination: storage.fullPath,
-                    storageID: storage.storageID
-                )
+                for item in sources {
+                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    guard let url = item.localURL else { continue }
+                    try await mtpService.upload(
+                        sources: [url.path],
+                        destination: storage.fullPath,
+                        storageID: storage.storageID
+                    )
+                }
             }
 
             if mode == .move {
@@ -865,7 +910,14 @@ struct ContentView: View {
                                                  to: destination.appendingPathComponent(targetNames[index]))
             }
         } else {
-            try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
+            for remoteSource in remoteSources {
+                if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                try await mtpService.download(
+                    sources: [remoteSource],
+                    destination: targetPath,
+                    storageID: storage.storageID
+                )
+            }
         }
         if tasks.cancellationRequested { throw MTPServiceError.cancelled }
         if mode == .move { try await mtpService.delete(files: remoteSources, storageID: storage.storageID) }
