@@ -180,6 +180,7 @@ struct ContentView: View {
             Task { await mtpService.browse(path: rightPane.path) }
         }
         .onChange(of: leftPane.selection) { selection in
+            DebugLogger.verbose("Local selection changed: count=\\(selection.count), ids=\\(selection.map(String.init).joined(separator: "|"))")
             if !selection.isEmpty {
                 rightPane.selection.removeAll()
                 activePane = .mac
