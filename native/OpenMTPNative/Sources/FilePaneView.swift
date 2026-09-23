@@ -235,7 +235,7 @@ struct FilePaneView: View {
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        updateSelection(for: item.id)
+                        selection = [item.id]
                     }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
@@ -278,7 +278,7 @@ struct FilePaneView: View {
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        updateSelection(for: item.id)
+                        selection = [item.id]
                     }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
@@ -302,15 +302,6 @@ struct FilePaneView: View {
 
             Button("Paste", action: onPaste)
                 .disabled(!canPaste || !canModifyFiles)
-        }
-    }
-
-    private func updateSelection(for id: UUID) {
-        if NSEvent.modifierFlags.contains(.command) {
-            if selection.contains(id) { selection.remove(id) }
-            else { selection.insert(id) }
-        } else {
-            selection = [id]
         }
     }
 
