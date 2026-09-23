@@ -85,7 +85,7 @@ struct FilePaneView: View {
                     .allowsHitTesting(false)
             }
         }
-        .background {
+        .overlay {
             OpenMTPExternalDropReceiver(
                 isTargeted: $isDropTargeted,
                 onInternalDrop: onInternalDrop,
@@ -395,6 +395,10 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         ])
         context.coordinator.parent = self
         view.coordinator = context.coordinator
+        view.autoresizingMask = [.width, .height]
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
+        OpenMTPDNDLogger.log("AppKit receiver created")
         return view
     }
 
@@ -483,7 +487,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            OpenMTPDNDLogger.log("AppKit draggingEntered types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+            OpenMTPDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
 
             if isInternalDrag(draggingInfo) {
                 parent.isTargeted = true
@@ -524,7 +528,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
             let accepted = isInternalDrag(draggingInfo) || acceptsFinderFiles(draggingInfo)
-            OpenMTPDNDLogger.log("AppKit prepareForDragOperation accepted=\\(accepted)")
+            OpenMTPDNDLogger.log("AppKit prepareForDragOperation accepted=\(accepted)")
             return accepted
         }
 
@@ -543,7 +547,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                     return false
                 }
 
-                OpenMTPDNDLogger.log("AppKit INTERNAL payload read OK length=\\(encoded.count)")
+                OpenMTPDNDLogger.log("AppKit INTERNAL payload read OK length=\(encoded.count)")
                 parent.onInternalDrop(encoded)
                 return true
             }
@@ -572,19 +576,23 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
     }
 
     final class DropReceiverView: NSView {
-        weak var coordinator: Coordinator?
+        var coordinator: Coordinator?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            if let event = NSApp.currentEvent {
-                switch event.type {
-                case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp:
-                    return nil
-                default:
-                    break
-                }
+            guard let event = NSApp.currentEvent else {
+                return super.hitTest(point)
             }
 
-            return super.hitTest(point)
+            switch event.type {
+            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+                return self
+            case .leftMouseDown, .leftMouseUp,
+                 .rightMouseDown, .rightMouseUp,
+                 .otherMouseDown, .otherMouseUp:
+                return nil
+            default:
+                return super.hitTest(point)
+            }
         }
 
         override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
