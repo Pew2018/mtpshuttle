@@ -118,6 +118,14 @@ struct DemoDragPayload: Codable, Hashable {
     }
 }
 
+struct FolderDropRequest: Identifiable, Hashable {
+    let id = UUID()
+    let payload: DemoDragPayload
+    let targetPane: PaneKind
+    let targetPath: String
+    let itemNames: [String]
+}
+
 struct PendingDrop: Identifiable, Hashable {
     let id = UUID()
     let payload: DemoDragPayload
