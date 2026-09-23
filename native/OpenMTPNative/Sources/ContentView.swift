@@ -136,12 +136,12 @@ struct ContentView: View {
         ) { _ in
             pasteSelection()
         }
-        .onChange(of: leftPane.selection) { _, selection in
+        .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
                 activePane = .mac
             }
         }
-        .onChange(of: rightPane.selection) { _, selection in
+        .onChange(of: rightPane.selection) { selection in
             if !selection.isEmpty {
                 activePane = .android
             }
