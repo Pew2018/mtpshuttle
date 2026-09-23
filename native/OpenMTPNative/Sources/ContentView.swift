@@ -14,12 +14,17 @@ struct ContentView: View {
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
     @State private var statusMessage = "Ready"
+    @State private var activePane: PaneKind = .mac
+    @State private var quickLookURLs: [URL] = []
 
     @AppStorage("dragDropMode")
     private var dragDropMode = DragDropMode.copy.rawValue
 
     @AppStorage("androidOnlyMode")
     private var androidOnlyMode = false
+
+    @AppStorage("quickLookPreviewEnabled")
+    private var quickLookPreviewEnabled = true
 
     @AppStorage("confirmFolderDrag")
     private var confirmFolderDrag = true
@@ -104,6 +109,43 @@ struct ContentView: View {
         } message: {
             Text(pendingDropMessage)
         }
+        .background {
+            OpenMTPQuickLookHost(
+                urls: $quickLookURLs,
+                onPreviewEnded: handleQuickLookEnded
+            )
+            .frame(width: 1, height: 1)
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .openMTPQuickLook)
+        ) { _ in
+            presentQuickLook()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .openMTPCopy)
+        ) { _ in
+            copySelection()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .openMTPCut)
+        ) { _ in
+            cutSelection()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .openMTPPaste)
+        ) { _ in
+            pasteSelection()
+        }
+        .onChange(of: leftPane.selection) { _, selection in
+            if !selection.isEmpty {
+                activePane = .mac
+            }
+        }
+        .onChange(of: rightPane.selection) { _, selection in
+            if !selection.isEmpty {
+                activePane = .android
+            }
+        }
     }
 
     private var pendingDropTitle: String {
@@ -122,6 +164,73 @@ struct ContentView: View {
         }
 
         return "\(pendingDrop.payload.sourcePane.title) → \(pendingDrop.targetPane.title)"
+    }
+
+    private func copySelection() {
+        guard !activePaneSelection.isEmpty else { return }
+        performAction(.copy, pane: activePane, item: nil)
+    }
+
+    private func cutSelection() {
+        guard !activePaneSelection.isEmpty else { return }
+        performAction(.cut, pane: activePane, item: nil)
+    }
+
+    private func pasteSelection() {
+        paste(activePane)
+    }
+
+    private var activePaneSelection: Set<UUID> {
+        switch activePane {
+        case .mac:
+            return leftPane.selection
+        case .android:
+            return rightPane.selection
+        }
+    }
+
+    private func presentQuickLook() {
+        guard quickLookPreviewEnabled,
+              operation == nil
+        else {
+            return
+        }
+
+        let selectedIDs = Array(activePaneSelection)
+        guard !selectedIDs.isEmpty else {
+            return
+        }
+
+        let pane = activePane
+        let path = paneState(for: pane).path
+        var urls: [URL] = []
+
+        for itemID in selectedIDs {
+            guard let url = try? fileSystem.exportedFileURL(
+                itemIDs: [itemID],
+                at: path,
+                in: pane
+            ) else {
+                continue
+            }
+
+            urls.append(url)
+        }
+
+        guard !urls.isEmpty else {
+            statusMessage = "Unable to preview the selected item"
+            return
+        }
+
+        quickLookURLs = urls
+    }
+
+    private func handleQuickLookEnded(_ urls: [URL]) {
+        quickLookURLs = []
+
+        for url in urls {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+        }
     }
 
     private func open(_ pane: PaneKind, _ item: DemoEntry) {
