@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 enum PaneKind: String, CaseIterable, Codable, Hashable {
     case mac
@@ -95,6 +96,10 @@ struct ClipboardPayload: Hashable {
     let sourcePath: String
     let itemIDs: [UUID]
     let mode: ClipboardMode
+}
+
+enum OpenMTPDragType {
+    static let payload = UTType(exportedAs: "com.pew2018.openmtp.internal-drag-payload")
 }
 
 struct DemoDragPayload: Codable, Hashable {
