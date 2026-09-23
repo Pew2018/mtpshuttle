@@ -48,7 +48,6 @@ struct ContentView: View {
             onAction: performAction,
             onNewFolder: createFolder,
             onPaste: paste,
-            onDrop: handleDrop,
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider
         )
@@ -261,28 +260,18 @@ struct ContentView: View {
         }
     }
 
-    private func handleDrop(_ providers: [NSItemProvider], targetPane: PaneKind) -> Bool {
-        guard operation == nil, let internalProvider = providers.first(where: {
-            $0.hasItemConformingToTypeIdentifier(OpenMTPDragType.payload.identifier)
-        }) else {
-            return false
+    private func handleInternalDrop(
+        _ encoded: String,
+        targetPane: PaneKind
+    ) {
+        guard operation == nil else { return }
+
+        guard let payload = DemoDragPayload.decode(encoded) else {
+            statusMessage = "Invalid OpenMTP drag payload"
+            return
         }
 
-        internalProvider.loadDataRepresentation(
-            forTypeIdentifier: OpenMTPDragType.payload.identifier
-        ) { data, _ in
-            let encoded = data.flatMap { String(data: $0, encoding: .utf8) }
-
-            DispatchQueue.main.async {
-                if let encoded, let payload = DemoDragPayload.decode(encoded) {
-                    receiveDrop(payload, targetPane: targetPane)
-                } else {
-                    statusMessage = "Invalid OpenMTP drag payload"
-                }
-            }
-        }
-
-        return true
+        receiveDrop(payload, targetPane: targetPane)
     }
 
     private func handleExternalFileDrop(_ urls: [URL], targetPane: PaneKind) {
@@ -723,7 +712,6 @@ private struct WorkspaceView: View {
     let onAction: (PaneAction, PaneKind, DemoEntry?) -> Void
     let onNewFolder: (PaneKind) -> Void
     let onPaste: (PaneKind) -> Void
-    let onDrop: ([NSItemProvider], PaneKind) -> Bool
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
 
@@ -745,7 +733,9 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.mac) },
             onPaste: { onPaste(.mac) },
             showCrossPaneActions: !androidOnlyMode,
-            onDrop: { providers in onDrop(providers, .mac) },
+            onInternalDrop: { encoded in
+                onInternalDrop(encoded, .mac)
+            },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
             onDragProvider: { item in
                 onExternalDragProvider(.mac, leftPane.path, item)
@@ -771,7 +761,9 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.android) },
             onPaste: { onPaste(.android) },
             showCrossPaneActions: !androidOnlyMode,
-            onDrop: { providers in onDrop(providers, .android) },
+            onInternalDrop: { encoded in
+                onInternalDrop(encoded, .android)
+            },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
             onDragProvider: { item in
                 onExternalDragProvider(.android, rightPane.path, item)
