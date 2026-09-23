@@ -589,33 +589,39 @@ struct DemoFileSystem {
         to targetPane: PaneKind,
         targetPath: String
     ) {
-        let children = entries(for: sourcePane, at: sourcePath)
-        var destination = entries(for: targetPane, at: targetPath)
+        var pending: [(sourcePath: String, targetPath: String)] = [
+            (sourcePath, targetPath)
+        ]
 
-        for child in children {
-            let newName = uniqueName(for: child.name, in: destination)
-            let copied = DemoEntry(
-                name: newName,
-                subtitle: child.subtitle,
-                sizeBytes: child.sizeBytes,
-                isDirectory: child.isDirectory
-            )
-            destination.append(copied)
+        while let current = pending.popLast() {
+            let children = entries(for: sourcePane, at: current.sourcePath)
+            var destination = entries(for: targetPane, at: current.targetPath)
 
-            if child.isDirectory {
-                let childSourcePath = Self.childPath(sourcePath, child.name)
-                let childTargetPath = Self.childPath(targetPath, newName)
-                setEntries([], at: childTargetPath, in: targetPane)
-                copyChildren(
-                    from: sourcePane,
-                    sourcePath: childSourcePath,
-                    to: targetPane,
-                    targetPath: childTargetPath
+            for child in children {
+                let newName = uniqueName(for: child.name, in: destination)
+                let copied = DemoEntry(
+                    name: newName,
+                    subtitle: child.subtitle,
+                    sizeBytes: child.sizeBytes,
+                    isDirectory: child.isDirectory
                 )
-            }
-        }
+                destination.append(copied)
 
-        setEntries(destination, at: targetPath, in: targetPane)
+                if child.isDirectory {
+                    let childSourcePath = Self.childPath(current.sourcePath, child.name)
+                    let childTargetPath = Self.childPath(current.targetPath, newName)
+                    setEntries([], at: childTargetPath, in: targetPane)
+                    pending.append(
+                        (
+                            sourcePath: childSourcePath,
+                            targetPath: childTargetPath
+                        )
+                    )
+                }
+            }
+
+            setEntries(destination, at: current.targetPath, in: targetPane)
+        }
     }
 
     private mutating func removeSubtree(at path: String, in pane: PaneKind) {
