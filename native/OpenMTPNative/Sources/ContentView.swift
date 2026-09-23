@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var statusMessage = "Ready"
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
+    @StateObject private var mtpService = MTPService()
 
     @AppStorage("dragDropMode")
     private var dragDropMode = DragDropMode.copy.rawValue
@@ -55,7 +56,8 @@ struct ContentView: View {
             onPaste: paste,
             onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
-            onExternalDragProvider: makeExternalDragProvider
+            onExternalDragProvider: makeExternalDragProvider,
+            mtpService: mtpService
         )
         .toolbar {
             ToolbarItem(placement: .automatic) {
@@ -131,6 +133,10 @@ struct ContentView: View {
                 canPaste: clipboard != nil
             )
         )
+        .task {
+            DebugLogger.startSession()
+            await mtpService.connect()
+        }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
                 activePane = .mac
@@ -845,6 +851,7 @@ private struct WorkspaceView: View {
     let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
+    @ObservedObject var mtpService: MTPService
 
     private var macPane: some View {
         FilePaneView(
@@ -878,7 +885,7 @@ private struct WorkspaceView: View {
         FilePaneView(
             pane: .android,
             path: rightPane.path,
-            items: fileSystem.entries(for: .android, at: rightPane.path),
+            items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : fileSystem.entries(for: .android, at: rightPane.path),
             selection: $rightPane.selection,
             canGoBack: !rightPane.back.isEmpty,
             canGoForward: !rightPane.forward.isEmpty,
@@ -904,6 +911,14 @@ private struct WorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Circle().fill(mtpService.isConnected ? Color.green : Color.orange).frame(width: 8, height: 8)
+                Text(mtpService.statusText).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if case .connecting = mtpService.state { ProgressView().controlSize(.small) }
+                else { Button { Task { await mtpService.refresh() } } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Refresh Android device") }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
             if androidOnlyMode {
                 androidPane
             } else {
@@ -930,7 +945,7 @@ private struct WorkspaceView: View {
 
                     Spacer()
 
-                    Text("SwiftUI demo • MTP bridge next")
+                    Text(mtpService.deviceSubtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
