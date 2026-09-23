@@ -40,10 +40,11 @@ final class TaskActivityStore: ObservableObject {
         segmentSent = max(0, sent)
         segmentTotal = max(segmentTotal, total)
         current?.step = name.isEmpty ? "正在传输" : "正在传输：\(name)"
-        if current!.total <= 0 {
-            current?.total = completedBytes + segmentTotal
+        if let knownTotal = current?.total, knownTotal > 0 {
+            current?.sent = min(knownTotal, completedBytes + segmentSent)
+        } else {
+            current?.sent = completedBytes + segmentSent
         }
-        current?.sent = min(current!.total, completedBytes + segmentSent)
     }
 
     func finishSegment() {
@@ -52,7 +53,9 @@ final class TaskActivityStore: ObservableObject {
         completedBytes += max(segmentSent, segmentTotal)
         segmentSent = 0
         segmentTotal = 0
-        if let total = current?.total { current?.sent = min(total, completedBytes) }
+        if let total = current?.total {
+            current?.sent = total > 0 ? min(total, completedBytes) : completedBytes
+        }
     }
 
     func cancel() {
@@ -88,7 +91,8 @@ struct TaskDetailsView: View {
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     } else {
                         ProgressView()
-                        Text("正在计算文件大小").font(.caption).foregroundStyle(.secondary)
+                        Text("已传输 \(ByteCountFormatter.string(fromByteCount: task.sent, countStyle: .file)) · 总量未知")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Button("取消操作") { tasks.cancel() }
                         .disabled(tasks.cancellationRequested)
