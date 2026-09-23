@@ -439,13 +439,12 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             let pasteboard = draggingInfo.draggingPasteboard
 
             if isInternalDrag(draggingInfo) {
-                guard let data = pasteboard.data(forType: internalPasteboardType),
-                      let encoded = String(data: data, encoding: .utf8) else {
-                    return false
+                if let encoded = readInternalPayload(from: pasteboard) {
+                    parent.onInternalDrop(encoded)
+                    return true
                 }
 
-                parent.onInternalDrop(encoded)
-                return true
+                return false
             }
 
             guard acceptsFinderFiles(draggingInfo) else {
@@ -464,6 +463,41 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
             parent.onExternalFileDrop(urls)
             return true
+        }
+
+        private func readInternalPayload(from pasteboard: NSPasteboard) -> String? {
+            if let data = pasteboard.data(forType: internalPasteboardType),
+               let encoded = String(data: data, encoding: .utf8) {
+                return encoded
+            }
+
+            if let encoded = pasteboard.string(forType: internalPasteboardType) {
+                return encoded
+            }
+
+            for item in pasteboard.pasteboardItems ?? [] {
+                if let data = item.data(forType: internalPasteboardType),
+                   let encoded = String(data: data, encoding: .utf8) {
+                    return encoded
+                }
+
+                if let encoded = item.string(forType: internalPasteboardType) {
+                    return encoded
+                }
+
+                if let data = item.data(forType: .string),
+                   let encoded = String(data: data, encoding: .utf8),
+                   DemoDragPayload.decode(encoded) != nil {
+                    return encoded
+                }
+
+                if let encoded = item.string(forType: .string),
+                   DemoDragPayload.decode(encoded) != nil {
+                    return encoded
+                }
+            }
+
+            return nil
         }
     }
 
