@@ -686,7 +686,7 @@ struct ContentView: View {
         for item in sources {
             if resolution == .rename && reserved.contains(item.name) {
                 var index = 1
-                var candidate = "(item.name).(index)"
+                var candidate = "\\(item.name).\\(index)"
                 while reserved.contains(candidate) { index += 1; candidate = "(item.name).(index)" }
                 targetNames.append(candidate)
                 reserved.insert(candidate)
