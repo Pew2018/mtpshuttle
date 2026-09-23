@@ -2,6 +2,33 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private enum OpenMTPDNDLogger {
+    private static let queue = DispatchQueue(label: "com.pew2018.openmtp.dnd-log")
+    private static let url = URL(fileURLWithPath: "/tmp/openmtp-dnd.log")
+
+    static func reset() {
+        queue.sync {
+            try? Data().write(to: url, options: .atomic)
+        }
+    }
+
+    static func log(_ message: String) {
+        queue.async {
+            let line = "[OpenMTP-DND] \(message)\n"
+            guard let data = line.data(using: .utf8) else { return }
+
+            if let handle = try? FileHandle(forWritingTo: url) {
+                defer { try? handle.close() }
+                try? handle.seekToEnd()
+                try? handle.write(contentsOf: data)
+                return
+            }
+
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+}
+
 struct FilePaneView: View {
     let pane: PaneKind
     let path: String
@@ -71,41 +98,45 @@ struct FilePaneView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .onAppear {
+            OpenMTPDNDLogger.reset()
+            OpenMTPDNDLogger.log("FilePane appeared")
+        }
     }
 
     private func handleInternalDrop(_ providers: [NSItemProvider]) -> Bool {
         let typeIdentifier = OpenMTPDragType.payload.identifier
 
-        print("[OpenMTP-DND] SwiftUI onDrop fired, providers=\\(providers.count)")
+        OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop fired, providers=\\(providers.count)")
         for (index, provider) in providers.enumerated() {
-            print("[OpenMTP-DND] provider[\\(index)] types=\\(provider.registeredTypeIdentifiers)")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] provider[\\(index)] types=\\(provider.registeredTypeIdentifiers)")
         }
 
         guard let provider = providers.first(where: {
             $0.registeredTypeIdentifiers.contains(typeIdentifier)
         }) else {
-            print("[OpenMTP-DND] SwiftUI onDrop: internal UTI NOT found")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop: internal UTI NOT found")
             return false
         }
 
-        print("[OpenMTP-DND] SwiftUI onDrop: internal UTI found")
+        OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI onDrop: internal UTI found")
 
         provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
-            print("[OpenMTP-DND] SwiftUI payload callback data=\\(data?.count ?? -1) error=\\(String(describing: error))")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload callback data=\\(data?.count ?? -1) error=\\(String(describing: error))")
 
             guard let data,
                   let encoded = String(data: data, encoding: .utf8) else {
                 DispatchQueue.main.async {
-                    print("[OpenMTP-DND] SwiftUI payload decode FAILED")
+                    OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload decode FAILED")
                     onInternalDrop("")
                 }
                 return
             }
 
-            print("[OpenMTP-DND] SwiftUI payload decode OK length=\\(encoded.count)")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI payload decode OK length=\\(encoded.count)")
 
             DispatchQueue.main.async {
-                print("[OpenMTP-DND] SwiftUI -> ContentView")
+                OpenMTPDNDLogger.log("[OpenMTP-DND] SwiftUI -> ContentView")
                 onInternalDrop(encoded)
             }
         }
@@ -432,9 +463,9 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            print("[OpenMTP-DND] AppKit draggingEntered types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingEntered types=\\(draggingInfo.draggingPasteboard.types ?? [])")
             let accepts = acceptsFinderFiles(draggingInfo)
-            print("[OpenMTP-DND] AppKit draggingEntered acceptsFinder=\\(accepts)")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingEntered acceptsFinder=\\(accepts)")
             guard accepts else {
                 parent.isTargeted = false
                 return []
@@ -445,7 +476,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingUpdated(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            print("[OpenMTP-DND] AppKit draggingUpdated types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingUpdated types=\\(draggingInfo.draggingPasteboard.types ?? [])")
             let accepts = acceptsFinderFiles(draggingInfo)
             guard accepts else {
                 parent.isTargeted = false
@@ -457,13 +488,13 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingExited(_ draggingInfo: NSDraggingInfo?) {
-            print("[OpenMTP-DND] AppKit draggingExited")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit draggingExited")
             parent.isTargeted = false
         }
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
             let accepts = acceptsFinderFiles(draggingInfo)
-            print("[OpenMTP-DND] AppKit prepareForDragOperation acceptsFinder=\\(accepts)")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit prepareForDragOperation acceptsFinder=\\(accepts)")
             return accepts
         }
 
@@ -472,10 +503,10 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 parent.isTargeted = false
             }
 
-            print("[OpenMTP-DND] AppKit performDragOperation types=\\(draggingInfo.draggingPasteboard.types ?? [])")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit performDragOperation types=\\(draggingInfo.draggingPasteboard.types ?? [])")
 
             guard acceptsFinderFiles(draggingInfo) else {
-                print("[OpenMTP-DND] AppKit perform rejected")
+                OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit perform rejected")
                 return false
             }
 
@@ -486,10 +517,10 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             )
 
             let urls = (objects as? [NSURL])?.map { $0 as URL } ?? []
-            print("[OpenMTP-DND] AppKit Finder URLs=\\(urls)")
+            OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit Finder URLs=\\(urls)")
 
             guard !urls.isEmpty else {
-                print("[OpenMTP-DND] AppKit Finder URL read FAILED")
+                OpenMTPDNDLogger.log("[OpenMTP-DND] AppKit Finder URL read FAILED")
                 return false
             }
 
@@ -513,7 +544,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
             let result = super.hitTest(point)
             if NSApp.currentEvent?.type == .leftMouseDragged {
-                print("[OpenMTP-DND] DropReceiver hitTest result=\\(String(describing: result))")
+                OpenMTPDNDLogger.log("[OpenMTP-DND] DropReceiver hitTest result=\\(String(describing: result))")
             }
             return result
         }
