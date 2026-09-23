@@ -1,6 +1,6 @@
 import Foundation
 
-enum PaneKind: String, CaseIterable, Hashable {
+enum PaneKind: String, CaseIterable, Codable, Hashable {
     case mac
     case android
 
@@ -57,6 +57,22 @@ enum FileViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum DragDropMode: String, CaseIterable, Identifiable {
+    case copy
+    case ask
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .copy:
+            return "Copy"
+        case .ask:
+            return "Ask every time"
+        }
+    }
+}
+
 enum PaneAction: Hashable {
     case properties
     case copy
@@ -76,6 +92,35 @@ struct ClipboardPayload: Hashable {
     let sourcePath: String
     let itemIDs: [UUID]
     let mode: ClipboardMode
+}
+
+struct DemoDragPayload: Codable, Hashable {
+    let sourcePane: PaneKind
+    let sourcePath: String
+    let itemIDs: [UUID]
+
+    var encoded: String? {
+        guard let data = try? JSONEncoder().encode(self) else { return nil }
+        return data.base64EncodedString()
+    }
+
+    static func decode(_ encoded: String) -> DemoDragPayload? {
+        guard let data = Data(base64Encoded: encoded) else { return nil }
+        return try? JSONDecoder().decode(DemoDragPayload.self, from: data)
+    }
+}
+
+struct PendingDrop: Identifiable, Hashable {
+    let id = UUID()
+    let payload: DemoDragPayload
+    let targetPane: PaneKind
+    let targetPath: String
+}
+
+struct BreadcrumbComponent: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let path: String
 }
 
 struct PaneNavigationState {
@@ -157,6 +202,34 @@ struct DemoFileSystem {
         case .android:
             return android[path] ?? []
         }
+    }
+
+    static func breadcrumbComponents(for path: String) -> [BreadcrumbComponent] {
+        guard path != "/" else {
+            return [
+                BreadcrumbComponent(id: "/", name: "/", path: "/")
+            ]
+        }
+
+        let segments = path
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+
+        var components: [BreadcrumbComponent] = []
+        var currentPath = "/"
+
+        for segment in segments {
+            currentPath = childPath(currentPath, segment)
+            components.append(
+                BreadcrumbComponent(
+                    id: currentPath,
+                    name: segment,
+                    path: currentPath
+                )
+            )
+        }
+
+        return components
     }
 
     mutating func createFolder(
@@ -357,6 +430,8 @@ struct DemoFileSystem {
 
     private static func makeLocalData() -> [String: [DemoEntry]] {
         let root = "/Users/Patrick/"
+        let users = "/Users/"
+        let filesystemRoot = "/"
         let documents = childPath(root, "Documents")
         let projects = childPath(documents, "Projects")
         let downloads = childPath(root, "Downloads")
@@ -366,6 +441,12 @@ struct DemoFileSystem {
         let nativeUI = childPath(openMTP, "Native UI")
 
         return [
+            filesystemRoot: [
+                folder("Users")
+            ],
+            users: [
+                folder("Patrick")
+            ],
             root: [
                 folder("Desktop"),
                 folder("Documents"),
@@ -433,6 +514,7 @@ struct DemoFileSystem {
 
     private static func makeAndroidData() -> [String: [DemoEntry]] {
         let root = "/Internal storage/"
+        let filesystemRoot = "/"
         let dcim = childPath(root, "DCIM")
         let camera = childPath(dcim, "Camera")
         let screenshots = childPath(dcim, "Screenshots")
@@ -444,6 +526,9 @@ struct DemoFileSystem {
         let bluetooth = childPath(root, "Bluetooth")
 
         return [
+            filesystemRoot: [
+                folder("Internal storage")
+            ],
             root: [
                 folder("DCIM"),
                 folder("Download"),
