@@ -89,20 +89,20 @@ jobs:
       - name: Verify artifact has a single app at its root
         run: |
           test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
-          test -d dist/MTP Shuttle.app
+          test -d "dist/MTP Shuttle.app"
           test -z "$(find dist -type f -name '*.zip' -print -quit)"
-          test -x dist/MTP Shuttle.app/Contents/MacOS/SwiftMTP
+          test -x "dist/MTP Shuttle.app/Contents/MacOS/SwiftMTP"
       - name: Package and verify downloadable ZIP
         run: |
-          (cd dist && ditto -c -k --keepParent SwiftMTP.app MTP-Shuttle.zip)
-          test "$(unzip -Z -1 dist/MTP-Shuttle.zip | cut -d/ -f1 | sort -u)" = "SwiftMTP.app"
+          (cd dist && ditto -c -k --keepParent "MTP Shuttle.app" MTP-Shuttle.zip)
+          test "$(unzip -Z -1 dist/MTP-Shuttle.zip | cut -d/ -f1 | sort -u)" = "MTP Shuttle.app"
           EXTRACTED="$(mktemp -d)"
           trap 'rm -rf "$EXTRACTED"' EXIT
           ditto -x -k dist/MTP-Shuttle.zip "$EXTRACTED"
           test "$(find "$EXTRACTED" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
-          test -x "$EXTRACTED/SwiftMTP.app/Contents/MacOS/SwiftMTP"
-          test -f "$EXTRACTED/SwiftMTP.app/Contents/Info.plist"
-          codesign --verify --deep --strict "$EXTRACTED/SwiftMTP.app"
+          test -x "$EXTRACTED/MTP Shuttle.app/Contents/MacOS/SwiftMTP"
+          test -f "$EXTRACTED/MTP Shuttle.app/Contents/Info.plist"
+          codesign --verify --deep --strict "$EXTRACTED/MTP Shuttle.app"
       - name: Upload arm64 test ZIP
         uses: actions/upload-artifact@v7
         with:
