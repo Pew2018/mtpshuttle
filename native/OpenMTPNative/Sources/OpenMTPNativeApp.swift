@@ -29,6 +29,11 @@ struct OpenMTPNativeApp: App {
         }
         .defaultSize(width: 520, height: 220)
         .windowResizability(.contentSize)
+
+        Window("任务详情", id: "tasks") {
+            TaskDetailsView()
+        }
+        .defaultSize(width: 560, height: 420)
     }
 }
 

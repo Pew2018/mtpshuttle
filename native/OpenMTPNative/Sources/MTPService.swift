@@ -34,11 +34,13 @@ final class MTPService: ObservableObject {
     private var browseGeneration = UUID()
 
     func browse(path: String) async {
+        if isBrowsing { KalamBridge.shared.cancelCurrentOperation() }
         let request = UUID()
         browseGeneration = request
         browseError = nil
         isBrowsePartial = false
         isBrowsing = false
+        entries = []
         guard isConnected, path != "/" else { return }
         guard let location = MTPBrowsePath(browserPath: path),
               storages.contains(where: { $0.storageID == location.storageID }) else {
@@ -47,7 +49,15 @@ final class MTPService: ObservableObject {
         }
         isBrowsing = true
         do {
-            let response = try await KalamBridge.shared.walk(location)
+            let response = try await KalamBridge.shared.walk(location) { [weak self] item in
+                Task { @MainActor in
+                    guard let self, self.browseGeneration == request else { return }
+                    if let parsed = try? MTPDirectory.entries(from: item, storageID: location.storageID) {
+                        self.entries.append(contentsOf: parsed)
+                        self.entries.sort(by: DemoEntry.browserOrder)
+                    }
+                }
+            }
             guard request == browseGeneration else { return }
             entries = try MTPDirectory.entries(from: response, storageID: location.storageID)
             DebugLogger.info("MTP directory loaded: \(entries.count) entries")
@@ -62,6 +72,7 @@ final class MTPService: ObservableObject {
     func cancelBrowse() {
         guard isBrowsing else { return }
         browseGeneration = UUID()
+        KalamBridge.shared.cancelCurrentOperation()
         isBrowsing = false
         isBrowsePartial = true
         browseError = entries.isEmpty ? "加载已暂停，当前目录暂无已加载项目" : "加载已暂停，仅显示已加载的部分项目"
@@ -220,6 +231,7 @@ final class MTPService: ObservableObject {
     }
 
     func upload(sources: [String], destination: String, storageID: UInt32) async throws {
+        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
         let response = try await performNativeCall {
             try await KalamBridge.shared.upload(storageID: storageID, sources: sources, destination: destination)
         }
@@ -229,9 +241,11 @@ final class MTPService: ObservableObject {
                 message: response.errorMessage ?? "Unable to upload files"
             )
         }
+        TaskActivityStore.shared.finishSegment()
     }
 
     func download(sources: [String], destination: String, storageID: UInt32) async throws {
+        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
         let response = try await performNativeCall {
             try await KalamBridge.shared.download(storageID: storageID, sources: sources, destination: destination)
         }
@@ -241,6 +255,7 @@ final class MTPService: ObservableObject {
                 message: response.errorMessage ?? "Unable to download files"
             )
         }
+        TaskActivityStore.shared.finishSegment()
     }
 
     func delete(files: [String], storageID: UInt32) async throws {
@@ -267,6 +282,7 @@ final class MTPService: ObservableObject {
 enum MTPServiceError: LocalizedError {
     case backend(type: String, message: String)
     case noStorages
+    case cancelled
     
     var errorDescription: String? {
         switch self {
@@ -274,6 +290,8 @@ enum MTPServiceError: LocalizedError {
             return "\(type): \(message)"
         case .noStorages:
             return "Kalam connected to the device but returned no storage volumes."
+        case .cancelled:
+            return "操作已取消"
         }
     }
 }

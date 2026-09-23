@@ -36,5 +36,3 @@ find dist/SwiftMTP.app/Contents/Resources/Kalam -name "*.dylib" -print0 |
 
 codesign --force --deep --sign - dist/SwiftMTP.app
 file dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
-# Keep executable permissions inside the Actions artifact.
-ditto -c -k --sequesterRsrc --keepParent dist/SwiftMTP.app dist/SwiftMTP-arm64.zip

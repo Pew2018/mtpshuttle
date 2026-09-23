@@ -168,6 +168,8 @@ final class KalamBridge {
     private typealias Callback = @convention(c) (UnsafeMutablePointer<CChar>?) -> Void
     private typealias JSONFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Void
     private typealias TransferFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
+    private typealias WalkProgressFunction = @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
+    private typealias CancelFunction = @convention(c) () -> Void
     private let callQueue = DispatchQueue(label: "com.pew2018.openmtp.kalam", qos: .userInitiated)
 
     private typealias OneShotFunction = @convention(c) (UnsafeMutableRawPointer?) -> Void
@@ -184,12 +186,16 @@ final class KalamBridge {
     private static let doneCallback: Callback = { pointer in
         KalamBridge.shared.receive(pointer)
     }
+    private static let walkEntryCallback: Callback = { pointer in
+        KalamBridge.shared.receiveWalkEntry(pointer)
+    }
     
     private let stateLock = NSLock()
     private var handle: UnsafeMutableRawPointer?
     private var pendingContinuation: CheckedContinuation<KalamResponse, Error>?
     private var pendingOperation: String?
     private var loadedPath: String?
+    private var walkEntryHandler: ((KalamResponse) -> Void)?
     
     private init() {}
     
@@ -211,8 +217,33 @@ final class KalamBridge {
         try await call("FetchStorages")
     }
     
-    func walk(_ location: MTPBrowsePath) async throws -> KalamResponse {
-        try await call("Walk", input: location.walkJSON)
+    func walk(_ location: MTPBrowsePath, onEntry: @escaping (KalamResponse) -> Void) async throws -> KalamResponse {
+        try await withCheckedThrowingContinuation { continuation in
+            callQueue.async { [self] in
+                stateLock.lock()
+                pendingContinuation = continuation
+                pendingOperation = "WalkWithProgress"
+                walkEntryHandler = onEntry
+                stateLock.unlock()
+                do {
+                    try ensureLoaded()
+                    guard let handle, let address = dlsym(handle, "WalkWithProgress") else {
+                        throw KalamBridgeError.symbolNotFound("WalkWithProgress")
+                    }
+                    let function = unsafeBitCast(address, to: WalkProgressFunction.self)
+                    let entry = unsafeBitCast(Self.walkEntryCallback, to: UnsafeMutableRawPointer.self)
+                    let done = unsafeBitCast(Self.doneCallback, to: UnsafeMutableRawPointer.self)
+                    location.walkJSON.withCString { function($0, entry, done) }
+                } catch { finish(with: error) }
+            }
+        }
+    }
+
+    func cancelCurrentOperation() {
+        stateLock.lock()
+        let address = handle.flatMap { dlsym($0, "CancelCurrentOperation") }
+        stateLock.unlock()
+        if let address { unsafeBitCast(address, to: CancelFunction.self)() }
     }
 
     func upload(storageID: UInt32, sources: [String], destination: String) async throws -> KalamResponse {
@@ -415,9 +446,29 @@ final class KalamBridge {
     }
 
     private func receiveTransferProgress(_ pointer: UnsafeMutablePointer<CChar>?) {
-        if let pointer {
-            free(pointer)
+        guard let pointer else { return }
+        let raw = String(cString: pointer)
+        free(pointer)
+        guard let response = try? KalamResponse(json: raw),
+              let data = response.data?.objectValue,
+              let bulk = data.value(forKeyIgnoringCase: "bulkFileSize")?.objectValue else { return }
+        let sent = Int64(bulk.value(forKeyIgnoringCase: "sent")?.intValue ?? 0)
+        let total = Int64(bulk.value(forKeyIgnoringCase: "total")?.intValue ?? 0)
+        let name = data.firstString(forKeys: ["name", "fullPath"]) ?? ""
+        DispatchQueue.main.async {
+            TaskActivityStore.shared.progress(name: name, sent: sent, total: total)
         }
+    }
+
+    private func receiveWalkEntry(_ pointer: UnsafeMutablePointer<CChar>?) {
+        guard let pointer else { return }
+        let raw = String(cString: pointer)
+        free(pointer)
+        guard let response = try? KalamResponse(json: raw) else { return }
+        stateLock.lock()
+        let handler = walkEntryHandler
+        stateLock.unlock()
+        if let handler { DispatchQueue.main.async { handler(response) } }
     }
     
     private func finish(with response: KalamResponse) {
@@ -425,6 +476,7 @@ final class KalamBridge {
         let continuation = pendingContinuation
         pendingContinuation = nil
         pendingOperation = nil
+        walkEntryHandler = nil
         stateLock.unlock()
         
         continuation?.resume(returning: response)
@@ -435,6 +487,7 @@ final class KalamBridge {
         let continuation = pendingContinuation
         pendingContinuation = nil
         pendingOperation = nil
+        walkEntryHandler = nil
         stateLock.unlock()
         
         continuation?.resume(throwing: error)

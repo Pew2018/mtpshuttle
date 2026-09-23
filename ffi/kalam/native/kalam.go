@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,6 +18,9 @@ import (
 import "C"
 
 var container deviceContainer
+
+//export CancelCurrentOperation
+func CancelCurrentOperation() { atomic.StoreUint32(&operationCancelled, 1) }
 
 //export Initialize
 func Initialize(onDonePtr *C.on_cb_result_t) {
@@ -252,6 +256,7 @@ func RenameFile(renameFileInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 
 //export Walk
 func Walk(walkInputJson *C.char, onDonePtr *C.on_cb_result_t) {
+	atomic.StoreUint32(&operationCancelled, 0)
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
 
 	if err := lockMtp(); err != nil {
@@ -270,7 +275,7 @@ func Walk(walkInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 		return
 	}
 
-	files, err := _walk(i.StorageId, i.FullPath, i.Recursive, i.SkipDisallowedFiles, i.SkipHiddenFiles)
+	files, err := _walk(i.StorageId, i.FullPath, i.Recursive, i.SkipDisallowedFiles, i.SkipHiddenFiles, nil)
 	if err != nil {
 		send_to_js.SendError(sendToJsOnDonePtr, err)
 
@@ -280,8 +285,25 @@ func Walk(walkInputJson *C.char, onDonePtr *C.on_cb_result_t) {
 	send_to_js.SendWalk(sendToJsOnDonePtr, files)
 }
 
+//export WalkWithProgress
+func WalkWithProgress(walkInputJson *C.char, onEntryPtr, onDonePtr *C.on_cb_result_t) {
+	atomic.StoreUint32(&operationCancelled, 0)
+	onDone := (*send_to_js.SendCbResult)(onDonePtr)
+	onEntry := (*send_to_js.SendCbResult)(onEntryPtr)
+	if err := lockMtp(); err != nil { send_to_js.SendError(onDone, err); return }
+	i := WalkInput{}
+	if err := jsoniter.ConfigFastest.UnmarshalFromString(C.GoString(walkInputJson), &i); err != nil {
+		send_to_js.SendError(onDone, err); return
+	}
+	files, err := _walk(i.StorageId, i.FullPath, i.Recursive, i.SkipDisallowedFiles, i.SkipHiddenFiles,
+		func(fi *mtpx.FileInfo) { send_to_js.SendWalk(onEntry, []*mtpx.FileInfo{fi}) })
+	if err != nil { send_to_js.SendError(onDone, err); return }
+	send_to_js.SendWalk(onDone, files)
+}
+
 //export UploadFiles
 func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, onDonePtr *C.on_cb_result_t) {
+	atomic.StoreUint32(&operationCancelled, 0)
 	sendToJsOnPreprocessPtr := (*send_to_js.SendCbResult)(onPreprocessPtr)
 	sendToJsOnProgressPtr := (*send_to_js.SendCbResult)(onProgressPtr)
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
@@ -333,6 +355,7 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 
 	err = _uploadFiles(i.StorageId, i.Sources, i.Destination, i.PreprocessFiles,
 		func(fi *os.FileInfo, fullPath string, err error) error {
+			if cancelled := checkOperationCancelled(); cancelled != nil { return cancelled }
 			if err != nil {
 				return err
 			}
@@ -345,6 +368,7 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 			return nil
 		},
 		func(p *mtpx.ProgressInfo, err error) error {
+			if cancelled := checkOperationCancelled(); cancelled != nil { return cancelled }
 			if err != nil {
 				return err
 			}
@@ -370,6 +394,7 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 
 //export DownloadFiles
 func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, onDonePtr *C.on_cb_result_t) {
+	atomic.StoreUint32(&operationCancelled, 0)
 	sendToJsOnPreprocessPtr := (*send_to_js.SendCbResult)(onPreprocessPtr)
 	sendToJsOnProgressPtr := (*send_to_js.SendCbResult)(onProgressPtr)
 	sendToJsOnDonePtr := (*send_to_js.SendCbResult)(onDonePtr)
@@ -421,6 +446,7 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 
 	err = _downloadFiles(i.StorageId, i.Sources, i.Destination, i.PreprocessFiles,
 		func(fi *mtpx.FileInfo, err error) error {
+			if cancelled := checkOperationCancelled(); cancelled != nil { return cancelled }
 			if err != nil {
 				return err
 			}
@@ -432,6 +458,7 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 			return nil
 		},
 		func(p *mtpx.ProgressInfo, err error) error {
+			if cancelled := checkOperationCancelled(); cancelled != nil { return cancelled }
 			if err != nil {
 				return err
 			}

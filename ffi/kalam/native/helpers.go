@@ -5,7 +5,15 @@ import (
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
 	"log"
+	"sync/atomic"
 )
+
+var operationCancelled uint32
+
+func checkOperationCancelled() error {
+	if atomic.LoadUint32(&operationCancelled) != 0 { return fmt.Errorf("OperationCancelled") }
+	return nil
+}
 
 func verifyMtpSession(c verifyMtpSessionMode) error {
 	if container.dev == nil {
@@ -131,7 +139,7 @@ func _renameFile(storageId uint32, fileProp mtpx.FileProp, newFileName string) (
 	return nil
 }
 
-func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool) (files []*mtpx.FileInfo, err error) {
+func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, skipHiddenFiles bool, onEntry func(*mtpx.FileInfo)) (files []*mtpx.FileInfo, err error) {
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
 		return []*mtpx.FileInfo{}, err
 	}
@@ -140,8 +148,10 @@ func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, sk
 		if err != nil {
 			return err
 		}
+		if err := checkOperationCancelled(); err != nil { return err }
 
 		files = append(files, fi)
+		if onEntry != nil { onEntry(fi) }
 
 		return nil
 	})

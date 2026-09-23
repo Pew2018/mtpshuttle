@@ -66,10 +66,10 @@ struct FilePaneView: View {
 
             Divider()
 
-            if isLoading {
+            if isLoading && items.isEmpty {
                 ProgressView("Loading folder…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let message = errorMessage ?? emptyMessage {
+            } else if let message = items.isEmpty ? (errorMessage ?? emptyMessage) : nil {
                 VStack(spacing: 12) {
                     Image(systemName: errorMessage == nil ? "externaldrive" : "exclamationmark.triangle")
                         .font(.largeTitle).foregroundStyle(.secondary)
@@ -80,7 +80,12 @@ struct FilePaneView: View {
             } else if items.isEmpty {
                 emptyState
             } else if viewMode == .list {
-                listView
+                VStack(spacing: 0) {
+                    if isLoading { Text("正在加载，已显示 \(items.count) 个项目；点按右侧 Refresh 可暂停")
+                        .font(.caption).foregroundStyle(.secondary).padding(6) }
+                    if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.orange).padding(6) }
+                    listView
+                }
             } else {
                 gridView
             }
@@ -140,8 +145,8 @@ struct FilePaneView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(isLoading)
-                .help(refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane")
+                .disabled(isLoading && pane == .mac)
+                .help(isLoading && pane == .android ? "暂停加载并显示已读取项目" : (refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane"))
 
                 Spacer(minLength: 8)
 

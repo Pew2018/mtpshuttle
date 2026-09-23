@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var quickLookURLs: [URL] = []
     @StateObject private var localBrowser = LocalBrowserService()
     @StateObject private var mtpService = MTPService()
+    @ObservedObject private var tasks = TaskActivityStore.shared
 
     @AppStorage("dragDropMode")
     private var dragDropMode = DragDropMode.copy.rawValue
@@ -45,7 +46,10 @@ struct ContentView: View {
             rightPane: $rightPane,
             clipboard: $clipboard,
             androidOnlyMode: androidOnlyMode,
-            operation: operation,
+            operation: tasks.current.map { DemoOperation(title: $0.title, detail: $0.step, progress: $0.fraction ?? 0) } ?? operation,
+            operationIndeterminate: tasks.current != nil && tasks.current?.fraction == nil,
+            onShowTasks: { openWindow(id: "tasks") },
+            onCancelTask: { tasks.cancel() },
             statusMessage: statusMessage,
             onOpen: open,
             onBack: goBack,
@@ -664,7 +668,9 @@ struct ContentView: View {
         guard !sources.isEmpty else { statusMessage = "No items selected"; return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
-            operation = DemoOperation(title: noun, detail: "\(sources.count) item(s)", progress: 0.15)
+            let knownBytes = sources.contains(where: \.isDirectory) ? -1 :
+                sources.reduce(Int64(0)) { $0 + Int64($1.sizeBytes ?? 0) }
+            tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
                                           targetPane: targetPane, targetPath: targetPath, mode: mode,
@@ -674,10 +680,11 @@ struct ContentView: View {
                 statusMessage = "\(sources.count) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
+                tasks.finish("已完成")
             } catch {
-                statusMessage = error.localizedDescription
+                statusMessage = tasks.cancellationRequested ? "操作已取消" : error.localizedDescription
+                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
-            operation = nil
         }
     }
 
@@ -691,13 +698,19 @@ struct ContentView: View {
     private func transferExternal(_ urls: [URL], targetPath: String) {
         guard let storage = MTPBrowsePath(browserPath: targetPath) else { return }
         Task { @MainActor in
-            operation = DemoOperation(title: "Copying", detail: "\(urls.count) item(s)", progress: 0.15)
+            let knownBytes = urls.reduce(Int64(0)) { sum, url in
+                sum + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+            }
+            tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
             do {
                 try await mtpService.upload(sources: urls.map(\.path), destination: storage.fullPath, storageID: storage.storageID)
                 statusMessage = "\(urls.count) item(s) copied to Android Device"
                 await mtpService.browse(path: targetPath)
-            } catch { statusMessage = error.localizedDescription }
-            operation = nil
+                tasks.finish("已完成")
+            } catch {
+                statusMessage = tasks.cancellationRequested ? "操作已取消" : error.localizedDescription
+                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
+            }
         }
     }
 
@@ -713,6 +726,7 @@ struct ContentView: View {
         )
 
         for child in children {
+            if tasks.cancellationRequested { throw MTPServiceError.cancelled }
             let values = try child.resourceValues(forKeys: [.isDirectoryKey])
             if values.isDirectory == true {
                 let remoteFolder = remotePath + "/" + child.lastPathComponent
@@ -754,6 +768,7 @@ struct ContentView: View {
         if sourcePane == .mac && targetPane == .mac {
             let destination = URL(fileURLWithPath: targetPath, isDirectory: true)
             for (index, item) in sources.enumerated() {
+                if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                 guard let url = item.localURL else { continue }
                 let target = destination.appendingPathComponent(targetNames[index])
                 if resolution == .overwrite && FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
@@ -774,6 +789,7 @@ struct ContentView: View {
             // first, then upload their contents into the new remote path.
             if resolution == .rename {
                 for (index, item) in sources.enumerated() {
+                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                     guard let url = item.localURL else { continue }
                     let remoteName = targetNames[index]
                     if item.isDirectory {
@@ -815,6 +831,7 @@ struct ContentView: View {
             }
 
             if mode == .move {
+                if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                 for item in sources {
                     if let url = item.localURL { try FileManager.default.removeItem(at: url) }
                 }
@@ -843,6 +860,7 @@ struct ContentView: View {
         } else {
             try await mtpService.download(sources: remoteSources, destination: targetPath, storageID: storage.storageID)
         }
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
         if mode == .move { try await mtpService.delete(files: remoteSources, storageID: storage.storageID) }
     }
 
@@ -1029,6 +1047,9 @@ private struct WorkspaceView: View {
     let androidOnlyMode: Bool
 
     let operation: DemoOperation?
+    let operationIndeterminate: Bool
+    let onShowTasks: () -> Void
+    let onCancelTask: () -> Void
     let statusMessage: String
     let onOpen: (PaneKind, DemoEntry) -> Void
     let onBack: (PaneKind) -> Void
@@ -1117,7 +1138,6 @@ private struct WorkspaceView: View {
                 Text(mtpService.statusText).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if case .connecting = mtpService.state { ProgressView().controlSize(.small) }
-                else { Button { onRefresh(.android) } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Refresh Android device") }
             }
             .padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
             if androidOnlyMode {
@@ -1135,7 +1155,8 @@ private struct WorkspaceView: View {
             Divider()
 
             if let operation {
-                OperationProgressView(operation: operation)
+                OperationProgressView(operation: operation, indeterminate: operationIndeterminate,
+                                      onShowTasks: onShowTasks, onCancel: onCancelTask)
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: clipboard == nil ? "checkmark.circle" : "doc.on.clipboard")
@@ -1162,28 +1183,37 @@ private struct WorkspaceView: View {
 
 private struct OperationProgressView: View {
     let operation: DemoOperation
+    let indeterminate: Bool
+    let onShowTasks: () -> Void
+    let onCancel: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            ProgressView(value: operation.progress)
-                .progressViewStyle(.linear)
-                .frame(maxWidth: 360)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(operation.title)
-                    .font(.caption.weight(.semibold))
-
-                Text(operation.detail)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            Button(action: onShowTasks) {
+                HStack(spacing: 12) {
+                    Group {
+                        if indeterminate { ProgressView() }
+                        else { ProgressView(value: operation.progress) }
+                    }
+                    .progressViewStyle(.linear)
+                    .frame(maxWidth: 360)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(operation.title).font(.caption.weight(.semibold))
+                        Text(operation.detail).font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
+            .buttonStyle(.plain)
+            .help("打开任务详情")
 
             Spacer()
 
-            Text("\(Int(operation.progress * 100))%")
+            Text(indeterminate ? "计算中" : "\(Int(operation.progress * 100))%")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 38, alignment: .trailing)
+                .frame(width: 46, alignment: .trailing)
+            Button(action: onCancel) { Image(systemName: "xmark.circle") }
+                .buttonStyle(.borderless).help("取消当前操作")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
