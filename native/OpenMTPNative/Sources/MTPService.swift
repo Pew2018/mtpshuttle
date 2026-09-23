@@ -30,13 +30,14 @@ final class MTPService: ObservableObject {
     @Published private(set) var entries: [DemoEntry] = []
     @Published private(set) var isBrowsing = false
     @Published private(set) var browseError: String?
+    @Published private(set) var isBrowsePartial = false
     private var browseGeneration = UUID()
 
     func browse(path: String) async {
         let request = UUID()
         browseGeneration = request
-        entries = []
         browseError = nil
+        isBrowsePartial = false
         isBrowsing = false
         guard isConnected, path != "/" else { return }
         guard let location = MTPBrowsePath(browserPath: path),
@@ -56,6 +57,15 @@ final class MTPService: ObservableObject {
             DebugLogger.error("MTP directory read failed: \(error.localizedDescription)")
         }
         isBrowsing = false
+    }
+
+    func cancelBrowse() {
+        guard isBrowsing else { return }
+        browseGeneration = UUID()
+        isBrowsing = false
+        isBrowsePartial = true
+        browseError = entries.isEmpty ? "加载已暂停，当前目录暂无已加载项目" : "加载已暂停，仅显示已加载的部分项目"
+        DebugLogger.info("MTP directory browsing paused by user")
     }
 
     var isConnected: Bool {

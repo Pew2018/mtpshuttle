@@ -917,6 +917,11 @@ struct ContentView: View {
             }
         case .android:
             rightPane.selection.removeAll()
+            if mtpService.isBrowsing {
+                mtpService.cancelBrowse()
+                statusMessage = "加载已暂停，已显示当前已加载项目"
+                return
+            }
             statusMessage = mtpService.isConnected ? "Refreshing Android device…" : "Connecting to Android device…"
             Task {
                 await mtpService.refresh()

@@ -58,6 +58,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SwiftMTP-0.1.0-arm64
-          path: native/OpenMTPNative/dist/SwiftMTP-arm64.zip
+          path: native/OpenMTPNative/dist/SwiftMTP.app
           if-no-files-found: error
           retention-days: 14
