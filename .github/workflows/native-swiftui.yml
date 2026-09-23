@@ -80,10 +80,21 @@ jobs:
           test -d dist/SwiftMTP.app
           test -z "$(find dist -type f -name '*.zip' -print -quit)"
           test -x dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
-      - name: Upload arm64 app bundle
-        uses: actions/upload-artifact@v4
+      - name: Package and verify downloadable ZIP
+        run: |
+          (cd dist && ditto -c -k --keepParent SwiftMTP.app SwiftMTP.zip)
+          test "$(unzip -Z -1 dist/SwiftMTP.zip | cut -d/ -f1 | sort -u)" = "SwiftMTP.app"
+          EXTRACTED="$(mktemp -d)"
+          trap 'rm -rf "$EXTRACTED"' EXIT
+          ditto -x -k dist/SwiftMTP.zip "$EXTRACTED"
+          test "$(find "$EXTRACTED" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
+          test -x "$EXTRACTED/SwiftMTP.app/Contents/MacOS/SwiftMTP"
+          test -f "$EXTRACTED/SwiftMTP.app/Contents/Info.plist"
+          codesign --verify --deep --strict "$EXTRACTED/SwiftMTP.app"
+      - name: Upload arm64 test ZIP
+        uses: actions/upload-artifact@v7
         with:
-          name: SwiftMTP-0.1.0-arm64
-          path: native/OpenMTPNative/dist/
+          path: native/OpenMTPNative/dist/SwiftMTP.zip
+          archive: false
           if-no-files-found: error
           retention-days: 14
