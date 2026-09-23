@@ -33,17 +33,24 @@ enum MTPDirectory {
             throw KalamBridgeError.invalidResponse("Missing directory data")
         }
 
+        var hasMalformedNamedRecord = false
         let parsed = records.compactMap { value -> DemoEntry? in
             guard let object = value.objectValue else { return nil }
-            // Some Android/MTP devices include blank separator records or names
-            // containing line breaks and control characters. If they reach the
-            // SwiftUI list they still consume a row, which appears as empty gaps.
-            guard let rawName = string(object, keys: ["name", "Name", "filename", "fileName"]),
-                  let rawRemotePath = string(object, keys: ["path", "fullPath", "fullpath"]) else { return nil }
+            // Blank separator records are ignored, but a named record missing
+            // required metadata still indicates an invalid backend response.
+            let rawName = string(object, keys: ["name", "Name", "filename", "fileName"]) ?? ""
             let name = normalizedComponent(rawName)
+            if name.isEmpty { return nil }
+            guard let rawRemotePath = string(object, keys: ["path", "fullPath", "fullpath"]) else {
+                hasMalformedNamedRecord = true
+                return nil
+            }
             let remotePath = normalizedRemotePath(rawRemotePath)
-            guard !name.isEmpty, !remotePath.isEmpty,
-                  object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else { return nil }
+            guard !remotePath.isEmpty,
+                  object.value(forKeyIgnoringCase: "isFolder") != nil || object.value(forKeyIgnoringCase: "isDir") != nil || object.value(forKeyIgnoringCase: "isDirectory") != nil else {
+                hasMalformedNamedRecord = true
+                return nil
+            }
 
             let isFolder = bool(object, keys: ["isFolder", "isDir", "isDirectory", "folder", "directory"])
             let size = integer(object, keys: ["size", "Size", "fileSize"])
@@ -61,8 +68,10 @@ enum MTPDirectory {
             )
         }
 
-        // Ignore malformed separator/metadata records returned by some devices.
-        // Valid entries remain visible and the caller can still show a partial list.
+        if hasMalformedNamedRecord {
+            throw KalamBridgeError.invalidResponse("Directory entry is missing required metadata")
+        }
+
         return parsed.sorted(by: DemoEntry.browserOrder)
     }
 
