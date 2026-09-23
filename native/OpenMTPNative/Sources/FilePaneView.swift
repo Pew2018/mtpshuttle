@@ -404,8 +404,17 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             self.parent = parent
         }
 
+        private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
+            let type = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+            return draggingInfo.draggingPasteboard.types?.contains(type) == true
+        }
+
         private func acceptsFinderFiles(_ draggingInfo: NSDraggingInfo) -> Bool {
-            draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
+            guard !isInternalDrag(draggingInfo) else {
+                return false
+            }
+
+            return draggingInfo.draggingPasteboard.types?.contains(.fileURL) == true
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
