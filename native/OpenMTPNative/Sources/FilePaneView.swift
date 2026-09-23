@@ -623,7 +623,10 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             switch event.type {
             case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
                  .leftMouseUp, .rightMouseUp, .otherMouseUp:
-                return coordinator?.activeDragSession == true ? self : nil
+                // Keep the receiver in the hit-test path through mouse-up. AppKit
+                // can send draggingExited while the cursor crosses the SwiftUI
+                // overlay, even though the drop is still being completed.
+                return self
 
             case .leftMouseDown, .rightMouseDown, .otherMouseDown:
                 return nil

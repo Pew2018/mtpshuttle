@@ -9,6 +9,7 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didMoveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didEndLiveResizeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowClosed(_:)), name: NSWindow.willCloseNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(windowBecameKey(_:)), name: NSWindow.didBecomeKeyNotification, object: nil)
     }
 
     func applicationShouldHandleReopen(
@@ -31,6 +32,11 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
         saveMainWindowFrame(notification.object as? NSWindow)
     }
 
+    @objc private func windowBecameKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window.title == "OpenMTP" else { return }
+        restoreMainWindowFrame(on: window)
+    }
+
     func saveMainWindowFrame(_ window: NSWindow?) {
         guard let window, window.title == "OpenMTP" else { return }
         UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: frameKey)
@@ -40,6 +46,11 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
         guard let value = UserDefaults.standard.string(forKey: frameKey),
               let window = NSApp.windows.first(where: { $0.title == "OpenMTP" }),
               !value.isEmpty else { return }
+        restoreMainWindowFrame(on: window)
+    }
+
+    private func restoreMainWindowFrame(on window: NSWindow) {
+        guard let value = UserDefaults.standard.string(forKey: frameKey), !value.isEmpty else { return }
         window.setFrame(NSRectFromString(value), display: true)
     }
 }
