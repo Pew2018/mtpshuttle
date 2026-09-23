@@ -41,6 +41,7 @@ struct ContentView: View {
             onAction: { action, item in onAction(action, .mac, item) },
             onNewFolder: { onNewFolder(.mac) },
             onPaste: { onPaste(.mac) },
+            showCrossPaneActions: !androidOnlyMode,
             onDrop: { providers in onDrop(providers, .mac) },
             onDragProvider: { item in
                 onExternalDragProvider(.mac, leftPane.path, item)
@@ -65,6 +66,7 @@ struct ContentView: View {
             onAction: { action, item in onAction(action, .android, item) },
             onNewFolder: { onNewFolder(.android) },
             onPaste: { onPaste(.android) },
+            showCrossPaneActions: !androidOnlyMode,
             onDrop: { providers in onDrop(providers, .android) },
             onDragProvider: { item in
                 onExternalDragProvider(.android, rightPane.path, item)
