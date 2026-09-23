@@ -434,7 +434,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
             let objects = draggingInfo.draggingPasteboard.readObjects(
                 forClasses: [NSURL.self],
-                options: [.urlReadingFileURLs: true]
+                options: [.urlReadingFileURLsOnly: true]
             )
 
             let urls = (objects as? [NSURL])?.map { $0 as URL } ?? []
