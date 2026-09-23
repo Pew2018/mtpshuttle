@@ -2,23 +2,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "OpenMTPNative",
+    name: "SwiftMTP",
     platforms: [
         .macOS(.v13)
     ],
     products: [
         .executable(
-            name: "OpenMTPNative",
-            targets: ["OpenMTPNative"]
+            name: "SwiftMTP",
+            targets: ["SwiftMTP"]
         )
     ],
     targets: [
         .executableTarget(
-            name: "OpenMTPNative"
+            name: "SwiftMTP"
         ),
         .testTarget(
-            name: "OpenMTPNativeTests",
-            dependencies: ["OpenMTPNative"]
+            name: "SwiftMTPTests",
+            dependencies: ["SwiftMTP"]
         )
     ]
 )

@@ -1,5 +1,5 @@
 import XCTest
-@testable import OpenMTPNative
+@testable import SwiftMTP
 
 final class DirectoryTests: XCTestCase {
     func testWalkRequestUsesStorageIDAndVolumeRelativePath() throws {

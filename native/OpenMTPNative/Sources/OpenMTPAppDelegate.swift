@@ -3,7 +3,7 @@ import AppKit
 @MainActor
 final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
     var openMainWindow: (() -> Void)?
-    private let frameKey = "OpenMTP.mainWindowFrame"
+    private let frameKey = "SwiftMTP.mainWindowFrame"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didMoveNotification, object: nil)
@@ -33,12 +33,12 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func windowBecameKey(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window.title == "OpenMTP" else { return }
+        guard let window = notification.object as? NSWindow, window.title == "SwiftMTP" else { return }
         restoreMainWindowFrame(on: window)
     }
 
     func saveMainWindowFrame(_ window: NSWindow?) {
-        guard let window, window.title == "OpenMTP" else { return }
+        guard let window, window.title == "SwiftMTP" else { return }
         UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: frameKey)
     }
 

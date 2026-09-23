@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>OpenMTP</string>
+    <string>SwiftMTP</string>
     <key>CFBundleExecutable</key>
-    <string>OpenMTPNative</string>
+    <string>SwiftMTP</string>
     <key>CFBundleIdentifier</key>
-    <string>com.pew2018.openmtp.native</string>
+    <string>com.pew2018.swiftmtp</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

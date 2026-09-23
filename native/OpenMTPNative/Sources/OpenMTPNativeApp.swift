@@ -6,7 +6,7 @@ struct OpenMTPNativeApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup("OpenMTP", id: "main") {
+        WindowGroup("SwiftMTP", id: "main") {
             ContentView()
                 .frame(minWidth: 760, minHeight: 480)
                 .onAppear {
@@ -21,7 +21,7 @@ struct OpenMTPNativeApp: App {
         }
         .defaultSize(width: 1180, height: 760)
         .commands {
-            OpenMTPCommands()
+            SwiftMTPCommands()
         }
 
         Window("Settings", id: "settings") {
@@ -32,7 +32,7 @@ struct OpenMTPNativeApp: App {
     }
 }
 
-private struct OpenMTPCommands: Commands {
+private struct SwiftMTPCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.openMTPEditActions) private var editActions
 

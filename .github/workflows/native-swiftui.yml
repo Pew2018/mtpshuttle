@@ -40,8 +40,8 @@ jobs:
         run: ./scripts/build-app.sh
       - name: Verify application bundle
         run: |
-          APP="dist/OpenMTP.app"
-          BIN="$APP/Contents/MacOS/OpenMTPNative"
+          APP="dist/SwiftMTP.app"
+          BIN="$APP/Contents/MacOS/SwiftMTP"
           test -d "$APP/Contents/MacOS"
           test -f "$APP/Contents/Info.plist"
           test -x "$BIN"
@@ -56,7 +56,7 @@ jobs:
       - name: Upload arm64 app bundle
         uses: actions/upload-artifact@v4
         with:
-          name: OpenMTP-Native-MTP-ARM64
-          path: native/OpenMTPNative/dist/OpenMTP-arm64.zip
+          name: SwiftMTP-0.1.0-arm64
+          path: native/OpenMTPNative/dist/SwiftMTP-arm64.zip
           if-no-files-found: error
           retention-days: 14
