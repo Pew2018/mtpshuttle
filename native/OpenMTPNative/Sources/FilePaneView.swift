@@ -392,7 +392,7 @@ private struct FileRowView: View {
             } else {
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : .tertiary)
+                    .foregroundStyle(isSelected ? Color.accentColor.opacity(0.86) : Color.secondary)
             }
         }
         .padding(.horizontal, 10)
