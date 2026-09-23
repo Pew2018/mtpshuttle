@@ -265,19 +265,19 @@ struct ContentView: View {
         _ encoded: String,
         targetPane: PaneKind
     ) {
-        OpenMTPDNDLogger.log("[OpenMTP-DND] ContentView.handleInternalDrop target=\\(targetPane) encodedLength=\\(encoded.count)")
+        OpenMTPDNDLogger.log("ContentView.handleInternalDrop target=\\(targetPane) encodedLength=\\(encoded.count)")
         guard operation == nil else {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] ContentView.handleInternalDrop ignored: operation active")
+            OpenMTPDNDLogger.log("ContentView.handleInternalDrop ignored: operation active")
             return
         }
 
         guard let payload = DemoDragPayload.decode(encoded) else {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] ContentView.handleInternalDrop FAILED to decode payload")
+            OpenMTPDNDLogger.log("ContentView.handleInternalDrop FAILED to decode payload")
             statusMessage = "Invalid OpenMTP drag payload"
             return
         }
 
-        OpenMTPDNDLogger.log("[OpenMTP-DND] ContentView payload source=\\(payload.sourcePane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
+        OpenMTPDNDLogger.log("ContentView payload source=\\(payload.sourcePane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
         receiveDrop(payload, targetPane: targetPane)
     }
 
@@ -328,13 +328,13 @@ struct ContentView: View {
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
-        OpenMTPDNDLogger.log("[OpenMTP-DND] ContentView.receiveDrop source=\\(payload.sourcePane) target=\\(targetPane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
+        OpenMTPDNDLogger.log("ContentView.receiveDrop source=\\(payload.sourcePane) target=\\(targetPane) path=\\(payload.sourcePath) ids=\\(payload.itemIDs.count)")
         guard operation == nil else {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] receiveDrop ignored: operation active")
+            OpenMTPDNDLogger.log("receiveDrop ignored: operation active")
             return
         }
         guard payload.sourcePane != targetPane else {
-            OpenMTPDNDLogger.log("[OpenMTP-DND] receiveDrop rejected: same pane")
+            OpenMTPDNDLogger.log("receiveDrop rejected: same pane")
             statusMessage = "Drop between the two panes to transfer items"
             return
         }
@@ -447,7 +447,7 @@ struct ContentView: View {
             itemIDs: [item.id]
         )
 
-        OpenMTPDNDLogger.log("[OpenMTP-DND] makeDragProvider source=\\(pane) path=\\(path) item=\\(item.name) id=\\(item.id)")
+        OpenMTPDNDLogger.log("makeDragProvider source=\\(pane) path=\\(path) item=\\(item.name) id=\\(item.id)")
         let provider = NSItemProvider()
 
         if let encoded = payload.encoded {
@@ -459,10 +459,13 @@ struct ContentView: View {
                 return nil
             }
 
-            provider.registerObject(
-                encoded as NSString,
-                visibility: .ownProcess
-            )
+            provider.registerDataRepresentation(
+                forTypeIdentifier: UTType.plainText.identifier,
+                visibility: .all
+            ) { completionHandler in
+                completionHandler(Data(encoded.utf8), nil)
+                return nil
+            }
         }
 
         let snapshot = fileSystem
