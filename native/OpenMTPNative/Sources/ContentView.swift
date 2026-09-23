@@ -64,7 +64,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        workspaceView
+        AnyView(workspaceView)
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
