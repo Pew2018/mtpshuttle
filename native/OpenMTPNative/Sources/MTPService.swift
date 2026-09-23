@@ -232,16 +232,6 @@ final class MTPService: ObservableObject {
             )
         }
     }
-
-    func delete(files: [String], storageID: UInt32) async throws {
-        let response = try await performNativeCall {
-            try await KalamBridge.shared.delete(storageID: storageID, files: files)
-        }
-        guard response.isSuccess else {
-            throw MTPServiceError.backend(type: response.errorType ?? "Delete failed",
-                                          message: response.errorMessage ?? "Unable to delete files")
-        }
-    }
 }
 
 enum MTPServiceError: LocalizedError {

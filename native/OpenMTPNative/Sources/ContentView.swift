@@ -147,14 +147,12 @@ struct ContentView: View {
         }
         .onChange(of: leftPane.selection) { selection in
             if !selection.isEmpty {
-                leftPane.selection = Set(selection.prefix(1))
                 rightPane.selection.removeAll()
                 activePane = .mac
             }
         }
         .onChange(of: rightPane.selection) { selection in
             if !selection.isEmpty {
-                rightPane.selection = Set(selection.prefix(1))
                 leftPane.selection.removeAll()
                 activePane = .android
             }
@@ -324,7 +322,7 @@ struct ContentView: View {
             statusMessage = "\(ids.count) item(s) ready to move"
 
         case .delete:
-            statusMessage = "Delete is not available yet"
+            deleteItems(ids, pane: pane)
 
         case .copyToOther:
             let other = pane == .mac ? PaneKind.android : .mac
@@ -480,12 +478,49 @@ struct ContentView: View {
     }
 
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry) -> NSItemProvider {
-        guard pane == .mac, let url = item.localURL else { return NSItemProvider() }
-        return NSItemProvider(object: url as NSURL)
+        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: [item.id])
+        if let encoded = payload.encoded {
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
+                                                visibility: .all) { completion in
+                completion(encoded.data(using: .utf8), nil)
+                return nil
+            }
+            provider.registerDataRepresentation(forTypeIdentifier: UTType.plainText.identifier,
+                                                visibility: .all) { completion in
+                completion(encoded.data(using: .utf8), nil)
+                return nil
+            }
+            return provider
+        }
+        return item.localURL.map { NSItemProvider(object: $0 as NSURL) } ?? NSItemProvider()
     }
 
     private func createFolder(_ pane: PaneKind) {
         statusMessage = "New folders are not available yet"
+    }
+
+    private func deleteItems(_ ids: [UUID], pane: PaneKind) {
+        let items = entries(for: pane, path: paneState(for: pane).path).filter { ids.contains($0.id) }
+        guard !items.isEmpty else { return }
+        let path = paneState(for: pane).path
+        Task { @MainActor in
+            operation = DemoOperation(title: "Deleting", detail: "\(items.count) item(s)", progress: 0.2)
+            do {
+                if pane == .mac {
+                    for item in items {
+                        if let url = item.localURL { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+                    }
+                } else if let storage = MTPBrowsePath(browserPath: path) {
+                    try await mtpService.delete(files: items.compactMap(\.remotePath), storageID: storage.storageID)
+                }
+                clearSelection(for: pane)
+                statusMessage = "\(items.count) item(s) deleted"
+                await localBrowser.load(path: leftPane.path)
+                await mtpService.browse(path: rightPane.path)
+            } catch { statusMessage = error.localizedDescription }
+            operation = nil
+        }
     }
 
     private func paste(_ targetPane: PaneKind) {
