@@ -668,9 +668,9 @@ private struct FolderDropConfirmationView: View {
     private var folderSummary: String {
         switch request.itemNames.count {
         case 1:
-            return "“(request.itemNames[0])”"
+            return "“\(request.itemNames[0])”"
         default:
-            return "(request.itemNames.count) folders"
+            return "\(request.itemNames.count) folders"
         }
     }
 
@@ -692,7 +692,7 @@ private struct FolderDropConfirmationView: View {
                     Text(title)
                         .font(.headline)
 
-                    Text("Copy (folderSummary) to (request.targetPane.title)?")
+                    Text("Copy \(folderSummary) to \(request.targetPane.title)?")
                         .font(.body)
                 }
             }
