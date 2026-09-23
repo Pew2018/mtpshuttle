@@ -9,11 +9,9 @@ struct FilePaneView: View {
     @Binding var selection: Set<UUID>
     let canGoBack: Bool
     let canGoForward: Bool
-    let canGoUp: Bool
     let canPaste: Bool
     let onBack: () -> Void
     let onForward: () -> Void
-    let onUp: () -> Void
     let onRefresh: () -> Void
     let onNavigate: (String) -> Void
     let onOpen: (DemoEntry) -> Void
@@ -82,6 +80,13 @@ struct FilePaneView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Button(action: onRefresh) {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Refresh this pane")
+
                 Spacer(minLength: 8)
 
                 HStack(spacing: 2) {
@@ -98,29 +103,6 @@ struct FilePaneView: View {
                     .buttonStyle(.borderless)
                     .disabled(!canGoForward)
                     .help("Forward")
-
-                    Button(action: onUp) {
-                        Image(systemName: "arrow.turn.up.left")
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(!canGoUp)
-                    .help("Open parent folder")
-
-                    Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Refresh this pane")
-
-                    Menu {
-                        Button("New Folder", action: onNewFolder)
-                        Button("Paste", action: onPaste)
-                            .disabled(!canPaste)
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .help("Folder actions")
 
                     Picker("", selection: $viewMode) {
                         ForEach(FileViewMode.allCases) { mode in
@@ -188,11 +170,17 @@ struct FilePaneView: View {
     }
 
     private var listView: some View {
-        List(selection: $selection) {
-            ForEach(items) { item in
-                FileRowView(item: item)
-                    .tag(item.id)
+        ScrollView {
+            LazyVStack(spacing: 1) {
+                ForEach(items) { item in
+                    FileRowView(
+                        item: item,
+                        isSelected: selection.contains(item.id)
+                    )
                     .contentShape(Rectangle())
+                    .onTapGesture {
+                        selection = [item.id]
+                    }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
                             onOpen(item)
@@ -204,9 +192,11 @@ struct FilePaneView: View {
                     .onDrag {
                         dragProvider(for: item)
                     }
+                }
             }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
         }
-        .listStyle(.inset)
         .contextMenu {
             Button("New Folder", action: onNewFolder)
 
@@ -365,85 +355,92 @@ struct FilePaneView: View {
 
 private struct FileRowView: View {
     let item: DemoEntry
+    let isSelected: Bool
+
+    private var selectionBackground: Color {
+        Color(nsColor: .selectedContentBackgroundColor)
+    }
+
+    private var selectionText: Color {
+        Color(nsColor: .selectedMenuItemTextColor)
+    }
 
     var body: some View {
         HStack(spacing: 11) {
             Image(systemName: item.systemImage)
                 .font(.title3)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(item.isDirectory ? Color(nsColor: .controlAccentColor) : Color.secondary)
+                .foregroundStyle(
+                    isSelected
+                        ? selectionText
+                        : (item.isDirectory
+                            ? Color(nsColor: .controlAccentColor)
+                            : Color.secondary)
+                )
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
                     .font(.body.weight(.medium))
+                    .foregroundStyle(isSelected ? selectionText : .primary)
 
                 Text(item.subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if let size = item.sizeLabel {
-                Text(size)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(.vertical, 3)
-    }
-}
-
-private struct FileGridItemView: View {
+                  private struct FileGridItemView: View {
     let item: DemoEntry
     let isSelected: Bool
+
+    private var selectionBackground: Color {
+        Color(nsColor: .selectedContentBackgroundColor)
+    }
+
+    private var selectionText: Color {
+        Color(nsColor: .selectedMenuItemTextColor)
+    }
 
     var body: some View {
         VStack(spacing: 9) {
             Image(systemName: item.systemImage)
                 .font(.system(size: 34))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(item.isDirectory ? Color(nsColor: .controlAccentColor) : Color.secondary)
+                .foregroundStyle(
+                    isSelected
+                        ? selectionText
+                        : (item.isDirectory
+                            ? Color(nsColor: .controlAccentColor)
+                            : Color.secondary)
+                )
 
             Text(item.name)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? .primary : .primary)
+                .foregroundStyle(isSelected ? selectionText : .primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
 
             if let size = item.sizeLabel {
                 Text(size)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(
+                        isSelected ? selectionText.opacity(0.82) : Color.secondary
+                    )
             } else {
                 Text(item.subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(
+                        isSelected ? selectionText.opacity(0.82) : Color.secondary
+                    )
             }
         }
         .frame(maxWidth: .infinity, minHeight: 118)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(
                     isSelected
-                        ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.18)
+                        ? selectionBackground
                         : Color(nsColor: .controlBackgroundColor)
                 )
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(
-                    isSelected
-                        ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.40)
-                        : .clear,
-                    lineWidth: 1
-                )
-        }
     }
 }
+
