@@ -91,8 +91,7 @@ struct MTPStorageSummary: Identifiable, Equatable {
             subtitle: subtitle,
             sizeBytes: clampedSize,
             isDirectory: true,
-            backendStorageID: storageID,
-            backendFullPath: "/"
+
         )
     }
     
