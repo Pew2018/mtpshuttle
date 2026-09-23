@@ -61,7 +61,7 @@ jobs:
         run: ./scripts/build-app.sh
       - name: Verify application bundle
         run: |
-          APP="dist/SwiftMTP.app"
+          APP="dist/MTP Shuttle.app"
           BIN="$APP/Contents/MacOS/SwiftMTP"
           test -d "$APP/Contents/MacOS"
           test -f "$APP/Contents/Info.plist"
@@ -76,7 +76,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
       - name: Audit native bundle contents
         run: |
-          APP="dist/SwiftMTP.app"
+          APP="dist/MTP Shuttle.app"
           test "$(find "$APP/Contents" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "4"
           test -d "$APP/Contents/_CodeSignature"
           test ! -e "$APP/Contents/Resources/app"
@@ -89,16 +89,16 @@ jobs:
       - name: Verify artifact has a single app at its root
         run: |
           test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
-          test -d dist/SwiftMTP.app
+          test -d dist/MTP Shuttle.app
           test -z "$(find dist -type f -name '*.zip' -print -quit)"
-          test -x dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
+          test -x dist/MTP Shuttle.app/Contents/MacOS/SwiftMTP
       - name: Package and verify downloadable ZIP
         run: |
-          (cd dist && ditto -c -k --keepParent SwiftMTP.app SwiftMTP.zip)
-          test "$(unzip -Z -1 dist/SwiftMTP.zip | cut -d/ -f1 | sort -u)" = "SwiftMTP.app"
+          (cd dist && ditto -c -k --keepParent SwiftMTP.app MTP-Shuttle.zip)
+          test "$(unzip -Z -1 dist/MTP-Shuttle.zip | cut -d/ -f1 | sort -u)" = "SwiftMTP.app"
           EXTRACTED="$(mktemp -d)"
           trap 'rm -rf "$EXTRACTED"' EXIT
-          ditto -x -k dist/SwiftMTP.zip "$EXTRACTED"
+          ditto -x -k dist/MTP-Shuttle.zip "$EXTRACTED"
           test "$(find "$EXTRACTED" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
           test -x "$EXTRACTED/SwiftMTP.app/Contents/MacOS/SwiftMTP"
           test -f "$EXTRACTED/SwiftMTP.app/Contents/Info.plist"
@@ -106,7 +106,7 @@ jobs:
       - name: Upload arm64 test ZIP
         uses: actions/upload-artifact@v7
         with:
-          path: native/OpenMTPNative/dist/SwiftMTP.zip
+          path: native/OpenMTPNative/dist/MTP-Shuttle.zip
           archive: false
           if-no-files-found: error
           retention-days: 14

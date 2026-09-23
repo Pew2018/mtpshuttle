@@ -37,18 +37,18 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func windowBecameKey(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow, window.title == "SwiftMTP" else { return }
+        guard let window = notification.object as? NSWindow, window.title == "MTP Shuttle" else { return }
         restoreMainWindowFrame(on: window)
     }
 
     func saveMainWindowFrame(_ window: NSWindow?) {
-        guard let window, window.title == "SwiftMTP" else { return }
+        guard let window, window.title == "MTP Shuttle" else { return }
         UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: frameKey)
     }
 
     func restoreMainWindowFrame() {
         guard let value = UserDefaults.standard.string(forKey: frameKey),
-              let window = NSApp.windows.first(where: { $0.title == "OpenMTP" }),
+              let window = NSApp.windows.first(where: { $0.title == "MTP Shuttle" || $0.title == "SwiftMTP" || $0.title == "OpenMTP" }),
               !value.isEmpty else { return }
         restoreMainWindowFrame(on: window)
     }

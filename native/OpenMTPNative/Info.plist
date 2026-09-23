@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>SwiftMTP</string>
+    <string>MTP Shuttle</string>
     <key>CFBundleExecutable</key>
     <string>SwiftMTP</string>
     <key>CFBundleIdentifier</key>
@@ -11,7 +11,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>OpenMTP</string>
+    <string>MTP Shuttle</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

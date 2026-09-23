@@ -875,7 +875,7 @@ struct ContentView: View {
                         // conflict name. Uploading the original URL here would
                         // silently recreate the source basename on the device.
                         let temporary = FileManager.default.temporaryDirectory
-                            .appendingPathComponent("SwiftMTP-rename-(UUID().uuidString)", isDirectory: true)
+                            .appendingPathComponent("MTP-Shuttle-rename-(UUID().uuidString)", isDirectory: true)
                         try FileManager.default.createDirectory(
                             at: temporary,
                             withIntermediateDirectories: true
@@ -918,7 +918,7 @@ struct ContentView: View {
         // Keep partial MTP downloads out of the user's destination. In
         // particular, a cancelled move must never delete an Android source.
         let staging = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SwiftMTP-download-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("MTP-Shuttle-download-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: staging) }
         for remoteSource in remoteSources {

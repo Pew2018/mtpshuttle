@@ -6,7 +6,7 @@ struct OpenMTPNativeApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup("SwiftMTP", id: "main") {
+        WindowGroup("MTP Shuttle", id: "main") {
             ContentView()
                 .frame(minWidth: 760, minHeight: 480)
                 .onAppear {

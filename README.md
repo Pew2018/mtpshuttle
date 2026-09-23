@@ -1,12 +1,12 @@
-# SwiftMTP
+# MTP Shuttle
 
-SwiftMTP is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
+MTP Shuttle is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
 
-SwiftMTP is developed in the native SwiftUI target of this repository. The original Electron/React OpenMTP implementation is retained in the repository for compatibility and reference, but the current preview application is built from `native/OpenMTPNative`.
+MTP Shuttle is developed in the native SwiftUI target of this repository. The original Electron/React OpenMTP implementation is retained in the repository for compatibility and reference, but the current preview application is built from `native/OpenMTPNative`.
 
 ## 中文说明
 
-SwiftMTP 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MTP 文件传输工具，用于通过 USB 在 Mac 与 Android 设备之间浏览和传输文件。
+MTP Shuttle 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MTP 文件传输工具，用于通过 USB 在 Mac 与 Android 设备之间浏览和传输文件。
 
 当前预览版重点是提供更贴近 macOS 系统体验的原生界面，同时复用 OpenMTP 项目中的 Kalam MTP 后端。
 
@@ -57,7 +57,7 @@ SwiftMTP 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MTP �
 
 当前预览版：
 
-- [SwiftMTP v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
+- [MTP Shuttle v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
 
 ARM64 GitHub Actions 构建产物：
 
@@ -70,14 +70,14 @@ ARM64 GitHub Actions 构建产物：
 Native SwiftUI 构建由 GitHub Actions 完成：
 
 1. 在 Apple Silicon runner 上构建 ARM64 Kalam 动态库
-2. 构建 SwiftMTP Swift Package
+2. 构建 MTP Shuttle Swift Package
 3. 运行 Swift 单元测试
-4. 手工组装 SwiftMTP.app
+4. 手工组装 MTP Shuttle.app
 5. 根据 macOS 版本准备 standard 或 seg5 Kalam 动态库
 6. 验证动态库依赖、App bundle、代码签名和 ZIP 结构
 7. 上传可下载的 ARM64 ZIP
 
-Native 构建不会编译或打包仓库中的 Electron/React 前端、Node 依赖或原 Electron 资源。最终 App 只包含 SwiftMTP 可执行文件、Info.plist、Kalam 动态库和运行所需的 libusb 动态库。
+Native 构建不会编译或打包仓库中的 Electron/React 前端、Node 依赖或原 Electron 资源。最终 App 只包含 MTP Shuttle 可执行文件、Info.plist、Kalam 动态库和运行所需的 libusb 动态库。
 
 本地 Native 工程位置：
 
@@ -116,7 +116,7 @@ app/                            原始 Electron/React 客户端
 
 ## English
 
-SwiftMTP is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
+MTP Shuttle is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
 
 The current preview application is built from `native/OpenMTPNative`. The original Electron/React OpenMTP implementation remains in this repository for compatibility and reference, but it is not included in the Native SwiftUI application bundle.
 
@@ -145,7 +145,7 @@ The current preview application is built from `native/OpenMTPNative`. The origin
 
 ### Current limitations
 
-SwiftMTP is currently a native SwiftUI preview. The following features are not implemented or are still planned:
+MTP Shuttle is currently a native SwiftUI preview. The following features are not implemented or are still planned:
 
 - Exporting Android files to the system Finder through a real file-promise transfer
 - Renaming Android files
@@ -167,7 +167,7 @@ Android-to-Finder drag-out requires macOS file-promise support. A remote MTP pat
 
 Current preview release:
 
-- [SwiftMTP v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
+- [MTP Shuttle v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
 
 ARM64 GitHub Actions builds:
 
@@ -180,14 +180,14 @@ The preview has not yet been exhaustively tested with every Android device, file
 The Native SwiftUI build runs on GitHub Actions:
 
 1. Build the ARM64 Kalam dynamic library on an Apple Silicon runner
-2. Build the SwiftMTP Swift Package
+2. Build the MTP Shuttle Swift Package
 3. Run Swift unit tests
-4. Assemble SwiftMTP.app explicitly
+4. Assemble MTP Shuttle.app explicitly
 5. Include the standard or seg5 Kalam libraries required by the macOS version
 6. Verify dynamic-library dependencies, the App bundle, code signing, and ZIP structure
 7. Upload a downloadable ARM64 ZIP
 
-The Native build does not compile or package the Electron/React frontend, Node dependencies, or original Electron resources. The final App contains only the SwiftMTP executable, Info.plist, Kalam dynamic libraries, and the required libusb libraries.
+The Native build does not compile or package the Electron/React frontend, Node dependencies, or original Electron resources. The final App contains only the MTP Shuttle executable, Info.plist, Kalam dynamic libraries, and the required libusb libraries.
 
 Native project location:
 
