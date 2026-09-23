@@ -53,14 +53,22 @@ final class MTPService: ObservableObject {
                 Task { @MainActor in
                     guard let self, self.browseGeneration == request else { return }
                     if let parsed = try? MTPDirectory.entries(from: item, storageID: location.storageID) {
-                        self.entries.append(contentsOf: parsed)
-                        self.entries.sort(by: DemoEntry.browserOrder)
+                        // WalkWithProgress can deliver an item callback just
+                        // before or just after the final response. Merge by
+                        // stable identity so queued callbacks cannot duplicate
+                        // rows after the complete directory replaces the list.
+                        var merged = Dictionary(uniqueKeysWithValues: self.entries.map { ($0.id, $0) })
+                        for entry in parsed { merged[entry.id] = entry }
+                        self.entries = merged.values.sorted(by: DemoEntry.browserOrder)
                     }
                 }
             }
             guard request == browseGeneration else { return }
-            entries = try MTPDirectory.entries(from: response, storageID: location.storageID)
-            DebugLogger.info("MTP directory loaded: \(entries.count) entries")
+            let completed = try MTPDirectory.entries(from: response, storageID: location.storageID)
+            var merged = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+            for entry in completed { merged[entry.id] = entry }
+            entries = merged.values.sorted(by: DemoEntry.browserOrder)
+            DebugLogger.info("MTP directory loaded: \(entries.count) unique entries")
         } catch {
             guard request == browseGeneration else { return }
             browseError = "Unable to read this folder: \(error.localizedDescription)"
