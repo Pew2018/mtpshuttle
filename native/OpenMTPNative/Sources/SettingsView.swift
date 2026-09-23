@@ -31,7 +31,7 @@ struct SettingsView: View {
             Section("Diagnostics") {
                 Toggle("Debug mode", isOn: $debugMode)
                     .onChange(of: debugMode) { enabled in
-                        DebugLogger.info("Debug mode (enabled ? "enabled" : "disabled")")
+                        DebugLogger.info("Debug mode " + (enabled ? "enabled" : "disabled"))
                     }
                 HStack {
                     Button("Open Debug Log") { DebugLogger.openLog() }
