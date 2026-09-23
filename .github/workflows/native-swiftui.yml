@@ -74,6 +74,12 @@ jobs:
           otool -L "$APP/Contents/Resources/Kalam/standard/libusb.dylib"
           plutil -p "$APP/Contents/Info.plist"
           codesign --verify --deep --strict --verbose=2 "$APP"
+      - name: Verify artifact has a single app at its root
+        run: |
+          test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
+          test -d dist/SwiftMTP.app
+          test -z "$(find dist -type f -name '*.zip' -print -quit)"
+          test -x dist/SwiftMTP.app/Contents/MacOS/SwiftMTP
       - name: Upload arm64 app bundle
         uses: actions/upload-artifact@v4
         with:
