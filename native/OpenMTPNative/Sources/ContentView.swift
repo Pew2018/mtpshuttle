@@ -630,7 +630,8 @@ struct ContentView: View {
     private func propertyDescription(for item: DemoEntry) -> String {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
-        return "Type: \(type)\\nSize: \(size)\\nID: \(item.id.uuidString)"
+        let path = item.localURL?.path ?? item.remotePath ?? item.name
+        return "Type: \(type)\nSize: \(size)\nPath: \(path)"
     }
 }
 

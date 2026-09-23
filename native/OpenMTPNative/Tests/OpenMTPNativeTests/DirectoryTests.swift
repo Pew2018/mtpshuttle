@@ -59,7 +59,7 @@ final class DirectoryTests: XCTestCase {
         await service.load(path: root.path)
         XCTAssertNil(service.errorMessage)
         XCTAssertEqual(service.entries.map(\.name), ["Folder", "实际文件.txt"])
-        XCTAssertEqual(service.entries.last?.localURL, file)
+        XCTAssertEqual(service.entries.last?.localURL?.resolvingSymlinksInPath(), file.resolvingSymlinksInPath())
         XCTAssertEqual(service.entries.last?.sizeBytes, 13)
         let ids = service.entries.map(\.id)
         await service.load(path: root.path)
