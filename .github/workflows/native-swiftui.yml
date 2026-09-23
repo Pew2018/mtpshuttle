@@ -16,50 +16,45 @@ jobs:
   build-arm64:
     name: Build native SwiftUI app (arm64)
     runs-on: macos-14
-
     defaults:
       run:
         working-directory: native/OpenMTPNative
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Show build environment
         run: |
           uname -m
           sw_vers
           xcodebuild -version
           swift --version
-
+      - name: Verify Kalam inputs
+        run: |
+          test -f ../../build/mac/bin/arm64/kalam.dylib
+          test -f ../../build/mac/bin/arm64/libusb.dylib
+          file ../../build/mac/bin/arm64/kalam.dylib
+          file ../../build/mac/bin/arm64/libusb.dylib
       - name: Build arm64 app
         run: ./scripts/build-app.sh
-
       - name: Verify application bundle
         run: |
           APP="dist/OpenMTP.app"
           BIN="$APP/Contents/MacOS/OpenMTPNative"
-
           test -d "$APP/Contents/MacOS"
           test -f "$APP/Contents/Info.plist"
           test -x "$BIN"
-
-          echo "Executable:"
+          test -f "$APP/Contents/Resources/Kalam/standard/kalam.dylib"
+          test -f "$APP/Contents/Resources/Kalam/standard/libusb.dylib"
           file "$BIN"
-
-          echo "Architecture:"
           lipo -info "$BIN"
-
-          echo "Bundle metadata:"
+          otool -L "$APP/Contents/Resources/Kalam/standard/kalam.dylib"
+          otool -L "$APP/Contents/Resources/Kalam/standard/libusb.dylib"
           plutil -p "$APP/Contents/Info.plist"
-
-          echo "Code signature:"
           codesign --verify --deep --strict --verbose=2 "$APP"
-
       - name: Upload arm64 app bundle
         uses: actions/upload-artifact@v4
         with:
-          name: OpenMTP-Native-ARM64
+          name: OpenMTP-Native-MTP-ARM64
           path: native/OpenMTPNative/dist
           if-no-files-found: error
           retention-days: 14
