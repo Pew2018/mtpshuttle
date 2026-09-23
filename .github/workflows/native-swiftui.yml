@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "native/**"
+      - "feature/**"
       - master
   pull_request:
     branches:
