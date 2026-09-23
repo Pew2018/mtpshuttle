@@ -161,7 +161,9 @@ struct ContentView: View {
                 cut: cutSelection,
                 paste: pasteSelection,
                 canCopy: !activePaneSelection.isEmpty,
-                canPaste: clipboard != nil
+                canPaste: clipboard != nil,
+                selectAll: selectAllCurrentDirectory,
+                canSelectAll: !activePaneEntries.isEmpty
             )
         )
         .task {
@@ -231,6 +233,19 @@ struct ContentView: View {
 
     private func pasteSelection() {
         paste(activePane)
+    }
+
+    private var activePaneEntries: [DemoEntry] {
+        switch activePane {
+        case .mac:
+            return localBrowser.entries
+        case .android:
+            return rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : mtpService.entries
+        }
+    }
+
+    private func selectAllCurrentDirectory() {
+        setSelection(Set(activePaneEntries.map(\.id)), for: activePane)
     }
 
     private var activePaneSelection: Set<UUID> {
@@ -519,8 +534,9 @@ struct ContentView: View {
         )
     }
 
-    private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry) -> NSItemProvider {
-        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: [item.id])
+    private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> NSItemProvider {
+        let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
+        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
         if let encoded = payload.encoded {
             // Register the payload as a concrete NSString as well as a custom
             // data representation. AppKit may expose the custom type during
@@ -1011,7 +1027,7 @@ private struct WorkspaceView: View {
     let onPaste: (PaneKind) -> Void
     let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
-    let onExternalDragProvider: (PaneKind, String, DemoEntry) -> NSItemProvider
+    let onExternalDragProvider: (PaneKind, String, DemoEntry, Set<UUID>) -> NSItemProvider
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
 
@@ -1041,7 +1057,7 @@ private struct WorkspaceView: View {
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
             onDragProvider: { item in
-                onExternalDragProvider(.mac, leftPane.path, item)
+                onExternalDragProvider(.mac, leftPane.path, item, leftPane.selection)
             }
         )
     }
@@ -1076,7 +1092,7 @@ private struct WorkspaceView: View {
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
             onDragProvider: { item in
-                onExternalDragProvider(.android, rightPane.path, item)
+                onExternalDragProvider(.android, rightPane.path, item, rightPane.selection)
             }
         )
     }

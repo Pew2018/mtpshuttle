@@ -55,7 +55,7 @@ struct FilePaneView: View {
     let showCrossPaneActions: Bool
     let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
-    let onDragProvider: (DemoEntry) -> NSItemProvider
+    let onDragProvider: (DemoEntry, Set<UUID>) -> NSItemProvider
 
     @State private var viewMode: FileViewMode = .list
     @State private var isDropTargeted = false
@@ -246,7 +246,7 @@ struct FilePaneView: View {
                         itemContextMenu(for: item)
                     }
                     .onDrag {
-                        onDragProvider(item)
+                        onDragProvider(item, selection)
                     }
                 }
             }

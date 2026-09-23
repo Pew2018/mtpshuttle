@@ -66,6 +66,12 @@ private struct SwiftMTPCommands: Commands {
             .disabled(!(editActions?.canPaste ?? false))
             .keyboardShortcut("v", modifiers: .command)
 
+            Button("Select All") {
+                editActions?.selectAll()
+            }
+            .disabled(!(editActions?.canSelectAll ?? false))
+            .keyboardShortcut("a", modifiers: .command)
+
             Divider()
 
             Button("Settings…") {

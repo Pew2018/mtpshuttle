@@ -97,8 +97,10 @@ struct OpenMTPEditActions {
     let copy: () -> Void
     let cut: () -> Void
     let paste: () -> Void
+    let selectAll: () -> Void
     let canCopy: Bool
     let canPaste: Bool
+    let canSelectAll: Bool
 }
 
 private struct OpenMTPEditActionsKey: FocusedValueKey {
