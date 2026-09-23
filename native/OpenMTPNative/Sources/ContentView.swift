@@ -593,7 +593,7 @@ struct ContentView: View {
                     try await mtpService.makeDirectory(path: base + name + "/", storageID: location.storageID)
                     await mtpService.browse(path: path)
                 }
-                statusMessage = "Created folder (name)"
+                statusMessage = "Created folder \(name)"
                 tasks.record("创建文件夹：\(name)", state: "已完成")
             } catch {
                 statusMessage = error.localizedDescription
