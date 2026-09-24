@@ -54,7 +54,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped).padding(20).frame(width: 520, height: 570)
-            .environment(\\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+            .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
     }
 }
 
