@@ -261,6 +261,11 @@ struct FilePaneView: View {
         .contextMenu {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
+            Button("Select All") {
+                selection = Set(items.map(\.id))
+            }
+            .disabled(items.isEmpty)
+
             Divider()
 
             Button("Paste", action: onPaste)
@@ -303,6 +308,11 @@ struct FilePaneView: View {
         .contextMenu {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
+            Button("Select All") {
+                selection = Set(items.map(\.id))
+            }
+            .disabled(items.isEmpty)
+
             Divider()
 
             Button("Paste", action: onPaste)
@@ -328,6 +338,7 @@ struct FilePaneView: View {
         Button("Properties") {
             onAction(.properties, item)
         }
+        .disabled(!canModifyFiles)
 
         Divider()
 
