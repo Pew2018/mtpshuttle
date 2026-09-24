@@ -97,3 +97,11 @@
 "HEIC Image" = "HEIC 图片";
 "Swift Source" = "Swift 源代码";
 "Disk Image" = "磁盘映像";
+
+
+"Please wait for the current transfer to finish" = "请等待当前传输结束";
+"Finder items can be dropped into Android Device" = "可以将 Finder 项目拖入 Android 设备面板";
+"Drop between the two panes to transfer items" = "请在两个面板之间拖放项目以传输";
+"This Mac refreshed" = "此 Mac 已刷新";
+"Loading paused; showing loaded items" = "加载已暂停，正在显示已读取项目";
+"Refreshing Android device…" = "正在刷新 Android 设备…";
