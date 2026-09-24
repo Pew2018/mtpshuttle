@@ -1,4 +1,4 @@
-name: 00-07 + fixes - Full Integration Test
+name: 00-07 + fixes + 02 drag - Full Integration Test
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: "00-07 + 00/QL/02/03 fixes - Build integrated MTP Shuttle app (arm64)"
+    name: "00-07 + 02 internal drag fix - Build integrated MTP Shuttle app (arm64)"
     runs-on: macos-14
     defaults:
       run:
