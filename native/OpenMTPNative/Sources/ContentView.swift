@@ -224,12 +224,12 @@ struct ContentView: View {
 
     private var externalConflictTitle: String {
         let count = pendingExternalDrop?.conflictNames.count ?? 0
-        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（\\(count) 项）"
+        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（\(count) 项）"
     }
 
     private var externalConflictMessage: String {
         guard let pendingExternalDrop else { return "" }
-        return "\\(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
+        return "\(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
     }
 
     private var pendingDropTitle: String {
@@ -482,7 +482,7 @@ struct ContentView: View {
         }
 
         let validURLs = urls
-            .map(\\.standardizedFileURL)
+            .map(\.standardizedFileURL)
             .filter { FileManager.default.fileExists(atPath: $0.path) }
 
         guard !validURLs.isEmpty else {
@@ -490,8 +490,8 @@ struct ContentView: View {
             return
         }
 
-        let destinationNames = Set(entries(for: .android, path: rightPane.path).map(\\.name))
-        let names = validURLs.map(\\.lastPathComponent)
+        let destinationNames = Set(entries(for: .android, path: rightPane.path).map(\.name))
+        let names = validURLs.map(\.lastPathComponent)
         let conflicts = names.filter { destinationNames.contains($0) }
         if !conflicts.isEmpty {
             pendingExternalDrop = ExternalDropConflictRequest(
@@ -827,7 +827,7 @@ struct ContentView: View {
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
-            var reserved = Set(destinationEntries.map(\\.name))
+            var reserved = Set(destinationEntries.map(\.name))
             var targetNames: [String] = []
 
             for url in urls {
@@ -836,7 +836,7 @@ struct ContentView: View {
                 if resolution == .rename {
                     var index = 1
                     while reserved.contains(candidate) {
-                        candidate = "\\(originalName).\\(index)"
+                        candidate = "\(originalName).\(index)"
                         index += 1
                     }
                 }
@@ -844,7 +844,7 @@ struct ContentView: View {
                 reserved.insert(candidate)
             }
 
-            tasks.begin("Copying \\(urls.count) Finder item(s)", total: knownBytes)
+            tasks.begin("Copying \(urls.count) Finder item(s)", total: knownBytes)
             tasks.addItems(urls.map {
                 (
                     name: $0.lastPathComponent,
@@ -855,10 +855,10 @@ struct ContentView: View {
 
             do {
                 if resolution == .overwrite {
-                    let names = Set(urls.map(\\.lastPathComponent))
+                    let names = Set(urls.map(\.lastPathComponent))
                     let conflictingRemote = destinationEntries
                         .filter { names.contains($0.name) }
-                        .compactMap(\\.remotePath)
+                        .compactMap(\.remotePath)
                     if !conflictingRemote.isEmpty {
                         try await mtpService.delete(
                             files: conflictingRemote,
@@ -905,7 +905,7 @@ struct ContentView: View {
                             )
                         } else {
                             let temporary = FileManager.default.temporaryDirectory
-                                .appendingPathComponent("MTP-Shuttle-rename-\\(UUID().uuidString)", isDirectory: true)
+                                .appendingPathComponent("MTP-Shuttle-rename-\(UUID().uuidString)", isDirectory: true)
                             try FileManager.default.createDirectory(
                                 at: temporary,
                                 withIntermediateDirectories: true
@@ -933,7 +933,7 @@ struct ContentView: View {
                 if tasks.cancellationRequested {
                     throw MTPServiceError.cancelled
                 }
-                statusMessage = "\\(urls.count) Finder item(s) copied to Android Device"
+                statusMessage = "\(urls.count) Finder item(s) copied to Android Device"
                 await mtpService.browse(path: targetPath)
                 tasks.finish("已完成")
             } catch {
@@ -944,8 +944,8 @@ struct ContentView: View {
                 }
                 statusMessage = tasks.cancellationRequested
                     ? "操作已取消"
-                    : "Finder 拖拽失败：\\(error.localizedDescription)"
-                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\\(error.localizedDescription)")
+                    : "Finder 拖拽失败：\(error.localizedDescription)"
+                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
         }
     }
