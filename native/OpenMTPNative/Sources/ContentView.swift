@@ -670,18 +670,14 @@ struct ContentView: View {
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
         let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
         let encodedPayload = payload.encoded
-        // AppKit needs a concrete NSString representation for reliable
-        // in-app drag-and-drop. The fileURL representation below remains
-        // available for Android-to-Finder exports.
-        let provider = encodedPayload.map { NSItemProvider(object: $0 as NSString) } ?? NSItemProvider()
 
-        if let encoded = encodedPayload {
-            // Keep the custom payload for transfers between the two app panes.
-            provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
-                                                visibility: .all) { completion in
-                completion(encoded.data(using: .utf8), nil)
-                return nil
-            }
+        // Advertise the internal payload only under the app's custom UTI.
+        // Finder must never receive the base64 payload as plain text.
+        let provider: NSItemProvider
+        if let encodedPayload {
+            provider = NSItemProvider(object: DemoDragPayloadItem(encoded: encodedPayload))
+        } else {
+            provider = NSItemProvider()
         }
 
         guard pane == .android else {
@@ -695,32 +691,39 @@ struct ContentView: View {
             return provider
         }
 
-        // Finder needs a real file representation. The internal JSON/base64
-        // payload must never be advertised as the dragged file itself.
+        // Resolve the remote item before registering the asynchronous
+        // representation. The provider must not retain the SwiftUI View value.
+        guard let entry = entries(for: .android, path: path).first(where: { $0.id == item.id }),
+              let remotePath = entry.remotePath,
+              let storageID = entry.storageID else {
+            return provider
+        }
+        let service = mtpService
+        let fileName = entry.name
+
+        // Finder requests a real file URL. Stage the remote MTP object only
+        // when Finder asks for the representation.
         provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
                                             visibility: .all) { completion in
-            guard let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
-                  let remotePath = entry.remotePath,
-                  let storageID = entry.storageID else {
-                completion(nil, false, NSError(domain: "MTPShuttleDrag", code: 1,
-                                               userInfo: [NSLocalizedDescriptionKey: "Unable to prepare the Android file for Finder."]))
-                return nil
-            }
-
             let stagingDirectory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("MTP-Shuttle-Drag-\(UUID().uuidString)", isDirectory: true)
             let destination = stagingDirectory.path
+
             Task { @MainActor in
                 do {
                     try FileManager.default.createDirectory(at: stagingDirectory,
                                                              withIntermediateDirectories: true)
-                    try await self.mtpService.download(sources: [remotePath],
-                                                       destination: destination,
-                                                       storageID: storageID)
-                    let exportedURL = stagingDirectory.appendingPathComponent(entry.name)
+                    try await service.download(sources: [remotePath],
+                                               destination: destination,
+                                               storageID: storageID)
+
+                    let exportedURL = stagingDirectory.appendingPathComponent(fileName)
                     guard FileManager.default.fileExists(atPath: exportedURL.path) else {
-                        throw NSError(domain: "MTPShuttleDrag", code: 2,
-                                      userInfo: [NSLocalizedDescriptionKey: "The Android file was not created in the staging folder."])
+                        throw NSError(
+                            domain: "MTPShuttleDrag",
+                            code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "The Android file was not created in the staging folder."]
+                        )
                     }
                     completion(exportedURL, true, nil)
                 } catch {
@@ -729,6 +732,7 @@ struct ContentView: View {
             }
             return nil
         }
+
         return provider
     }
 
