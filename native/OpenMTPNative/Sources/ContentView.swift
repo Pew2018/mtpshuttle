@@ -239,16 +239,58 @@ struct ContentView: View {
         paste(activePane)
     }
 
+    private func newFolderSelection() {
+        createFolder(activePane)
+    }
+
+    private func showPropertiesSelection() {
+        performAction(.properties, pane: activePane, item: nil)
+    }
+
+    private func deleteSelection() {
+        performAction(.delete, pane: activePane, item: nil)
+    }
+
+    private func copySelectionToOtherPane() {
+        performAction(.copyToOther, pane: activePane, item: nil)
+    }
+
+    private func moveSelectionToOtherPane() {
+        performAction(.moveToOther, pane: activePane, item: nil)
+    }
+
     private var editActions: OpenMTPEditActions {
-        OpenMTPEditActions(
+        let hasSelection = !activePaneSelection.isEmpty
+        let canModify = canModifyFiles(activePane)
+
+        return OpenMTPEditActions(
             copy: copySelection,
             cut: cutSelection,
             paste: pasteSelection,
             selectAll: selectAllCurrentDirectory,
-            canCopy: !activePaneSelection.isEmpty,
-            canPaste: clipboard != nil,
-            canSelectAll: !activePaneEntries.isEmpty
+            newFolder: newFolderSelection,
+            showProperties: showPropertiesSelection,
+            delete: deleteSelection,
+            copyToOther: copySelectionToOtherPane,
+            moveToOther: moveSelectionToOtherPane,
+            canCopy: hasSelection && canModify,
+            canPaste: clipboard != nil && canModify,
+            canSelectAll: !activePaneEntries.isEmpty,
+            canNewFolder: canModify,
+            canShowProperties: hasSelection && canModify,
+            canDelete: hasSelection && canModify,
+            canCopyToOther: hasSelection && canModify && !androidOnlyMode,
+            canMoveToOther: hasSelection && canModify && !androidOnlyMode
         )
+    }
+
+    private func canModifyFiles(_ pane: PaneKind) -> Bool {
+        switch pane {
+        case .mac:
+            return true
+        case .android:
+            return mtpService.isConnected
+        }
     }
 
     private var activePaneEntries: [DemoEntry] {
@@ -372,6 +414,7 @@ struct ContentView: View {
         guard operation == nil else { return }
 
         let ids = selectedIDs(for: pane, item: item)
+        guard canModifyFiles(pane) || action == .properties else { return }
         guard !ids.isEmpty || action == .properties else { return }
 
         switch action {
@@ -1186,7 +1229,7 @@ private struct WorkspaceView: View {
             errorMessage: mtpService.browseError,
             emptyMessage: mtpService.isConnected ? nil : mtpService.statusText,
             breadcrumbs: MTPDirectory.breadcrumbs(path: rightPane.path, storages: mtpService.storages),
-            canModifyFiles: true,
+            canModifyFiles: mtpService.isConnected,
             path: rightPane.path,
             items: rightPane.path == PaneKind.android.rootPath ? mtpService.storageEntries : mtpService.entries,
             selection: $rightPane.selection,
