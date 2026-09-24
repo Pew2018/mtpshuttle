@@ -151,3 +151,5 @@
 "已取消" = "Cancelled";
 "失败：" = "Failed: ";
 "Android Package" = "Android Package";
+
+"%@ · %d storage(s)" = "%@ · %d storage(s)";
