@@ -32,6 +32,9 @@ struct ContentView: View {
     @AppStorage("quickLookPreviewEnabled")
     private var quickLookPreviewEnabled = true
 
+    @AppStorage("alwaysShowTransferProgress")
+    private var alwaysShowTransferProgress = false
+
     @State private var suppressFolderPromptThisSession = false
     @State private var folderDragSessionMode: ClipboardMode = .copy
 
@@ -691,6 +694,7 @@ struct ContentView: View {
                 sourcePane: sourcePane
             )
             tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
+            if alwaysShowTransferProgress { openWindow(id: "tasks") }
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
                                           targetPane: targetPane, targetPath: targetPath, mode: mode,
@@ -726,6 +730,7 @@ struct ContentView: View {
                 sum + localByteCount(at: url)
             }
             tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
+            if alwaysShowTransferProgress { openWindow(id: "tasks") }
             do {
                 for url in urls {
                     if tasks.cancellationRequested { throw MTPServiceError.cancelled }
