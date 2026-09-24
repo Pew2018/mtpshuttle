@@ -1,4 +1,4 @@
-name: Native SwiftUI CI
+name: 04 - MTP Shuttle Rename
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: Build native SwiftUI app (arm64)
+    name: 04 - Build MTP Shuttle app (arm64)
     runs-on: macos-14
     defaults:
       run:
