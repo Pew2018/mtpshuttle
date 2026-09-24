@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: "00 - Build transfer status page (arm64)"
+    name: "00-07 - Build integrated MTP Shuttle app (arm64)"
     runs-on: macos-14
     defaults:
       run:
