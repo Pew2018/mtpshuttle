@@ -104,3 +104,14 @@
 "This Mac refreshed" = "This Mac refreshed";
 "Loading paused; showing loaded items" = "Loading paused; showing loaded items";
 "Refreshing Android device…" = "Refreshing Android device…";
+
+
+"Language" = "Language";
+"App Language" = "App Language";
+"Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese." = "Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese.";
+"Automatic (System)" = "Automatic (System)";
+"English" = "English";
+"简体中文" = "Simplified Chinese";
+"繁體中文" = "Traditional Chinese";
+"Failed" = "Failed";
+"Transferred %@ · Total unknown" = "Transferred %@ · Total unknown";
