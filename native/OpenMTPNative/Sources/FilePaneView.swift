@@ -5,6 +5,12 @@ import UniformTypeIdentifiers
 private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProviderDelegate {
     let fileName: String
     let writePromise: (URL, @escaping (Error?) -> Void) -> Void
+    private let writeQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "MTPShuttle.FilePromise"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
     init(fileName: String, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
         self.fileName = fileName
         self.writePromise = writePromise
@@ -12,8 +18,9 @@ private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProvid
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
         fileName
     }
-    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { .main }
+    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { writeQueue }
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
+        DebugLogger.info("Android file promise requested: \(fileName)")
         writePromise(url, completionHandler)
     }
 }
@@ -72,6 +79,10 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
         var onDoubleClick: () -> Void
         private var mouseDownEvent: NSEvent?
         private var hasDraggingSession = false
+        // AppKit consumes NSDraggingItem instances when the session begins. Keep
+        // the promise writers and their delegates alive until the next drag.
+        private var retainedProviders: [NSFilePromiseProvider] = []
+        private var lastDragContext: NSDraggingContext?
         private let dragDistance: CGFloat = 6
 
         init(makeProviders: @escaping () -> [NSFilePromiseProvider], onClick: @escaping () -> Void, onDoubleClick: @escaping () -> Void) {
@@ -105,10 +116,22 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             guard !providers.isEmpty else { return }
             let items = providers.map { provider -> NSDraggingItem in
                 let item = NSDraggingItem(pasteboardWriter: provider)
-                item.setDraggingFrame(bounds, contents: nil)
+                let symbol = provider.fileType == UTType.directory.identifier ? "folder.fill" : "doc.fill"
+                let icon = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+                    ?? NSWorkspace.shared.icon(forFileType: provider.fileType)
+                let frame = NSRect(
+                    x: max(0, (bounds.width - 32) / 2),
+                    y: max(0, (bounds.height - 32) / 2),
+                    width: 32,
+                    height: 32
+                )
+                item.setDraggingFrame(frame, contents: icon)
                 return item
             }
+            retainedProviders = providers
             hasDraggingSession = true
+            lastDragContext = nil
+            DebugLogger.info("Android file drag started: count=\(providers.count)")
             beginDraggingSession(with: items, event: start, source: self)
         }
 
@@ -125,10 +148,21 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             }
         }
 
-        func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
+        func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+            if lastDragContext != context {
+                lastDragContext = context
+                DebugLogger.info("Android file drag context: \(context == .outsideApplication ? "outside application" : "inside application")")
+            }
+            return .copy
+        }
+
         func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+            DebugLogger.info("Android file drag ended: operation=\(operation.rawValue)")
             hasDraggingSession = false
             mouseDownEvent = nil
+            lastDragContext = nil
+            // Finder may request the promised file after this callback.
+            // Retain the providers until the next drag or this row disappears.
         }
     }
 }
