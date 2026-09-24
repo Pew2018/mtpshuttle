@@ -4,6 +4,7 @@ struct SettingsView: View {
     @AppStorage("dragDropMode") private var dragDropMode = DragDropMode.copy.rawValue
     @AppStorage("androidOnlyMode") private var androidOnlyMode = false
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
+    @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
     @AppStorage("debugMode") private var debugMode = false
 
     var body: some View {
@@ -19,6 +20,12 @@ struct SettingsView: View {
                     ForEach(DragDropMode.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
                 }.pickerStyle(.radioGroup)
                 Text("Choose whether a drag between panes copies items, moves them, or asks each time.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Section("Transfer Progress") {
+                Toggle("Always show file transfer progress", isOn: $alwaysShowTransferProgress)
+                Text("When enabled, the detailed transfer progress window opens automatically. When disabled, use the progress bar at the bottom left to open it again.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
