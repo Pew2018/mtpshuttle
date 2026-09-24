@@ -114,7 +114,7 @@ struct ContentView: View {
             Text(transferConflictMessage)
         }
         .alert(
-            MTPShuttleText.localized("New Folder"),,
+            MTPShuttleText.localized("New Folder"),
             isPresented: Binding(
                 get: { newFolderPane != nil },
                 set: { if !$0 { newFolderPane = nil } }
