@@ -153,3 +153,5 @@
 "失败：" = "失败：";
 "Android Package" = "Android 应用包";
 "English" = "英语";
+
+"%@ · %d storage(s)" = "%@ · %d 个存储空间";
