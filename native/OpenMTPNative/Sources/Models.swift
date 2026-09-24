@@ -138,6 +138,13 @@ struct TransferConflictRequest: Identifiable, Hashable {
     let conflictNames: [String]
 }
 
+struct ExternalDropConflictRequest: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+    let targetPath: String
+    let conflictNames: [String]
+}
+
 enum OpenMTPDragType {
     static let payload = UTType(exportedAs: "com.pew2018.openmtp.internal-drag-payload")
 }
