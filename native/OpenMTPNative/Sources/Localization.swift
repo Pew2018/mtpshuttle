@@ -54,8 +54,8 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
             }
 
             if languageCode == "zh" {
-                let script = locale.scriptCode?.lowercased()
-                let region = locale.regionCode?.uppercased()
+                let script = locale.language.script?.identifier.lowercased()
+                let region = locale.region?.identifier.uppercased()
                 if script == "hant" || ["TW", "HK", "MO"].contains(region) {
                     return "zh-Hant"
                 }
