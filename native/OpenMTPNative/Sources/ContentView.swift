@@ -673,6 +673,7 @@ struct ContentView: View {
         // The AppKit drop receiver reads a concrete string from the drag
         // pasteboard. SwiftUI's lazy data registration alone can leave it empty.
         let provider = payload.encoded.map { NSItemProvider(object: $0 as NSString) } ?? NSItemProvider()
+        if pane == .mac { DebugLogger.info("Mac pane file drag prepared: \(item.name)") }
         if let encodedPayload = payload.encoded {
             provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier, visibility: .all) { completion in
                 completion(encodedPayload.data(using: .utf8), nil)
