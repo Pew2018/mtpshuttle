@@ -299,7 +299,11 @@ struct TaskDetailsView: View {
             Text(task.step)
                 .font(.subheadline)
 
-            ProgressView(value: task.fraction)
+            if let fraction = task.fraction {
+                ProgressView(value: fraction)
+            } else {
+                ProgressView()
+            }
             Text("\(byteText(task.sent)) / \(byteText(task.total))")
                 .font(.caption.monospacedDigit())
 
