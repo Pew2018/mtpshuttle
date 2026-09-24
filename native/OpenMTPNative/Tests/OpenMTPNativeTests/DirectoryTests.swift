@@ -86,4 +86,53 @@ final class DirectoryTests: XCTestCase {
         XCTAssertEqual(provider.pasteboardPropertyList(forType: customType) as? Data, Data(payload.utf8))
     }
 
+    @MainActor
+    func testAndroidDragSourceSeparatesClicksFromPointerMovement() throws {
+        var clicks = 0
+        var opens = 0
+        var providerRequests = 0
+        let source = MTPShuttleFilePromiseDragSource.DragSourceView(
+            makeProviders: {
+                providerRequests += 1
+                return []
+            },
+            onClick: { clicks += 1 },
+            onDoubleClick: { opens += 1 }
+        )
+
+        func mouse(_ type: NSEvent.EventType, x: CGFloat, clicks: Int = 1) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.mouseEvent(
+                with: type,
+                location: NSPoint(x: x, y: 0),
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                eventNumber: 0,
+                clickCount: clicks,
+                pressure: 0
+            ))
+        }
+
+        source.mouseDown(with: try mouse(.leftMouseDown, x: 0))
+        source.mouseDragged(with: try mouse(.leftMouseDragged, x: 2))
+        source.mouseUp(with: try mouse(.leftMouseUp, x: 2))
+        XCTAssertEqual(clicks, 1)
+        XCTAssertEqual(opens, 0)
+        XCTAssertEqual(providerRequests, 0)
+
+        source.mouseDown(with: try mouse(.leftMouseDown, x: 0, clicks: 2))
+        source.mouseUp(with: try mouse(.leftMouseUp, x: 0, clicks: 2))
+        XCTAssertEqual(clicks, 1)
+        XCTAssertEqual(opens, 1)
+        XCTAssertEqual(providerRequests, 0)
+
+        source.mouseDown(with: try mouse(.leftMouseDown, x: 0))
+        source.mouseDragged(with: try mouse(.leftMouseDragged, x: 8))
+        source.mouseUp(with: try mouse(.leftMouseUp, x: 8))
+        XCTAssertEqual(providerRequests, 1)
+        XCTAssertEqual(clicks, 1)
+        XCTAssertEqual(opens, 1)
+    }
+
 }
