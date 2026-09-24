@@ -694,7 +694,7 @@ struct ContentView: View {
         // Finder needs a real file representation. The internal JSON/base64
         // payload must never be advertised as the dragged file itself.
         provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
-                                            visibility: .all) { [weak self] completion in
+                                            visibility: .all) { completion in
             guard let self,
                   let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
                   let remotePath = entry.remotePath,
