@@ -1,4 +1,4 @@
-name: Native SwiftUI CI
+name: 05 - Context Menus
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: Build native SwiftUI app (arm64)
+    name: 05 - Build Context Menu update (arm64)
     runs-on: macos-14
     defaults:
       run:
