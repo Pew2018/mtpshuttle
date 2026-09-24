@@ -2,6 +2,19 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private struct ExternalFolderDropRequest: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+    let targetPath: String
+    let itemNames: [String]
+}
+
+private struct ExternalModeDropRequest: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+    let targetPath: String
+}
+
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
 
@@ -13,6 +26,8 @@ struct ContentView: View {
     @State private var pendingFolderDrop: FolderDropRequest?
     @State private var pendingConflict: TransferConflictRequest?
     @State private var pendingExternalDrop: ExternalDropConflictRequest?
+    @State private var pendingExternalFolderDrop: ExternalFolderDropRequest?
+    @State private var pendingExternalModeDrop: ExternalModeDropRequest?
     @State private var newFolderPane: PaneKind?
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
@@ -89,11 +104,22 @@ struct ContentView: View {
         }
         .sheet(item: $pendingFolderDrop) { request in
             FolderDropConfirmationView(
-                request: request,
+                itemNames: request.itemNames,
+                targetTitle: request.targetPane.title,
+                targetPath: request.targetPath,
                 onDecision: finishFolderDrop,
                 onCancel: {
                     pendingFolderDrop = nil
                 }
+            )
+        }
+        .sheet(item: $pendingExternalFolderDrop) { request in
+            FolderDropConfirmationView(
+                itemNames: request.itemNames,
+                targetTitle: PaneKind.android.title,
+                targetPath: request.targetPath,
+                onDecision: finishExternalFolderDrop,
+                onCancel: { pendingExternalFolderDrop = nil }
             )
         }
         .alert(item: $propertyItem) { item in
@@ -146,6 +172,20 @@ struct ContentView: View {
             Text("将在当前目录创建文件夹")
         }
 
+        .confirmationDialog(
+            "Drop Finder items into Android Device?",
+            isPresented: Binding(
+                get: { pendingExternalModeDrop != nil },
+                set: { if !$0 { pendingExternalModeDrop = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Copy") { finishExternalModeDrop(mode: .copy) }
+            Button("Move (Cut)") { finishExternalModeDrop(mode: .move) }
+            Button("Cancel", role: .cancel) { pendingExternalModeDrop = nil }
+        } message: {
+            Text("Finder → Android Device")
+        }
         .confirmationDialog(
             pendingDropTitle,
             isPresented: Binding(
@@ -540,25 +580,69 @@ struct ContentView: View {
             return
         }
 
-        let destinationNames = Set(entries(for: .android, path: rightPane.path).map(\.name))
-        let names = validURLs.map(\.lastPathComponent)
-        let conflicts = names.filter { destinationNames.contains($0) }
-        if !conflicts.isEmpty {
-            pendingExternalDrop = ExternalDropConflictRequest(
-                urls: validURLs,
-                targetPath: rightPane.path,
-                conflictNames: Array(NSOrderedSet(array: conflicts)) as? [String] ?? conflicts
-            )
+        let targetPath = rightPane.path
+        let folders = validURLs.filter { isLocalFolder($0) }
+        if !folders.isEmpty {
+            if suppressFolderPromptThisSession {
+                beginExternalDrop(validURLs, targetPath: targetPath, mode: folderDragSessionMode)
+            } else {
+                pendingExternalFolderDrop = ExternalFolderDropRequest(
+                    urls: validURLs, targetPath: targetPath, itemNames: folders.map(\.lastPathComponent)
+                )
+            }
             return
         }
 
-        transferExternal(validURLs, targetPath: rightPane.path, resolution: nil)
+        switch currentDragDropMode {
+        case .copy:
+            beginExternalDrop(validURLs, targetPath: targetPath, mode: .copy)
+        case .move:
+            beginExternalDrop(validURLs, targetPath: targetPath, mode: .move)
+        case .ask:
+            pendingExternalModeDrop = ExternalModeDropRequest(urls: validURLs, targetPath: targetPath)
+        }
+    }
+
+    private func isLocalFolder(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    private func finishExternalFolderDrop(mode: ClipboardMode, suppressFuturePrompts: Bool) {
+        guard let request = pendingExternalFolderDrop else { return }
+        pendingExternalFolderDrop = nil
+        if suppressFuturePrompts {
+            suppressFolderPromptThisSession = true
+            folderDragSessionMode = mode
+        }
+        beginExternalDrop(request.urls, targetPath: request.targetPath, mode: mode)
+    }
+
+    private func finishExternalModeDrop(mode: ClipboardMode) {
+        guard let request = pendingExternalModeDrop else { return }
+        pendingExternalModeDrop = nil
+        beginExternalDrop(request.urls, targetPath: request.targetPath, mode: mode)
+    }
+
+    private func beginExternalDrop(_ urls: [URL], targetPath: String, mode: ClipboardMode) {
+        let destinationNames = Set(entries(for: .android, path: targetPath).map(\.name))
+        let conflicts = urls.map(\.lastPathComponent).filter { destinationNames.contains($0) }
+        if !conflicts.isEmpty {
+            pendingExternalDrop = ExternalDropConflictRequest(
+                urls: urls,
+                targetPath: targetPath,
+                conflictNames: Array(NSOrderedSet(array: conflicts)) as? [String] ?? conflicts,
+                mode: mode
+            )
+            return
+        }
+        transferExternal(urls, targetPath: targetPath, mode: mode, resolution: nil)
     }
 
     private func resolveExternalConflict(_ resolution: TransferConflictResolution) {
         guard let request = pendingExternalDrop else { return }
         pendingExternalDrop = nil
-        transferExternal(request.urls, targetPath: request.targetPath, resolution: resolution)
+        transferExternal(request.urls, targetPath: request.targetPath, mode: request.mode, resolution: resolution)
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
@@ -909,6 +993,7 @@ struct ContentView: View {
     private func transferExternal(
         _ urls: [URL],
         targetPath: String,
+        mode: ClipboardMode,
         resolution: TransferConflictResolution?
     ) {
         guard let storage = MTPBrowsePath(browserPath: targetPath) else {
@@ -943,7 +1028,7 @@ struct ContentView: View {
                 reserved.insert(candidate)
             }
 
-            tasks.begin("Copying \(urls.count) Finder item(s)", total: knownBytes)
+            tasks.begin("\(mode == .copy ? "Copying" : "Moving") \(urls.count) Finder item(s)", total: knownBytes)
             if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(urls.map {
                 (
@@ -992,7 +1077,7 @@ struct ContentView: View {
 
                     let targetName = targetNames[index]
                     if resolution == .rename && targetName != url.lastPathComponent {
-                        if url.hasDirectoryPath {
+                        if isLocalFolder(url) {
                             let remoteFolder = storage.fullPath + "/" + targetName
                             try await mtpService.makeDirectory(
                                 path: remoteFolder,
@@ -1033,8 +1118,25 @@ struct ContentView: View {
                 if tasks.cancellationRequested {
                     throw MTPServiceError.cancelled
                 }
-                statusMessage = "\(urls.count) Finder item(s) copied to Android Device"
                 await mtpService.browse(path: targetPath)
+                if mode == .move {
+                    // Never remove Finder originals unless every upload succeeded
+                    // and the destination directory contains all expected names.
+                    guard mtpService.browseError == nil,
+                          Set(targetNames).isSubset(of: Set(mtpService.entries.map(\.name))) else {
+                        throw NSError(
+                            domain: "MTPShuttleDrag", code: 11,
+                            userInfo: [NSLocalizedDescriptionKey: "Unable to verify all copied items on Android; Finder originals were kept."]
+                        )
+                    }
+                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    for url in urls {
+                        let secured = url.startAccessingSecurityScopedResource()
+                        defer { if secured { url.stopAccessingSecurityScopedResource() } }
+                        try FileManager.default.removeItem(at: url)
+                    }
+                }
+                statusMessage = "\(urls.count) Finder item(s) \(mode == .copy ? "copied" : "moved") to Android Device"
                 tasks.finish("已完成")
             } catch {
                 if tasks.cancellationRequested {
@@ -1357,25 +1459,27 @@ struct ContentView: View {
 }
 
 private struct FolderDropConfirmationView: View {
-    let request: FolderDropRequest
+    let itemNames: [String]
+    let targetTitle: String
+    let targetPath: String
     let onDecision: (ClipboardMode, Bool) -> Void
     let onCancel: () -> Void
 
     @State private var suppressFuturePrompts = false
 
     private var folderSummary: String {
-        switch request.itemNames.count {
+        switch itemNames.count {
         case 1:
-            return "“\(request.itemNames[0])”"
+            return "“\(itemNames[0])”"
         default:
-            return "\(request.itemNames.count) folders"
+            return "\(itemNames.count) folders"
         }
     }
 
     private var title: String {
-        request.itemNames.count == 1
-            ? "Copy Folder"
-            : "Copy Folders"
+        itemNames.count == 1
+            ? "Transfer Folder"
+            : "Transfer Folders"
     }
 
     var body: some View {
@@ -1390,12 +1494,12 @@ private struct FolderDropConfirmationView: View {
                     Text(title)
                         .font(.headline)
 
-                    Text("Copy \(folderSummary) to \(request.targetPane.title)?")
+                    Text("Transfer \(folderSummary) to \(targetTitle)?")
                         .font(.body)
                 }
             }
 
-            Text(request.targetPath)
+            Text(targetPath)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(2)

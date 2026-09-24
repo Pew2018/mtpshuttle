@@ -153,6 +153,7 @@ struct ExternalDropConflictRequest: Identifiable {
     let urls: [URL]
     let targetPath: String
     let conflictNames: [String]
+    let mode: ClipboardMode
 }
 
 enum OpenMTPDragType {
