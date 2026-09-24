@@ -24,6 +24,9 @@ enum PaneKind: String, CaseIterable, Codable, Hashable {
         }
     }
 
+    var localizedTitle: String { MTPShuttleText.localized(title) }
+    var localizedSubtitle: String { MTPShuttleText.localized(subtitle) }
+
     var deviceSymbol: String {
         switch self {
         case .mac:
@@ -76,6 +79,8 @@ enum DragDropMode: String, CaseIterable, Identifiable {
             return "Ask every time"
         }
     }
+
+    var localizedTitle: String { MTPShuttleText.localized(title) }
 }
 
 enum PaneAction: Hashable {
