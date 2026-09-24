@@ -1,4 +1,4 @@
-/* MTP Shuttle English localization */
+/* MTP Shuttle localization */
 
 "Workspace" = "Workspace";
 "Show only Android Device" = "Show only Android Device";
@@ -13,7 +13,6 @@
 "Debug mode" = "Debug mode";
 "Open Debug Log" = "Open Debug Log";
 "Copy Debug Log" = "Copy Debug Log";
-
 "Settings" = "Settings";
 "OK" = "OK";
 "Cancel" = "Cancel";
@@ -41,7 +40,6 @@
 "Pause loading and show loaded items" = "Pause loading and show loaded items";
 "Connect to the Android device" = "Connect to the Android device";
 "Refresh this pane" = "Refresh this pane";
-
 "This Mac" = "This Mac";
 "Android Device" = "Android Device";
 "Local files" = "Local files";
@@ -63,7 +61,6 @@
 "Transferring" = "Transferring";
 "Cancelling…" = "Cancelling…";
 "Running" = "Running";
-
 "Not connected" = "Not connected";
 "Connecting…" = "Connecting…";
 "Connected" = "Connected";
@@ -80,7 +77,6 @@
 "Unable to delete files" = "Unable to delete files";
 "Unable to create folder" = "Unable to create folder";
 "Kalam connected to the device but returned no storage volumes." = "Kalam connected to the device but returned no storage volumes.";
-
 "File" = "File";
 "Folder" = "Folder";
 "Plain Text" = "Plain Text";
@@ -96,16 +92,11 @@
 "HEIC Image" = "HEIC Image";
 "Swift Source" = "Swift Source";
 "Disk Image" = "Disk Image";
-
-
-"Please wait for the current transfer to finish" = "Please wait for the current transfer to finish";
 "Finder items can be dropped into Android Device" = "Finder items can be dropped into Android Device";
 "Drop between the two panes to transfer items" = "Drop between the two panes to transfer items";
 "This Mac refreshed" = "This Mac refreshed";
 "Loading paused; showing loaded items" = "Loading paused; showing loaded items";
 "Refreshing Android device…" = "Refreshing Android device…";
-
-
 "Language" = "Language";
 "App Language" = "App Language";
 "Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese." = "Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese.";
@@ -115,8 +106,6 @@
 "繁體中文" = "Traditional Chinese";
 "Failed" = "Failed";
 "Transferred %@ · Total unknown" = "Transferred %@ · Total unknown";
-
-
 "Ask every time" = "Ask every time";
 "Copy Folder" = "Copy Folder";
 "Copy Folders" = "Copy Folders";
@@ -131,7 +120,6 @@
 "MTP disposed" = "MTP disposed";
 "Starting MTP connection" = "Starting MTP connection";
 "Upload failed" = "Upload failed";
-"Folder name" = "Folder name";
 "Create folder in the current directory" = "Create folder in the current directory";
 "暂停加载并显示已读取项目" = "Pause loading and show loaded items";
 "加载已暂停，仅显示已加载的部分项目" = "Loading paused; showing only loaded items";
@@ -151,23 +139,10 @@
 "已取消" = "Cancelled";
 "失败：" = "Failed: ";
 "Android Package" = "Android Package";
-
 "%@ · %d storage(s)" = "%@ · %d storage(s)";
-
-
-/* Complete transfer status labels */
 "Waiting" = "Waiting";
-"Transferring" = "Transferring";
-"Completed" = "Completed";
-"Failed" = "Failed";
-"Cancelled" = "Cancelled";
 "Cancelling" = "Cancelling";
-"Operation cancelled" = "Operation cancelled";
 "Failed:" = "Failed:";
-"Task Details" = "Task Details";
-"Completed operations in this session" = "Completed operations in this session";
-"No operations yet" = "No operations yet";
-"Cancel Operation" = "Cancel Operation";
 "Speed" = "Speed";
 "Estimated remaining" = "Estimated remaining";
 "Current file" = "Current file";
@@ -177,3 +152,37 @@
 "Unknown" = "Unknown";
 "Calculating" = "Calculating";
 "Not available" = "Not available";
+"MTP Shuttle" = "MTP Shuttle";
+"Select All" = "Select All";
+"Copy %@ to %@?" = "Copy %@ to %@?";
+"Created folder %@" = "Created folder %@";
+"Deleted %d item(s)" = "Deleted %d item(s)";
+"Failed: %@" = "Failed: %@";
+"%d item(s) %@ to %@" = "%d item(s) %@ to %@";
+"Copied" = "Copied";
+"Moved" = "Moved";
+"Copying %d item(s)" = "Copying %d item(s)";
+"%d item(s) copied to %@" = "%d item(s) copied to %@";
+"Loading; %d items shown. Select Refresh to pause." = "Loading; %d items shown. Select Refresh to pause.";
+"%d items" = "%d items";
+"%d selected" = "%d selected";
+"Open %@" = "Open %@";
+"Copy to %@" = "Copy to %@";
+"Move to %@" = "Move to %@";
+"Debug mode enabled" = "Debug mode enabled";
+"Debug mode disabled" = "Debug mode disabled";
+"Quick Look" = "Quick Look";
+"Settings…" = "Settings…";
+"Overwrite existing file" = "Overwrite existing file";
+"Rename all with suffixes" = "Rename all with suffixes";
+"One conflicting item found" = "One conflicting item found";
+"%d conflicting items found" = "%d conflicting items found";
+"Conflicts in %@: %@. Choose whether to overwrite or rename." = "Conflicts in %@: %@. Choose whether to overwrite or rename.";
+"%@ went back" = "%@ went back";
+"%@ went forward" = "%@ went forward";
+"%@ opened %@" = "%@ opened %@";
+"%d item(s) %@" = "%d item(s) %@";
+"Open task details" = "Open task details";
+"Calculating…" = "Calculating…";
+"Cancel current operation" = "Cancel current operation";
+"Loading paused; no items loaded in current folder" = "Loading paused; no items loaded in current folder";
