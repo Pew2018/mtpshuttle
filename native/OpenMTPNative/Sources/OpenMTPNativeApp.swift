@@ -27,7 +27,7 @@ struct OpenMTPNativeApp: App {
         Window("Settings", id: "settings") {
             SettingsView()
         }
-        .defaultSize(width: 520, height: 220)
+        .defaultSize(width: 560, height: 700)
         .windowResizability(.contentSize)
 
         Window("任务详情", id: "tasks") {
