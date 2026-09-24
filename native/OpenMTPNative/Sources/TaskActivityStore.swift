@@ -24,7 +24,7 @@ struct TaskRecord: Identifiable {
     var step: String
     var sent: Int64 = 0
     var total: Int64 = 0
-    var state: String = "运行中"
+    var state: String = MTPShuttleText.localized("Running")
     var items: [TaskItemRecord] = []
     var currentItemIndex: Int?
     var speedBytesPerSecond: Double = 0
@@ -63,7 +63,7 @@ final class TaskActivityStore: ObservableObject {
         lastProgressDate = nil
         lastProgressSent = 0
         cancellationRequested = false
-        current = TaskRecord(title: title, step: "准备传输", total: max(0, total))
+        current = TaskRecord(title: title, step: MTPShuttleText.localized("Preparing transfer"), total: max(0, total))
     }
 
     func addItems(_ items: [(name: String, path: String, total: Int64)]) {
@@ -235,7 +235,7 @@ final class TaskActivityStore: ObservableObject {
         guard current != nil else { return }
         cancellationRequested = true
         current?.state = "取消中"
-        current?.step = "正在取消…"
+        current?.step = MTPShuttleText.localized("Cancelling…")
         KalamBridge.shared.cancelCurrentOperation()
     }
 
