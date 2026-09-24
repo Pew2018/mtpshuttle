@@ -7,7 +7,7 @@ struct TaskRecord: Identifiable {
     var step: String
     var sent: Int64 = 0
     var total: Int64 = 0
-    var state: String = "运行中"
+    var state: String = MTPShuttleText.localized("Running")
     let started = Date()
 
     var fraction: Double? {
@@ -30,7 +30,7 @@ final class TaskActivityStore: ObservableObject {
         segmentSent = 0
         segmentTotal = 0
         cancellationRequested = false
-        current = TaskRecord(title: title, step: "准备传输", total: total)
+        current = TaskRecord(title: title, step: MTPShuttleText.localized("Preparing transfer"), total: total)
     }
 
     func step(_ text: String) { current?.step = text }
@@ -45,7 +45,7 @@ final class TaskActivityStore: ObservableObject {
         guard !cancellationRequested, current != nil else { return }
         segmentSent = max(0, sent)
         segmentTotal = max(segmentTotal, total)
-        current?.step = name.isEmpty ? "正在传输" : "正在传输：\(name)"
+        current?.step = name.isEmpty ? MTPShuttleText.localized("Transferring") : "\(MTPShuttleText.localized("Transferring")): \(name)"
         if let knownTotal = current?.total, knownTotal > 0 {
             current?.sent = min(knownTotal, completedBytes + segmentSent)
         } else {
@@ -67,7 +67,7 @@ final class TaskActivityStore: ObservableObject {
     func cancel() {
         guard current != nil else { return }
         cancellationRequested = true
-        current?.step = "正在取消…"
+        current?.step = MTPShuttleText.localized("Cancelling…")
         KalamBridge.shared.cancelCurrentOperation()
     }
 
@@ -83,10 +83,11 @@ final class TaskActivityStore: ObservableObject {
 
 struct TaskDetailsView: View {
     @ObservedObject private var tasks = TaskActivityStore.shared
+    @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("任务详情").font(.title2.bold())
+            Text("Task Details").font(.title2.bold())
             if let task = tasks.current {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(task.title).font(.headline)
@@ -97,22 +98,22 @@ struct TaskDetailsView: View {
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     } else {
                         ProgressView()
-                        Text("已传输 \(ByteCountFormatter.string(fromByteCount: task.sent, countStyle: .file)) · 总量未知")
+                        Text(String(format: MTPShuttleText.localized("Transferred %@ · Total unknown"), ByteCountFormatter.string(fromByteCount: task.sent, countStyle: .file)))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Button("取消操作") { tasks.cancel() }
+                    Button("Cancel Operation") { tasks.cancel() }
                         .disabled(tasks.cancellationRequested)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading)
                 .background(.bar)
             }
-            Text("本次启动已完成的操作").font(.headline)
+            Text("Completed operations in this session").font(.headline)
             if tasks.history.isEmpty {
-                Text("暂无操作").foregroundStyle(.secondary)
+                Text("No operations yet").foregroundStyle(.secondary)
             } else {
                 List(tasks.history) { task in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(task.title) · \(task.state)")
+                        Text("\(task.title) · \(stateText(task.state))")
                         Text("\(task.step) · \(task.started.formatted(date: .omitted, time: .standard))")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -121,5 +122,14 @@ struct TaskDetailsView: View {
         }
         .padding(18)
         .frame(minWidth: 480, minHeight: 360)
+        .environment(\\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+    }
+
+    private func stateText(_ state: String) -> String {
+        if state == "已完成" { return MTPShuttleText.localized("Completed") }
+        if state == "已取消" { return MTPShuttleText.localized("Cancelled") }
+        if state == "运行中" { return MTPShuttleText.localized("Running") }
+        if state.hasPrefix("失败：") { return "\(MTPShuttleText.localized("Failed")): \(state.dropFirst(3))" }
+        return state
     }
 }
