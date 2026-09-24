@@ -6,55 +6,95 @@ struct SettingsView: View {
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
     @AppStorage("debugMode") private var debugMode = false
     @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
+    @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
 
     var body: some View {
         Form {
-            Section("Language") {
+            Section {
                 Picker("App Language", selection: $appLanguage) {
                     ForEach(MTPShuttleLanguage.allCases) { language in
                         Text(language.displayName).tag(language.rawValue)
                     }
                 }
+            } header: {
+                Label("Language", systemImage: "globe")
+            } footer: {
                 Text("Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            Section("Workspace") {
+
+            Section {
                 Toggle("Show only Android Device", isOn: $androidOnlyMode)
-                Text("Hide the This Mac pane and use the window as a single-pane Android file browser.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Label("Workspace", systemImage: "rectangle.split.2x1")
+            } footer: {
+                Text("Hide This Mac and use a single-pane Android file browser.")
             }
-            Section("Drag & Drop") {
-                Picker("When dragging items between panes", selection: $dragDropMode) {
-                    ForEach(DragDropMode.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
-                }.pickerStyle(.radioGroup)
-                Text("Choose whether a drag between panes copies items, moves them, or asks each time.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("When dragging items between panes")
+                        .font(.body.weight(.medium))
+
+                    Picker("Drag behavior", selection: $dragDropMode) {
+                        ForEach(DragDropMode.allCases) { mode in
+                            Text(mode.title).tag(mode.rawValue)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+                }
+            } header: {
+                Label("Drag & Drop", systemImage: "arrow.left.arrow.right")
+            } footer: {
+                Text("Choose whether a drag copies items, moves them, or asks each time.")
             }
-            Section("Preview") {
+
+            Section {
+                Toggle("Always show file transfer progress", isOn: $alwaysShowTransferProgress)
+            } header: {
+                Label("Transfer Progress", systemImage: "arrow.down.circle")
+            } footer: {
+                Text("When enabled, the detailed transfer window opens automatically. When disabled, click the progress bar at the bottom left to open it.")
+            }
+
+            Section {
                 Toggle("Enable Quick Look with Space", isOn: $quickLookPreviewEnabled)
+            } header: {
+                Label("Preview", systemImage: "doc.viewfinder")
+            } footer: {
                 Text("Select a file and press Space to open the macOS Quick Look preview.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            Section("Diagnostics") {
+
+            Section {
                 Toggle("Debug mode", isOn: $debugMode)
                     .onChange(of: debugMode) { enabled in
                         DebugLogger.info("Debug mode " + (enabled ? "enabled" : "disabled"))
                     }
-                HStack {
+
+                HStack(spacing: 10) {
                     Button("Open Debug Log") { DebugLogger.openLog() }
                     Button("Copy Debug Log") { DebugLogger.copyLogToClipboard() }
                 }
-                Text(DebugLogger.logURL.path)
-                    .font(.caption2.monospaced()).foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Log location")
+                        .font(.caption.weight(.medium))
+                    Text(DebugLogger.logURL.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(2)
+                }
+            } header: {
+                Label("Diagnostics", systemImage: "stethoscope")
+            } footer: {
+                Text("Enable debug mode only when investigating a problem. Diagnostics never change file operations.")
             }
         }
-        .formStyle(.grouped).padding(20).frame(width: 520, height: 570)
-            .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+        .formStyle(.grouped)
+        .padding(20)
+        .frame(minWidth: 560, minHeight: 660)
+        .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
     }
 }
 
