@@ -16,7 +16,8 @@ private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProvid
         self.writePromise = writePromise
     }
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
-        fileName
+        DebugLogger.info("Android file promise name requested: \(fileName)")
+        return fileName
     }
     func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { writeQueue }
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
@@ -49,6 +50,13 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
             if !types.contains(type) { types.append(type) }
         }
         return types
+    }
+    override func writingOptions(forType type: NSPasteboard.PasteboardType, pasteboard: NSPasteboard) -> NSPasteboard.WritingOptions {
+        if type == NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier) {
+            // The in-app JSON is available immediately; only the file is promised.
+            return []
+        }
+        return super.writingOptions(forType: type, pasteboard: pasteboard)
     }
     override func pasteboardPropertyList(forType type: NSPasteboard.PasteboardType) -> Any? {
         if type == NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
@@ -132,7 +140,8 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             hasDraggingSession = true
             lastDragContext = nil
             DebugLogger.info("Android file drag started: count=\(providers.count)")
-            beginDraggingSession(with: items, event: start, source: self)
+            let session = beginDraggingSession(with: items, event: start, source: self)
+            DebugLogger.info("Android drag pasteboard types: \(session.draggingPasteboard.types?.map(\\.rawValue).joined(separator: "|") ?? "")")
         }
 
         override func mouseUp(with event: NSEvent) {
@@ -734,6 +743,8 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
+            let types = draggingInfo.draggingPasteboard.types?.map(\\.rawValue).joined(separator: "|") ?? ""
+            DebugLogger.info("Pane drop entered: types=\(types)")
             MTPShuttleDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
 
             if isInternalDrag(draggingInfo) {
@@ -799,10 +810,12 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
                 guard let encoded = readInternalPayload(from: pasteboard) else {
                     MTPShuttleDNDLogger.log("AppKit INTERNAL payload read FAILED")
+                    DebugLogger.error("Pane drop failed: internal payload could not be read")
                     return false
                 }
 
                 MTPShuttleDNDLogger.log("AppKit INTERNAL payload read OK length=\(encoded.count)")
+                DebugLogger.info("Pane drop accepted: internal payload")
                 parent.onInternalDrop(encoded)
                 return true
             }
@@ -825,6 +838,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 return false
             }
 
+            DebugLogger.info("Pane drop accepted: Finder URLs count=\(urls.count)")
             parent.onExternalFileDrop(urls)
             return true
         }
