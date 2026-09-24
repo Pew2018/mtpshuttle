@@ -669,9 +669,13 @@ struct ContentView: View {
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> NSItemProvider {
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
         let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
-        let provider = NSItemProvider()
+        let encodedPayload = payload.encoded
+        // AppKit needs a concrete NSString representation for reliable
+        // in-app drag-and-drop. The fileURL representation below remains
+        // available for Android-to-Finder exports.
+        let provider = encodedPayload.map { NSItemProvider(object: $0 as NSString) } ?? NSItemProvider()
 
-        if let encoded = payload.encoded {
+        if let encoded = encodedPayload {
             // Keep the custom payload for transfers between the two app panes.
             provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
                                                 visibility: .all) { completion in
