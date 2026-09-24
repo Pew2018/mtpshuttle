@@ -1184,7 +1184,7 @@ private struct WorkspaceView: View {
             refreshTitle: mtpService.isConnected ? "Refresh" : "Connect",
             isLoading: mtpService.isBrowsing || mtpService.state == .connecting,
             errorMessage: mtpService.browseError,
-            emptyMessage: mtpService.isConnected ? nil : mtpService.statusText,
+            emptyMessage: mtpService.isConnected ? nil : mtpService.connectionPrompt,
             breadcrumbs: MTPDirectory.breadcrumbs(path: rightPane.path, storages: mtpService.storages),
             canModifyFiles: true,
             path: rightPane.path,
