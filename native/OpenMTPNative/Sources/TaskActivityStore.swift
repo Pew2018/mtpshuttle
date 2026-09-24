@@ -122,7 +122,7 @@ struct TaskDetailsView: View {
         }
         .padding(18)
         .frame(minWidth: 480, minHeight: 360)
-        .environment(\\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+        .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
     }
 
     private func stateText(_ state: String) -> String {
