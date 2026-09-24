@@ -17,7 +17,7 @@ struct ContentView: View {
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
-    @State private var statusMessage = "Ready"
+    @State private var statusMessage = MTPShuttleText.localized("Ready")
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
     @StateObject private var localBrowser = LocalBrowserService()
@@ -32,6 +32,9 @@ struct ContentView: View {
 
     @AppStorage("quickLookPreviewEnabled")
     private var quickLookPreviewEnabled = true
+
+    @AppStorage("appLanguage")
+    private var appLanguage = MTPShuttleLanguage.system.rawValue
 
     @State private var suppressFolderPromptThisSession = false
     @State private var folderDragSessionMode: ClipboardMode = .copy
@@ -70,6 +73,7 @@ struct ContentView: View {
 
     var body: some View {
         AnyView(workspaceView)
+        .environment(\\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
@@ -467,7 +471,7 @@ struct ContentView: View {
         guard operation == nil else { return }
 
         guard targetPane == .android else {
-            statusMessage = "Finder items can be dropped into Android Device"
+            statusMessage = MTPShuttleText.localized("Finder items can be dropped into Android Device")
             return
         }
 
@@ -519,7 +523,7 @@ struct ContentView: View {
         }
         guard payload.sourcePane != targetPane else {
             OpenMTPDNDLogger.log("receiveDrop rejected: same pane")
-            statusMessage = "Drop between the two panes to transfer items"
+            statusMessage = MTPShuttleText.localized("Drop between the two panes to transfer items")
             return
         }
 
@@ -710,7 +714,7 @@ struct ContentView: View {
         clearClipboardAfterMove: Bool = false
     ) {
         let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
-        guard !sources.isEmpty else { statusMessage = "No items selected"; return }
+        guard !sources.isEmpty else { statusMessage = MTPShuttleText.localized("No items selected"); return }
         let existing = Set(entries(for: targetPane, path: targetPath).map(\.name))
         let conflicts = sources.map(\.name).filter { existing.contains($0) }
         if !conflicts.isEmpty {
@@ -741,11 +745,11 @@ struct ContentView: View {
         clearClipboardAfterMove: Bool, resolution: TransferConflictResolution?
     ) {
         let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
-        guard !sources.isEmpty else { statusMessage = "No items selected"; return }
+        guard !sources.isEmpty else { statusMessage = MTPShuttleText.localized("No items selected"); return }
         let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
             guard tasks.current == nil else {
-                statusMessage = "请等待当前传输结束"
+                statusMessage = MTPShuttleText.localized("Please wait for the current transfer to finish")
                 return
             }
             let knownBytes = transferByteCount(
@@ -776,7 +780,7 @@ struct ContentView: View {
                 } else {
                     tasks.failCurrentItem(error.localizedDescription)
                 }
-                statusMessage = tasks.cancellationRequested ? "操作已取消" : error.localizedDescription
+                statusMessage = tasks.cancellationRequested ? MTPShuttleText.localized("Operation cancelled") : error.localizedDescription
                 tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
         }
@@ -819,7 +823,7 @@ struct ContentView: View {
 
         Task { @MainActor in
             guard tasks.current == nil else {
-                statusMessage = "请等待当前传输结束"
+                statusMessage = MTPShuttleText.localized("Please wait for the current transfer to finish")
                 return
             }
 
@@ -943,7 +947,7 @@ struct ContentView: View {
                     tasks.failCurrentItem(error.localizedDescription)
                 }
                 statusMessage = tasks.cancellationRequested
-                    ? "操作已取消"
+                    ? MTPShuttleText.localized("Operation cancelled")
                     : "Finder 拖拽失败：\(error.localizedDescription)"
                 tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
@@ -1230,16 +1234,16 @@ struct ContentView: View {
             leftPane.selection.removeAll()
             Task {
                 await localBrowser.load(path: leftPane.path)
-                statusMessage = localBrowser.errorMessage ?? "This Mac refreshed"
+                statusMessage = localBrowser.errorMessage ?? MTPShuttleText.localized("This Mac refreshed")
             }
         case .android:
             rightPane.selection.removeAll()
             if mtpService.isBrowsing {
                 mtpService.cancelBrowse()
-                statusMessage = "加载已暂停，已显示当前已加载项目"
+                statusMessage = MTPShuttleText.localized("Loading paused; showing loaded items")
                 return
             }
-            statusMessage = mtpService.isConnected ? "Refreshing Android device…" : "Connecting to Android device…"
+            statusMessage = mtpService.isConnected ? MTPShuttleText.localized("Refreshing Android device…") : MTPShuttleText.localized("Connecting to Android device…")
             Task {
                 await mtpService.refresh()
                 await mtpService.browse(path: rightPane.path)
