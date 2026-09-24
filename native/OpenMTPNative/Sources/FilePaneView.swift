@@ -67,7 +67,7 @@ struct FilePaneView: View {
             Divider()
 
             if isLoading && items.isEmpty {
-                ProgressView("Loading folder…")
+                ProgressView(MTPShuttleText.localized("Loading folder…"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let message = items.isEmpty ? (errorMessage ?? emptyMessage) : nil {
                 VStack(spacing: 12) {
@@ -81,7 +81,7 @@ struct FilePaneView: View {
                 emptyState
             } else if viewMode == .list {
                 VStack(spacing: 0) {
-                    if isLoading { Text("正在加载，已显示 \(items.count) 个项目；点按右侧 Refresh 可暂停")
+                    if isLoading { Text(MTPShuttleText.format("Loading; %d items shown. Select Refresh to pause.", items.count))
                         .font(.caption).foregroundStyle(.secondary).padding(6) }
                     if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.orange).padding(6) }
                     listView
@@ -132,10 +132,10 @@ struct FilePaneView: View {
                     .frame(width: 29, height: 29)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(pane.title)
+                    Text(pane.localizedTitle)
                         .font(.headline)
 
-                    Text(subtitle ?? pane.subtitle)
+                    Text(subtitle ?? pane.localizedSubtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -146,7 +146,7 @@ struct FilePaneView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(isLoading && pane == .mac)
-                .help(isLoading && pane == .android ? "暂停加载并显示已读取项目" : (refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane"))
+                .help(isLoading && pane == .android ? MTPShuttleText.localized("Pause loading and show loaded items") : MTPShuttleText.localized(refreshTitle == "Connect" ? "Connect to the Android device" : "Refresh this pane"))
 
                 Spacer(minLength: 8)
 
@@ -156,14 +156,14 @@ struct FilePaneView: View {
                     }
                     .buttonStyle(.borderless)
                     .disabled(!canGoBack)
-                    .help("Back")
+                    .help(MTPShuttleText.localized("Back"))
 
                     Button(action: onForward) {
                         Image(systemName: "chevron.right")
                     }
                     .buttonStyle(.borderless)
                     .disabled(!canGoForward)
-                    .help("Forward")
+                    .help(MTPShuttleText.localized("Forward"))
 
                     Picker("", selection: $viewMode) {
                         ForEach(FileViewMode.allCases) { mode in
@@ -175,7 +175,7 @@ struct FilePaneView: View {
                     .labelsHidden()
                     .frame(width: 78)
                     .accessibilityLabel("View")
-                    .help("Change view")
+                    .help(MTPShuttleText.localized("Change view"))
                 }
             }
 
@@ -217,7 +217,7 @@ struct FilePaneView: View {
                             : Color(nsColor: .controlAccentColor)
                     )
                     .disabled(component.path == path)
-                    .help("Open \(component.path)")
+                    .help(MTPShuttleText.format("Open %@", component.path))
                 }
             }
             .padding(.horizontal, 10)
@@ -342,11 +342,11 @@ struct FilePaneView: View {
         Divider()
 
         if showCrossPaneActions {
-            Button("Copy to \(otherPaneTitle)") {
+            Button(MTPShuttleText.format("Copy to %@", otherPaneTitle)) {
                 onAction(.copyToOther, item)
             }.disabled(!canModifyFiles)
 
-            Button("Move to \(otherPaneTitle)") {
+            Button(MTPShuttleText.format("Move to %@", otherPaneTitle)) {
                 onAction(.moveToOther, item)
             }.disabled(!canModifyFiles)
 
@@ -380,18 +380,18 @@ struct FilePaneView: View {
 
     private var paneFooter: some View {
         HStack(spacing: 8) {
-            Text("\(items.count) items")
+            Text(MTPShuttleText.format("%d items", items.count))
 
             if !selection.isEmpty {
                 Text("•")
                     .foregroundStyle(.tertiary)
 
-                Text("\(selection.count) selected")
+                Text(MTPShuttleText.format("%d selected", selection.count))
             }
 
             Spacer()
 
-            Text(path == pane.rootPath ? "Root folder" : "Ready")
+            Text(path == pane.rootPath ? MTPShuttleText.localized("Root folder") : MTPShuttleText.localized("Ready"))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
