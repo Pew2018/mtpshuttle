@@ -84,6 +84,7 @@ final class DirectoryTests: XCTestCase {
         let customType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
         XCTAssertTrue(provider.writableTypes(for: .general).contains(customType))
         XCTAssertEqual(provider.pasteboardPropertyList(forType: customType) as? Data, Data(payload.utf8))
+        XCTAssertTrue(provider.writingOptions(forType: customType, pasteboard: .general).isEmpty)
 
         // Finder discovers promises through a pasteboard reader, not by calling
         // our provider directly. Exercise that boundary as well.
