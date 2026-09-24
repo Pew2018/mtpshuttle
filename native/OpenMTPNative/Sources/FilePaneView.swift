@@ -18,12 +18,22 @@ private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProvid
     }
 }
 final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
-    private let promiseDelegate: MTPShuttleFilePromiseDelegate
-    private let encodedPayload: String?
-    init(fileType: String, fileName: String, encodedPayload: String?, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
+    // AppKit's init(fileType:delegate:) is a convenience initializer that calls
+    // self.init(). Keep that initializer available on this Swift subclass.
+    private var promiseDelegate: MTPShuttleFilePromiseDelegate?
+    private var encodedPayload: String?
+
+    override init() {
+        super.init()
+    }
+
+    convenience init(fileType: String, fileName: String, encodedPayload: String?, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
+        self.init()
+        let promiseDelegate = MTPShuttleFilePromiseDelegate(fileName: fileName, writePromise: writePromise)
+        self.promiseDelegate = promiseDelegate // NSFilePromiseProvider holds its delegate weakly.
         self.encodedPayload = encodedPayload
-        self.promiseDelegate = MTPShuttleFilePromiseDelegate(fileName: fileName, writePromise: writePromise)
-        super.init(fileType: fileType, delegate: promiseDelegate)
+        self.fileType = fileType
+        self.delegate = promiseDelegate
     }
     override func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
         var types = super.writableTypes(for: pasteboard)
