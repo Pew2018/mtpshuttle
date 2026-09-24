@@ -51,23 +51,56 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
         return super.pasteboardPropertyList(forType: type)
     }
 }
-private struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
+struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
     let makeProviders: () -> [NSFilePromiseProvider]
-    func makeNSView(context: Context) -> DragSourceView { DragSourceView(makeProviders: makeProviders) }
-    func updateNSView(_ nsView: DragSourceView, context: Context) { nsView.makeProviders = makeProviders }
+    let onClick: () -> Void
+    let onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> DragSourceView {
+        DragSourceView(makeProviders: makeProviders, onClick: onClick, onDoubleClick: onDoubleClick)
+    }
+
+    func updateNSView(_ nsView: DragSourceView, context: Context) {
+        nsView.makeProviders = makeProviders
+        nsView.onClick = onClick
+        nsView.onDoubleClick = onDoubleClick
+    }
+
     final class DragSourceView: NSView, NSDraggingSource {
         var makeProviders: () -> [NSFilePromiseProvider]
+        var onClick: () -> Void
+        var onDoubleClick: () -> Void
+        private var mouseDownEvent: NSEvent?
         private var hasDraggingSession = false
-        private var panGesture: NSPanGestureRecognizer!
-        init(makeProviders: @escaping () -> [NSFilePromiseProvider]) {
+        private let dragDistance: CGFloat = 6
+
+        init(makeProviders: @escaping () -> [NSFilePromiseProvider], onClick: @escaping () -> Void, onDoubleClick: @escaping () -> Void) {
             self.makeProviders = makeProviders
+            self.onClick = onClick
+            self.onDoubleClick = onDoubleClick
             super.init(frame: .zero)
-            panGesture = NSPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-            addGestureRecognizer(panGesture)
         }
+
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-        @objc private func handlePan(_ gesture: NSPanGestureRecognizer) {
-            guard gesture.state == .began, !hasDraggingSession, let event = NSApp.currentEvent else { return }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // Leave the SwiftUI row's context menu in charge of right clicks.
+            if NSApp.currentEvent?.type == .rightMouseDown { return nil }
+            return super.hitTest(point)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            mouseDownEvent = event
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let start = mouseDownEvent, !hasDraggingSession else { return }
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) >= dragDistance else { return }
+
+            // Once the pointer moves far enough, it is no longer a click.
+            mouseDownEvent = nil
             let providers = makeProviders()
             guard !providers.isEmpty else { return }
             let items = providers.map { provider -> NSDraggingItem in
@@ -76,10 +109,27 @@ private struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
                 return item
             }
             hasDraggingSession = true
-            beginDraggingSession(with: items, event: event, source: self)
+            beginDraggingSession(with: items, event: start, source: self)
         }
+
+        override func mouseUp(with event: NSEvent) {
+            guard let start = mouseDownEvent else { return }
+            mouseDownEvent = nil
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) < dragDistance else { return }
+            if event.clickCount >= 2 {
+                onDoubleClick()
+            } else {
+                onClick()
+            }
+        }
+
         func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
-        func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { hasDraggingSession = false }
+        func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+            hasDraggingSession = false
+            mouseDownEvent = nil
+        }
     }
 }
 
@@ -322,11 +372,11 @@ struct FilePaneView: View {
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        updateSelection(for: item.id)
+                        if pane == .mac { updateSelection(for: item.id) }
                     }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
-                            onOpen(item)
+                            if pane == .mac { onOpen(item) }
                         }
                     )
                     .contextMenu {
@@ -334,9 +384,11 @@ struct FilePaneView: View {
                     }
                     .overlay {
                         if pane == .android {
-                            MTPShuttleFilePromiseDragSource {
-                                onFilePromiseProviders(item, selection)
-                            }
+                            MTPShuttleFilePromiseDragSource(
+                                makeProviders: { onFilePromiseProviders(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
                         }
                     }
                     .onDrag {
@@ -377,11 +429,11 @@ struct FilePaneView: View {
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        updateSelection(for: item.id)
+                        if pane == .mac { updateSelection(for: item.id) }
                     }
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
-                            onOpen(item)
+                            if pane == .mac { onOpen(item) }
                         }
                     )
                     .contextMenu {
@@ -389,9 +441,11 @@ struct FilePaneView: View {
                     }
                     .overlay {
                         if pane == .android {
-                            MTPShuttleFilePromiseDragSource {
-                                onFilePromiseProviders(item, selection)
-                            }
+                            MTPShuttleFilePromiseDragSource(
+                                makeProviders: { onFilePromiseProviders(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
                         }
                     }
                     .onDrag {
@@ -737,12 +791,13 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             }
 
             switch event.type {
-            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
-                 .leftMouseUp, .rightMouseUp, .otherMouseUp:
-                // Keep the receiver in the hit-test path through mouse-up. AppKit
-                // can send draggingExited while the cursor crosses the SwiftUI
-                // overlay, even though the drop is still being completed.
+            case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
                 return self
+
+            case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+                // Ordinary clicks must reach the row's drag source so it can
+                // select or open the item. Keep mouse-up only for an active drop.
+                return coordinator?.activeDragSession == true ? self : nil
 
             case .leftMouseDown, .rightMouseDown, .otherMouseDown:
                 return nil
