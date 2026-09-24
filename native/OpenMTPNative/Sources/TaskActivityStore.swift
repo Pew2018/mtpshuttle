@@ -296,9 +296,6 @@ struct TaskDetailsView: View {
                 Text(task.state).foregroundStyle(.secondary)
             }
 
-            Text(task.step)
-                .font(.subheadline)
-
             if let fraction = task.fraction {
                 ProgressView(value: fraction)
             } else {
