@@ -36,6 +36,9 @@ struct ContentView: View {
     @AppStorage("appLanguage")
     private var appLanguage = MTPShuttleLanguage.system.rawValue
 
+    @AppStorage("alwaysShowTransferProgress")
+    private var alwaysShowTransferProgress = false
+
     @State private var suppressFolderPromptThisSession = false
     @State private var folderDragSessionMode: ClipboardMode = .copy
 
@@ -800,6 +803,7 @@ struct ContentView: View {
                 sourcePane: sourcePane
             )
             tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
+            if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(sources.map {
                 (
                     name: $0.name,
@@ -892,6 +896,7 @@ struct ContentView: View {
             }
 
             tasks.begin("Copying \(urls.count) Finder item(s)", total: knownBytes)
+            if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(urls.map {
                 (
                     name: $0.lastPathComponent,
