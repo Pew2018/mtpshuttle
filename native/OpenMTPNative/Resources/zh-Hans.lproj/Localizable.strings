@@ -105,3 +105,14 @@
 "This Mac refreshed" = "此 Mac 已刷新";
 "Loading paused; showing loaded items" = "加载已暂停，正在显示已读取项目";
 "Refreshing Android device…" = "正在刷新 Android 设备…";
+
+
+"Language" = "语言";
+"App Language" = "应用语言";
+"Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese." = "自动跟随 macOS 语言。你也可以选择 English、简体中文或繁體中文。";
+"Automatic (System)" = "自动（系统）";
+"English" = "English";
+"简体中文" = "简体中文";
+"繁體中文" = "繁體中文";
+"Failed" = "失败";
+"Transferred %@ · Total unknown" = "已传输 %@ · 总大小未知";
