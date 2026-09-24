@@ -17,7 +17,7 @@ private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProvid
         writePromise(url, completionHandler)
     }
 }
-private final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
+final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
     private let promiseDelegate: MTPShuttleFilePromiseDelegate
     private let encodedPayload: String?
     init(fileType: String, fileName: String, encodedPayload: String?, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
@@ -53,7 +53,6 @@ private struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             self.makeProviders = makeProviders
             super.init(frame: .zero)
             panGesture = NSPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-            panGesture.cancelsTouchesInView = false
             addGestureRecognizer(panGesture)
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
