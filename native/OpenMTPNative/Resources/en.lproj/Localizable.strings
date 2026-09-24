@@ -96,3 +96,11 @@
 "HEIC Image" = "HEIC Image";
 "Swift Source" = "Swift Source";
 "Disk Image" = "Disk Image";
+
+
+"Please wait for the current transfer to finish" = "Please wait for the current transfer to finish";
+"Finder items can be dropped into Android Device" = "Finder items can be dropped into Android Device";
+"Drop between the two panes to transfer items" = "Drop between the two panes to transfer items";
+"This Mac refreshed" = "This Mac refreshed";
+"Loading paused; showing loaded items" = "Loading paused; showing loaded items";
+"Refreshing Android device…" = "Refreshing Android device…";
