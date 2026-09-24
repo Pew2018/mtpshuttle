@@ -95,7 +95,7 @@ final class TaskActivityStore: ObservableObject {
         segmentTotal = 0
         lastProgressDate = nil
         lastProgressSent = 0
-        task.step = "正在传输：\(name)"
+        task.step = MTPShuttleText.localized("Transferring") + ": \(name)"
         current = task
     }
 
@@ -212,7 +212,7 @@ final class TaskActivityStore: ObservableObject {
         task.items[index].state = "失败"
         task.items[index].errorMessage = message
         task.failureReason = message
-        task.step = "失败：\(message)"
+        task.step = MTPShuttleText.localized("Failed:") + message
         task.currentItemIndex = nil
         current = task
     }
@@ -226,7 +226,7 @@ final class TaskActivityStore: ObservableObject {
 
         task.items[index].state = "已取消"
         task.items[index].errorMessage = "用户取消了传输"
-        task.step = "操作已取消"
+        task.step = MTPShuttleText.localized("Operation cancelled")
         task.currentItemIndex = nil
         current = task
     }
@@ -264,15 +264,15 @@ struct TaskDetailsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("任务详情").font(.title2.bold())
+            Text(MTPShuttleText.localized("Task Details")).font(.title2.bold())
 
             if let task = tasks.current {
                 currentTaskView(task)
             }
 
-            Text("本次启动已完成的操作").font(.headline)
+            Text(MTPShuttleText.localized("Completed operations in this session")).font(.headline)
             if tasks.history.isEmpty {
-                Text("暂无操作").foregroundStyle(.secondary)
+                Text(MTPShuttleText.localized("No operations yet")).foregroundStyle(.secondary)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -293,7 +293,7 @@ struct TaskDetailsView: View {
             HStack {
                 Text(task.title).font(.headline)
                 Spacer()
-                Text(task.state).foregroundStyle(.secondary)
+                Text(displayStatus(task.state)).foregroundStyle(.secondary)
             }
 
             if let fraction = task.fraction {
@@ -305,16 +305,16 @@ struct TaskDetailsView: View {
                 .font(.caption.monospacedDigit())
 
             HStack(spacing: 14) {
-                Text("速度：\(speedText(task.speedBytesPerSecond))")
-                Text("预计剩余：\(etaText(task.etaSeconds))")
+                Text(MTPShuttleText.localized("Speed") + ": " + speedText(task.speedBytesPerSecond))
+                Text(MTPShuttleText.localized("Estimated remaining") + ": " + etaText(task.etaSeconds))
             }
             .font(.caption)
             .foregroundStyle(.secondary)
 
             if let item = task.currentItem {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("当前文件：\(item.name)").font(.subheadline.weight(.semibold))
-                    Text("目录：\(item.path)")
+                    Text(MTPShuttleText.localized("Current file") + ": " + item.name).font(.subheadline.weight(.semibold))
+                    Text(MTPShuttleText.localized("Directory") + ": " + item.path)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -325,7 +325,7 @@ struct TaskDetailsView: View {
 
             if !task.items.isEmpty {
                 Divider()
-                Text("任务列表").font(.subheadline.weight(.semibold))
+                Text(MTPShuttleText.localized("Task list")).font(.subheadline.weight(.semibold))
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 5) {
                         ForEach(task.items) { item in
@@ -337,13 +337,13 @@ struct TaskDetailsView: View {
             }
 
             if let failureReason = task.failureReason {
-                Text("失败原因：\(failureReason)")
+                Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
                     .font(.caption)
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
             }
 
-            Button("取消操作") { tasks.cancel() }
+            Button(MTPShuttleText.localized("Cancel Operation")) { tasks.cancel() }
                 .disabled(tasks.cancellationRequested)
         }
         .padding()
@@ -358,7 +358,7 @@ struct TaskDetailsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let failureReason = task.failureReason {
-                Text("失败原因：\(failureReason)")
+                Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
                     .font(.caption)
                     .foregroundStyle(.red)
             }
@@ -373,7 +373,7 @@ struct TaskDetailsView: View {
             HStack {
                 Text(item.name).lineLimit(1)
                 Spacer()
-                Text(item.state).foregroundStyle(.secondary)
+                Text(displayStatus(item.state)).foregroundStyle(.secondary)
             }
             Text(item.path)
                 .font(.caption2.monospaced())
@@ -394,18 +394,32 @@ struct TaskDetailsView: View {
         .padding(.vertical, 3)
     }
 
+    private func displayStatus(_ status: String) -> String {
+        let key: String
+        switch status {
+        case "等待中": key = "Waiting"
+        case "传输中": key = "Transferring"
+        case "已完成": key = "Completed"
+        case "失败": key = "Failed"
+        case "已取消": key = "Cancelled"
+        case "取消中": key = "Cancelling"
+        default: return status
+        }
+        return MTPShuttleText.localized(key)
+    }
+
     private func byteText(_ value: Int64) -> String {
-        guard value > 0 else { return "未知" }
+        guard value > 0 else { return MTPShuttleText.localized("Unknown") }
         return ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }
 
     private func speedText(_ value: Double) -> String {
-        guard value > 0 else { return "计算中" }
+        guard value > 0 else { return MTPShuttleText.localized("Calculating") }
         return "\(ByteCountFormatter.string(fromByteCount: Int64(value), countStyle: .file))/s"
     }
 
     private func etaText(_ value: TimeInterval?) -> String {
-        guard let value, value.isFinite, value >= 0 else { return "暂不可用" }
+        guard let value, value.isFinite, value >= 0 else { return MTPShuttleText.localized("Not available") }
         let seconds = Int(value.rounded())
         if seconds < 60 { return "\(seconds) 秒" }
         return "\(seconds / 60) 分 \(seconds % 60) 秒"
