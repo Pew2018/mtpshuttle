@@ -69,4 +69,21 @@ final class DirectoryTests: XCTestCase {
         XCTAssertTrue(service.entries.isEmpty)
         XCTAssertFalse(service.isLoading)
     }
+    @MainActor
+    func testFilePromiseProviderInitializationAndPasteboardPayload() {
+        let payload = #"{"source":"android"}"#
+        let provider = MTPShuttleFilePromiseProvider(
+            fileType: "public.data",
+            fileName: "example.txt",
+            encodedPayload: payload,
+            writePromise: { _, completion in completion(nil) }
+        )
+
+        XCTAssertEqual(provider.fileType, "public.data")
+        XCTAssertEqual(provider.delegate?.filePromiseProvider(provider, fileNameForType: provider.fileType), "example.txt")
+        let customType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+        XCTAssertTrue(provider.writableTypes(for: .general).contains(customType))
+        XCTAssertEqual(provider.pasteboardPropertyList(forType: customType) as? Data, Data(payload.utf8))
+    }
+
 }
