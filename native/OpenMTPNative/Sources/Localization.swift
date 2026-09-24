@@ -11,13 +11,13 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .system:
-            return "Automatic (System)"
+            return MTPShuttleText.localized("Automatic (System)")
         case .english:
-            return "English"
+            return MTPShuttleText.localized("English")
         case .simplifiedChinese:
-            return "简体中文"
+            return MTPShuttleText.localized("简体中文")
         case .traditionalChinese:
-            return "繁體中文"
+            return MTPShuttleText.localized("繁體中文")
         }
     }
 
