@@ -153,3 +153,27 @@
 "Android Package" = "Android Package";
 
 "%@ · %d storage(s)" = "%@ · %d storage(s)";
+
+
+/* Complete transfer status labels */
+"Waiting" = "Waiting";
+"Transferring" = "Transferring";
+"Completed" = "Completed";
+"Failed" = "Failed";
+"Cancelled" = "Cancelled";
+"Cancelling" = "Cancelling";
+"Operation cancelled" = "Operation cancelled";
+"Failed:" = "Failed:";
+"Task Details" = "Task Details";
+"Completed operations in this session" = "Completed operations in this session";
+"No operations yet" = "No operations yet";
+"Cancel Operation" = "Cancel Operation";
+"Speed" = "Speed";
+"Estimated remaining" = "Estimated remaining";
+"Current file" = "Current file";
+"Directory" = "Directory";
+"Task list" = "Task list";
+"Failure reason" = "Failure reason";
+"Unknown" = "Unknown";
+"Calculating" = "Calculating";
+"Not available" = "Not available";
