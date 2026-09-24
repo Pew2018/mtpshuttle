@@ -1120,16 +1120,31 @@ struct ContentView: View {
                 }
                 await mtpService.browse(path: targetPath)
                 if mode == .move {
-                    // Never remove Finder originals unless every upload succeeded
-                    // and the destination directory contains all expected names.
-                    guard mtpService.browseError == nil,
-                          Set(targetNames).isSubset(of: Set(mtpService.entries.map(\.name))) else {
+                    let uploadsCompleted = true
+                    var destinationVerified = true
+                    for (index, url) in urls.enumerated() {
+                        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                        if !(await verifyFinderMoveItem(
+                            url,
+                            targetName: targetNames[index],
+                            targetPath: targetPath,
+                            storage: storage
+                        )) {
+                            destinationVerified = false
+                            break
+                        }
+                    }
+                    guard FolderMoveSafety.canDeleteOriginals(
+                        uploadsCompleted: uploadsCompleted,
+                        cancelled: tasks.cancellationRequested,
+                        integrityVerified: destinationVerified
+                    ) else {
                         throw NSError(
                             domain: "MTPShuttleDrag", code: 11,
-                            userInfo: [NSLocalizedDescriptionKey: "Unable to verify all copied items on Android; Finder originals were kept."]
+                            userInfo: [NSLocalizedDescriptionKey: "Unable to verify the complete Android copy; Finder originals were kept."]
                         )
                     }
-                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    await mtpService.browse(path: targetPath)
                     for url in urls {
                         let secured = url.startAccessingSecurityScopedResource()
                         defer { if secured { url.stopAccessingSecurityScopedResource() } }
@@ -1152,6 +1167,118 @@ struct ContentView: View {
         }
     }
 
+    private func androidBrowserPath(storageID: UInt32, remotePath: String) -> String {
+        let components = remotePath.split(separator: "/").joined(separator: "/")
+        return components.isEmpty ? "/\(storageID)/" : "/\(storageID)/\(components)/"
+    }
+
+    private func verifyFinderMoveItem(
+        _ localURL: URL,
+        targetName: String,
+        targetPath: String,
+        storage: MTPStorageSummary
+    ) async -> Bool {
+        await mtpService.browse(path: targetPath)
+        guard mtpService.browseError == nil,
+              !mtpService.isBrowsePartial else {
+            DebugLogger.error("Move verification failed: Android destination could not be read")
+            return false
+        }
+        let matches = mtpService.entries.filter { $0.name == targetName }
+        guard matches.count == 1,
+              let remoteEntry = matches.first else {
+            DebugLogger.error("Move verification failed: expected one Android item named \(targetName)")
+            return false
+        }
+
+        do {
+            let values = try localURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            if values.isDirectory == true {
+                guard remoteEntry.isDirectory else { return false }
+                let localManifest = try FolderTransferManifest.localEntries(at: localURL)
+                let remotePath = storage.fullPath + "/" + targetName
+                let remoteManifest = try await remoteFolderManifest(
+                    remotePath,
+                    storageID: storage.storageID
+                )
+                let verified = FolderTransferManifest.matches(
+                    local: localManifest,
+                    remote: remoteManifest
+                )
+                if !verified {
+                    DebugLogger.error("Move verification failed: folder contents differ for \(targetName)")
+                }
+                return verified
+            }
+
+            guard !remoteEntry.isDirectory,
+                  let localSize = values.fileSize,
+                  let remoteSize = remoteEntry.sizeBytes,
+                  Int64(localSize) == Int64(remoteSize) else {
+                DebugLogger.error("Move verification failed: file size differs or is unavailable for \(targetName)")
+                return false
+            }
+            return true
+        } catch {
+            DebugLogger.error("Move verification failed for \(targetName): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func remoteFolderManifest(
+        _ remotePath: String,
+        storageID: UInt32
+    ) async throws -> [FolderTransferManifestEntry] {
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+        await mtpService.browse(path: androidBrowserPath(storageID: storageID, remotePath: remotePath))
+        guard mtpService.browseError == nil,
+              !mtpService.isBrowsePartial else {
+            throw NSError(
+                domain: "MTPShuttleDrag", code: 12,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to read Android folder contents."]
+            )
+        }
+
+        let children = mtpService.entries
+        var manifest: [FolderTransferManifestEntry] = []
+        for child in children {
+            if child.name.contains("/") { throw CocoaError(.fileReadInvalidFileName) }
+            let relativePath = child.name
+            if child.isDirectory {
+                manifest.append(FolderTransferManifestEntry(
+                    relativePath: relativePath,
+                    isDirectory: true,
+                    sizeBytes: nil
+                ))
+                let childPath = remotePath + "/" + child.name
+                let nested = try await remoteFolderManifest(
+                    childPath,
+                    storageID: storageID
+                ).map {
+                    FolderTransferManifestEntry(
+                        relativePath: relativePath + "/" + $0.relativePath,
+                        isDirectory: $0.isDirectory,
+                        sizeBytes: $0.sizeBytes
+                    )
+                }
+                manifest.append(contentsOf: nested)
+            } else {
+                guard let size = child.sizeBytes else {
+                    throw NSError(
+                        domain: "MTPShuttleDrag", code: 13,
+                        userInfo: [NSLocalizedDescriptionKey: "Android did not report a file size."]
+                    )
+                }
+                manifest.append(FolderTransferManifestEntry(
+                    relativePath: relativePath,
+                    isDirectory: false,
+                    sizeBytes: Int64(size)
+                ))
+            }
+        }
+        return manifest
+    }
+
     private func uploadLocalFolderContents(
         _ folderURL: URL,
         remotePath: String,
@@ -1160,7 +1287,7 @@ struct ContentView: View {
         let children = try FileManager.default.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         )
 
         for child in children {
