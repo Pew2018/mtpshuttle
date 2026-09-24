@@ -691,6 +691,13 @@ struct ContentView: View {
                 sourcePane: sourcePane
             )
             tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
+            tasks.addItems(sources.map {
+                (
+                    name: $0.name,
+                    path: transferItemDirectory($0, sourcePane: sourcePane, sourcePath: sourcePath),
+                    total: transferItemTotal($0, sourcePane: sourcePane)
+                )
+            })
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
                                           targetPane: targetPane, targetPath: targetPath, mode: mode,
@@ -702,6 +709,11 @@ struct ContentView: View {
                 await mtpService.browse(path: rightPane.path)
                 tasks.finish("已完成")
             } catch {
+                if tasks.cancellationRequested {
+                    tasks.cancelCurrentItem()
+                } else {
+                    tasks.failCurrentItem(error.localizedDescription)
+                }
                 statusMessage = tasks.cancellationRequested ? "操作已取消" : error.localizedDescription
                 tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
@@ -712,6 +724,24 @@ struct ContentView: View {
         switch pane {
         case .mac: return localBrowser.entries
         case .android: return path == "/" ? mtpService.storageEntries : mtpService.entries
+        }
+    }
+
+    private func transferItemDirectory(_ item: DemoEntry, sourcePane: PaneKind, sourcePath: String) -> String {
+        switch sourcePane {
+        case .mac:
+            return item.localURL?.deletingLastPathComponent().path ?? sourcePath
+        case .android:
+            return sourcePath
+        }
+    }
+
+    private func transferItemTotal(_ item: DemoEntry, sourcePane: PaneKind) -> Int64 {
+        switch sourcePane {
+        case .mac:
+            return item.localURL.map { localByteCount(at: $0) } ?? 0
+        case .android:
+            return item.sizeBytes.map(Int64.init) ?? 0
         }
     }
 
@@ -726,12 +756,21 @@ struct ContentView: View {
                 sum + localByteCount(at: url)
             }
             tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
+            tasks.addItems(urls.map {
+                (
+                    name: $0.lastPathComponent,
+                    path: $0.deletingLastPathComponent().path,
+                    total: localByteCount(at: $0)
+                )
+            })
             do {
                 for url in urls {
                     if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    tasks.beginItem(name: url.lastPathComponent, path: url.deletingLastPathComponent().path, total: localByteCount(at: url))
                     try await mtpService.upload(
                         sources: [url.path], destination: storage.fullPath, storageID: storage.storageID
                     )
+                    tasks.completeCurrentItem()
                 }
                 if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                 statusMessage = "\(urls.count) item(s) copied to Android Device"
@@ -840,10 +879,12 @@ struct ContentView: View {
             for (index, item) in sources.enumerated() {
                 if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                 guard let url = item.localURL else { continue }
+                tasks.beginItem(name: item.name, path: transferItemDirectory(item, sourcePane: sourcePane, sourcePath: sourcePath), total: transferItemTotal(item, sourcePane: sourcePane))
                 let target = destination.appendingPathComponent(targetNames[index])
                 if resolution == .overwrite && FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
                 if mode == .move { try FileManager.default.moveItem(at: url, to: target) }
                 else { try FileManager.default.copyItem(at: url, to: target) }
+                tasks.completeCurrentItem()
             }
             return
         }
@@ -861,6 +902,7 @@ struct ContentView: View {
                 for (index, item) in sources.enumerated() {
                     if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                     guard let url = item.localURL else { continue }
+                    tasks.beginItem(name: item.name, path: transferItemDirectory(item, sourcePane: sourcePane, sourcePath: sourcePath), total: transferItemTotal(item, sourcePane: sourcePane))
                     let remoteName = targetNames[index]
                     if item.isDirectory {
                         let remoteFolder = storage.fullPath + "/" + remoteName
@@ -870,6 +912,7 @@ struct ContentView: View {
                             remotePath: remoteFolder,
                             storageID: storage.storageID
                         )
+                        tasks.completeCurrentItem()
                     } else {
                         // Upload a temporary copy whose basename is the resolved
                         // conflict name. Uploading the original URL here would
@@ -889,17 +932,20 @@ struct ContentView: View {
                             destination: storage.fullPath,
                             storageID: storage.storageID
                         )
+                        tasks.completeCurrentItem()
                     }
                 }
             } else {
                 for item in sources {
                     if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                     guard let url = item.localURL else { continue }
+                    tasks.beginItem(name: item.name, path: transferItemDirectory(item, sourcePane: sourcePane, sourcePath: sourcePath), total: transferItemTotal(item, sourcePane: sourcePane))
                     try await mtpService.upload(
                         sources: [url.path],
                         destination: storage.fullPath,
                         storageID: storage.storageID
                     )
+                    tasks.completeCurrentItem()
                 }
             }
 
@@ -921,11 +967,16 @@ struct ContentView: View {
             .appendingPathComponent("MTP-Shuttle-download-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: staging) }
-        for remoteSource in remoteSources {
+        for (index, remoteSource) in remoteSources.enumerated() {
             if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+            if sources.indices.contains(index) {
+                let item = sources[index]
+                tasks.beginItem(name: item.name, path: transferItemDirectory(item, sourcePane: sourcePane, sourcePath: sourcePath), total: transferItemTotal(item, sourcePane: sourcePane))
+            }
             try await mtpService.download(
                 sources: [remoteSource], destination: staging.path, storageID: storage.storageID
             )
+            tasks.completeCurrentItem()
         }
         if tasks.cancellationRequested { throw MTPServiceError.cancelled }
         for (index, item) in sources.enumerated() {
