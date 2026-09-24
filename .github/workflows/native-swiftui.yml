@@ -1,4 +1,4 @@
-name: Native SwiftUI CI
+name: 07 - Settings UI
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: Build native SwiftUI app (arm64)
+    name: 07 - Build Settings UI update (arm64)
     runs-on: macos-14
     defaults:
       run:
