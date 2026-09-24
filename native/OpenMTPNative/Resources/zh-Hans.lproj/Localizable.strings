@@ -155,3 +155,27 @@
 "English" = "英语";
 
 "%@ · %d storage(s)" = "%@ · %d 个存储空间";
+
+
+/* 完整传输状态文本 */
+"Waiting" = "等待中";
+"Transferring" = "传输中";
+"Completed" = "已完成";
+"Failed" = "失败";
+"Cancelled" = "已取消";
+"Cancelling" = "取消中";
+"Operation cancelled" = "操作已取消";
+"Failed:" = "失败：";
+"Task Details" = "任务详情";
+"Completed operations in this session" = "本次启动已完成的操作";
+"No operations yet" = "暂无操作";
+"Cancel Operation" = "取消操作";
+"Speed" = "速度";
+"Estimated remaining" = "预计剩余";
+"Current file" = "当前文件";
+"Directory" = "目录";
+"Task list" = "任务列表";
+"Failure reason" = "失败原因";
+"Unknown" = "未知";
+"Calculating" = "计算中";
+"Not available" = "暂不可用";
