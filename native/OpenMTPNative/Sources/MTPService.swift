@@ -10,13 +10,13 @@ enum MTPConnectionState: Equatable {
     var label: String {
         switch self {
         case .disconnected:
-            return "Not connected"
+            return MTPShuttleText.localized("Not connected")
         case .connecting:
-            return "Connecting…"
+            return MTPShuttleText.localized("Connecting…")
         case .connected:
-            return "Connected"
+            return MTPShuttleText.localized("Connected")
         case .failed:
-            return "Connection failed"
+            return MTPShuttleText.localized("Connection failed")
         }
     }
 }
@@ -45,7 +45,7 @@ final class MTPService: ObservableObject {
         guard isConnected, path != "/" else { return }
         guard let location = MTPBrowsePath(browserPath: path),
               storages.contains(where: { $0.storageID == location.storageID }) else {
-            browseError = "This storage is no longer available. Return to Storages and refresh."
+            browseError = MTPShuttleText.localized("This storage is no longer available. Return to Storages and refresh.")
             return
         }
         isBrowsing = true
@@ -87,7 +87,7 @@ final class MTPService: ObservableObject {
         KalamBridge.shared.cancelCurrentOperation()
         isBrowsing = false
         isBrowsePartial = true
-        browseError = entries.isEmpty ? "加载已暂停，当前目录暂无已加载项目" : "加载已暂停，仅显示已加载的部分项目"
+        browseError = entries.isEmpty ? MTPShuttleText.localized("加载已暂停，当前目录暂无已加载项目") : MTPShuttleText.localized("加载已暂停，仅显示已加载的部分项目")
         DebugLogger.info("MTP directory browsing paused by user")
     }
 
@@ -108,13 +108,13 @@ final class MTPService: ObservableObject {
             if let device {
                 return "MTP · \(device.detail)"
             }
-            return "MTP · Connected"
+            return "MTP · " + MTPShuttleText.localized("Connected")
         case .connecting:
-            return "MTP · Connecting…"
+            return "MTP · " + MTPShuttleText.localized("Connecting…")
         case .failed(let message):
             return "MTP · \(message)"
         case .disconnected:
-            return "MTP · Not connected"
+            return "MTP · " + MTPShuttleText.localized("Not connected")
         }
     }
     
@@ -123,11 +123,11 @@ final class MTPService: ObservableObject {
         case .connected:
             return "\(deviceTitle) · \(storages.count) storage(s)"
         case .connecting:
-            return "Connecting to Android device…"
+            return MTPShuttleText.localized("Connecting to Android device…")
         case .failed(let message):
             return message
         case .disconnected:
-            return "Connect an Android device in MTP mode"
+            return MTPShuttleText.localized("Connect an Android device in MTP mode")
         }
     }
     
@@ -371,9 +371,9 @@ enum MTPServiceError: LocalizedError {
         case .backend(let type, let message):
             return "\(type): \(message)"
         case .noStorages:
-            return "Kalam connected to the device but returned no storage volumes."
+            return MTPShuttleText.localized("Kalam connected to the device but returned no storage volumes.")
         case .cancelled:
-            return "操作已取消"
+            return MTPShuttleText.localized("Operation cancelled")
         }
     }
 }
