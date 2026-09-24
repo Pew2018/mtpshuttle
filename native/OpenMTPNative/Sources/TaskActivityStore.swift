@@ -87,7 +87,7 @@ struct TaskDetailsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Task Details").font(.title2.bold())
+            Text(MTPShuttleText.localized("Task Details")).font(.title2.bold())
             if let task = tasks.current {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(task.title).font(.headline)
@@ -101,15 +101,15 @@ struct TaskDetailsView: View {
                         Text(String(format: MTPShuttleText.localized("Transferred %@ · Total unknown"), ByteCountFormatter.string(fromByteCount: task.sent, countStyle: .file)))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Button("Cancel Operation") { tasks.cancel() }
+                    Button(MTPShuttleText.localized("Cancel Operation")) { tasks.cancel() }
                         .disabled(tasks.cancellationRequested)
                 }
                 .padding().frame(maxWidth: .infinity, alignment: .leading)
                 .background(.bar)
             }
-            Text("Completed operations in this session").font(.headline)
+            Text(MTPShuttleText.localized("Completed operations in this session")).font(.headline)
             if tasks.history.isEmpty {
-                Text("No operations yet").foregroundStyle(.secondary)
+                Text(MTPShuttleText.localized("No operations yet")).foregroundStyle(.secondary)
             } else {
                 List(tasks.history) { task in
                     VStack(alignment: .leading, spacing: 2) {
