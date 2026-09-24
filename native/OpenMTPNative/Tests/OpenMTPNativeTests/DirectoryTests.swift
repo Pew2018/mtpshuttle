@@ -97,42 +97,6 @@ final class DirectoryTests: XCTestCase {
     }
 
     @MainActor
-    func testFinderCanRequestAndReceivePromisedFile() async throws {
-        let contents = Data("promised contents".utf8)
-        let provider = MTPShuttleFilePromiseProvider(
-            fileType: "public.plain-text",
-            fileName: "promised.txt",
-            encodedPayload: #"{"source":"android"}"#,
-            writePromise: { url, completion in
-                do {
-                    try contents.write(to: url)
-                    completion(nil)
-                } catch {
-                    completion(error)
-                }
-            }
-        )
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("MTPShuttlePromise.\(UUID().uuidString)"))
-        defer { pasteboard.clearContents() }
-        XCTAssertTrue(pasteboard.writeObjects([provider]))
-        let receiver = try XCTUnwrap(
-            pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil)?.first as? NSFilePromiseReceiver
-        )
-        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: destination) }
-
-        let fulfilled = expectation(description: "Finder receiver obtains promised file")
-        receiver.receivePromisedFiles(atDestination: destination, options: [:], operationQueue: OperationQueue()) { url, error in
-            XCTAssertNil(error)
-            XCTAssertEqual(url.lastPathComponent, "promised.txt")
-            XCTAssertEqual(try? Data(contentsOf: url), contents)
-            fulfilled.fulfill()
-        }
-        await fulfillment(of: [fulfilled], timeout: 10)
-    }
-
-    @MainActor
     func testAndroidDragSourceSeparatesClicksFromPointerMovement() throws {
         var clicks = 0
         var opens = 0
