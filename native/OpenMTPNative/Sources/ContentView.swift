@@ -224,12 +224,12 @@ struct ContentView: View {
 
     private var externalConflictTitle: String {
         let count = pendingExternalDrop?.conflictNames.count ?? 0
-        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（(count) 项）"
+        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（\(count) 项）"
     }
 
     private var externalConflictMessage: String {
         guard let pendingExternalDrop else { return "" }
-        return "(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
+        return "\(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
     }
 
     private var pendingDropTitle: String {
@@ -806,7 +806,7 @@ struct ContentView: View {
                 if resolution == .rename {
                     var index = 1
                     while reserved.contains(candidate) {
-                        candidate = "(originalName).(index)"
+                        candidate = "\(originalName).\(index)"
                         index += 1
                     }
                 }
@@ -814,7 +814,7 @@ struct ContentView: View {
                 reserved.insert(candidate)
             }
 
-            tasks.begin("Copying (urls.count) Finder item(s)", total: knownBytes)
+            tasks.begin("Copying \(urls.count) Finder item(s)", total: knownBytes)
 
             do {
                 if resolution == .overwrite {
@@ -863,7 +863,7 @@ struct ContentView: View {
                                 )
                             } else {
                                 let temporary = FileManager.default.temporaryDirectory
-                                    .appendingPathComponent("MTP-Shuttle-rename-(UUID().uuidString)", isDirectory: true)
+                                    .appendingPathComponent("MTP-Shuttle-rename-\(UUID().uuidString)", isDirectory: true)
                                 try FileManager.default.createDirectory(
                                     at: temporary,
                                     withIntermediateDirectories: true
@@ -891,14 +891,14 @@ struct ContentView: View {
                 if tasks.cancellationRequested {
                     throw MTPServiceError.cancelled
                 }
-                statusMessage = "(urls.count) Finder item(s) copied to Android Device"
+                statusMessage = "\(urls.count) Finder item(s) copied to Android Device"
                 await mtpService.browse(path: targetPath)
                 tasks.finish("已完成")
             } catch {
                 statusMessage = tasks.cancellationRequested
                     ? "操作已取消"
-                    : "Finder 拖拽失败：(error.localizedDescription)"
-                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：(error.localizedDescription)")
+                    : "Finder 拖拽失败：\(error.localizedDescription)"
+                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
             }
         }
     }
