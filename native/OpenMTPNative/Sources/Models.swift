@@ -175,6 +175,37 @@ struct DemoDragPayload: Codable, Hashable {
     }
 }
 
+final class DemoDragPayloadItem: NSObject, NSItemProviderWriting {
+    let encoded: String
+
+    init(encoded: String) {
+        self.encoded = encoded
+        super.init()
+    }
+
+    static var writableTypeIdentifiersForItemProvider: [String] {
+        [OpenMTPDragType.payload.identifier]
+    }
+
+    func loadData(
+        withTypeIdentifier typeIdentifier: String,
+        forItemProviderCompletionHandler completionHandler: @escaping (Data?, Error?) -> Void
+    ) -> Progress? {
+        guard typeIdentifier == OpenMTPDragType.payload.identifier,
+              let data = encoded.data(using: .utf8) else {
+            completionHandler(nil, NSError(
+                domain: "MTPShuttleDrag",
+                code: 10,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to encode the internal drag payload."]
+            ))
+            return nil
+        }
+
+        completionHandler(data, nil)
+        return nil
+    }
+}
+
 struct FolderDropRequest: Identifiable, Hashable {
     let id = UUID()
     let payload: DemoDragPayload
