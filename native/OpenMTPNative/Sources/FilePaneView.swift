@@ -141,7 +141,7 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             lastDragContext = nil
             DebugLogger.info("Android file drag started: count=\(providers.count)")
             let session = beginDraggingSession(with: items, event: start, source: self)
-            DebugLogger.info("Android drag pasteboard types: \(session.draggingPasteboard.types?.map(\\.rawValue).joined(separator: "|") ?? "")")
+            DebugLogger.info("Android drag pasteboard types: \(session.draggingPasteboard.types?.map(\.rawValue).joined(separator: "|") ?? "")")
         }
 
         override func mouseUp(with event: NSEvent) {
@@ -743,7 +743,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            let types = draggingInfo.draggingPasteboard.types?.map(\\.rawValue).joined(separator: "|") ?? ""
+            let types = draggingInfo.draggingPasteboard.types?.map(\.rawValue).joined(separator: "|") ?? ""
             DebugLogger.info("Pane drop entered: types=\(types)")
             MTPShuttleDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
 
