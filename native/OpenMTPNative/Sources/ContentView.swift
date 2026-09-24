@@ -695,7 +695,7 @@ struct ContentView: View {
         // payload must never be advertised as the dragged file itself.
         provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
                                             visibility: .all) { completion in
-            let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
+            guard let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
                   let remotePath = entry.remotePath,
                   let storageID = entry.storageID else {
                 completion(nil, false, NSError(domain: "MTPShuttleDrag", code: 1,
