@@ -8,7 +8,7 @@ struct FolderTransferManifestEntry: Equatable {
 
 enum FolderTransferManifest {
     static func localEntries(at root: URL) throws -> [FolderTransferManifestEntry] {
-        let rootURL = root.standardizedFileURL
+        let rootURL = root.standardizedFileURL.resolvingSymlinksInPath()
         let keys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey, .fileSizeKey]
         var enumerationError: Error?
         guard let enumerator = FileManager.default.enumerator(
@@ -30,11 +30,12 @@ enum FolderTransferManifest {
                 throw CocoaError(.fileReadUnsupportedScheme)
             }
             let values = try child.resourceValues(forKeys: keys)
+            let childPath = child.standardizedFileURL.resolvingSymlinksInPath().path
             let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
-            guard child.path.hasPrefix(rootPrefix) else {
+            guard childPath.hasPrefix(rootPrefix) else {
                 throw CocoaError(.fileReadInvalidFileName)
             }
-            let relativePath = String(child.path.dropFirst(rootPrefix.count))
+            let relativePath = String(childPath.dropFirst(rootPrefix.count))
             guard !relativePath.isEmpty else {
                 throw CocoaError(.fileReadInvalidFileName)
             }
