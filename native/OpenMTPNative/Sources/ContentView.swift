@@ -84,6 +84,7 @@ struct ContentView: View {
             onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider,
+            onFilePromiseProviders: makeFilePromiseProviders,
             mtpService: mtpService,
             localBrowser: localBrowser
         )
@@ -814,6 +815,43 @@ struct ContentView: View {
             return nil
         }
         return provider
+    }
+
+    private func makeFilePromiseProviders(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> [NSFilePromiseProvider] {
+        guard pane == .android else { return [] }
+        let currentEntries = entries(for: .android, path: path)
+        let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
+        let selectedEntries = itemIDs.compactMap { id in currentEntries.first(where: { $0.id == id }) }
+        let encodedPayload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs).encoded
+        let service = mtpService
+        return selectedEntries.compactMap { entry in
+            guard let remotePath = entry.remotePath, let storageID = entry.storageID else { return nil }
+            let fileType = entry.isDirectory ? UTType.directory.identifier : (UTType(filenameExtension: URL(fileURLWithPath: entry.name).pathExtension)?.identifier ?? UTType.data.identifier)
+            return MTPShuttleFilePromiseProvider(fileType: fileType, fileName: entry.name, encodedPayload: encodedPayload) { destinationURL, completion in
+                DebugLogger.info("Android file promise download started: \(entry.name)")
+                let destinationDirectory = destinationURL.deletingLastPathComponent()
+                let stagingDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("MTP-Shuttle-Promise-\(UUID().uuidString)", isDirectory: true)
+                let stagedURL = stagingDirectory.appendingPathComponent(entry.name)
+                Task { @MainActor in
+                    do {
+                        try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+                        try await service.download(sources: [remotePath], destination: stagingDirectory.path, storageID: storageID)
+                        guard FileManager.default.fileExists(atPath: stagedURL.path) else {
+                            throw NSError(domain: "MTPShuttleDrag", code: 2, userInfo: [NSLocalizedDescriptionKey: "The Android item was not created in the staging folder."])
+                        }
+                        try FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+                        try FileManager.default.moveItem(at: stagedURL, to: destinationURL)
+                        try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.info("Android file promise completed: \(entry.name)")
+                        completion(nil)
+                    } catch {
+                        try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.error("Android file promise failed: \(entry.name): \(error.localizedDescription)")
+                        completion(error)
+                    }
+                }
+            }
+        }
     }
 
     private func createFolder(_ pane: PaneKind) {
@@ -1565,6 +1603,7 @@ private struct WorkspaceView: View {
     let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry, Set<UUID>) -> NSItemProvider
+    let onFilePromiseProviders: (PaneKind, String, DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
 
@@ -1595,6 +1634,9 @@ private struct WorkspaceView: View {
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
             onDragProvider: { item, selectedIDs in
                 onExternalDragProvider(.mac, leftPane.path, item, selectedIDs)
+            },
+            onFilePromiseProviders: { item, selectedIDs in
+                onFilePromiseProviders(.mac, leftPane.path, item, selectedIDs)
             }
         )
     }
@@ -1630,6 +1672,9 @@ private struct WorkspaceView: View {
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
             onDragProvider: { item, selectedIDs in
                 onExternalDragProvider(.android, rightPane.path, item, selectedIDs)
+            },
+            onFilePromiseProviders: { item, selectedIDs in
+                onFilePromiseProviders(.android, rightPane.path, item, selectedIDs)
             }
         )
     }
