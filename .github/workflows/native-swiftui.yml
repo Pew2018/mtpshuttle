@@ -1,4 +1,4 @@
-name: Native SwiftUI CI
+name: 06 - Transfer Progress Setting
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: Build native SwiftUI app (arm64)
+    name: 06 - Build Transfer Progress Setting (arm64)
     runs-on: macos-14
     defaults:
       run:
