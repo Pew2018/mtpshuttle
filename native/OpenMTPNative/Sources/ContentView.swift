@@ -1209,7 +1209,7 @@ private struct WorkspaceView: View {
             onAction: { action, item in onAction(action, .mac, item) },
             onNewFolder: { onNewFolder(.mac) },
             onPaste: { onPaste(.mac) },
-            showCrossPaneActions: !androidOnlyMode,
+            showCrossPaneActions: !androidOnlyMode && mtpService.isConnected,
             onInternalDrop: { encoded in
                 onInternalDrop(encoded, .mac)
             },
