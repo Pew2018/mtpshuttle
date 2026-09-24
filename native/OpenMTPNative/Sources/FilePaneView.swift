@@ -2,9 +2,9 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-enum OpenMTPDNDLogger {
-    private static let queue = DispatchQueue(label: "com.pew2018.openmtp.dnd-log")
-    private static let url = URL(fileURLWithPath: "/tmp/openmtp-dnd.log")
+enum MTPShuttleDNDLogger {
+    private static let queue = DispatchQueue(label: "com.pew2018.mtpshuttle.dnd-log")
+    private static let url = URL(fileURLWithPath: "/tmp/mtp-shuttle-dnd.log")
 
     static func reset() {
         queue.sync {
@@ -14,7 +14,7 @@ enum OpenMTPDNDLogger {
 
     static func log(_ message: String) {
         queue.async {
-            let line = "[OpenMTP-DND] \(message)\n"
+            let line = "[MTP-Shuttle-DND] \(message)\n"
             guard let data = line.data(using: .utf8) else { return }
 
             if let handle = try? FileHandle(forWritingTo: url) {
@@ -117,8 +117,8 @@ struct FilePaneView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            OpenMTPDNDLogger.reset()
-            OpenMTPDNDLogger.log("FilePane appeared")
+            MTPShuttleDNDLogger.reset()
+            MTPShuttleDNDLogger.log("FilePane appeared")
         }
     }
 
@@ -261,6 +261,11 @@ struct FilePaneView: View {
         .contextMenu {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
+            Button("Select All") {
+                selection = Set(items.map(\.id))
+            }
+            .disabled(items.isEmpty)
+
             Divider()
 
             Button("Paste", action: onPaste)
@@ -303,6 +308,11 @@ struct FilePaneView: View {
         .contextMenu {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
+            Button("Select All") {
+                selection = Set(items.map(\.id))
+            }
+            .disabled(items.isEmpty)
+
             Divider()
 
             Button("Paste", action: onPaste)
@@ -328,6 +338,7 @@ struct FilePaneView: View {
         Button("Properties") {
             onAction(.properties, item)
         }
+        .disabled(!canModifyFiles)
 
         Divider()
 
@@ -435,7 +446,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         view.autoresizingMask = [.width, .height]
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
-        OpenMTPDNDLogger.log("AppKit receiver created")
+        MTPShuttleDNDLogger.log("AppKit receiver created")
         return view
     }
 
@@ -525,25 +536,25 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         }
 
         func draggingEntered(_ draggingInfo: NSDraggingInfo) -> NSDragOperation {
-            OpenMTPDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
+            MTPShuttleDNDLogger.log("AppKit draggingEntered types=\(draggingInfo.draggingPasteboard.types ?? [])")
 
             if isInternalDrag(draggingInfo) {
                 activeDragSession = true
                 parent.isTargeted = true
-                OpenMTPDNDLogger.log("AppKit draggingEntered INTERNAL accepted")
+                MTPShuttleDNDLogger.log("AppKit draggingEntered INTERNAL accepted")
                 return .copy
             }
 
             guard acceptsFinderFiles(draggingInfo) else {
                 activeDragSession = false
                 parent.isTargeted = false
-                OpenMTPDNDLogger.log("AppKit draggingEntered rejected")
+                MTPShuttleDNDLogger.log("AppKit draggingEntered rejected")
                 return []
             }
 
             activeDragSession = true
             parent.isTargeted = true
-            OpenMTPDNDLogger.log("AppKit draggingEntered FINDER accepted")
+            MTPShuttleDNDLogger.log("AppKit draggingEntered FINDER accepted")
             return .copy
         }
 
@@ -568,12 +579,12 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
         func draggingExited(_ draggingInfo: NSDraggingInfo?) {
             activeDragSession = false
             parent.isTargeted = false
-            OpenMTPDNDLogger.log("AppKit draggingExited")
+            MTPShuttleDNDLogger.log("AppKit draggingExited")
         }
 
         func prepareForDragOperation(_ draggingInfo: NSDraggingInfo) -> Bool {
             let accepted = isInternalDrag(draggingInfo) || acceptsFinderFiles(draggingInfo)
-            OpenMTPDNDLogger.log("AppKit prepareForDragOperation accepted=\(accepted)")
+            MTPShuttleDNDLogger.log("AppKit prepareForDragOperation accepted=\(accepted)")
             return accepted
         }
 
@@ -586,20 +597,20 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             let pasteboard = draggingInfo.draggingPasteboard
 
             if isInternalDrag(draggingInfo) {
-                OpenMTPDNDLogger.log("AppKit perform INTERNAL types=\\(pasteboard.types ?? [])")
+                MTPShuttleDNDLogger.log("AppKit perform INTERNAL types=\\(pasteboard.types ?? [])")
 
                 guard let encoded = readInternalPayload(from: pasteboard) else {
-                    OpenMTPDNDLogger.log("AppKit INTERNAL payload read FAILED")
+                    MTPShuttleDNDLogger.log("AppKit INTERNAL payload read FAILED")
                     return false
                 }
 
-                OpenMTPDNDLogger.log("AppKit INTERNAL payload read OK length=\(encoded.count)")
+                MTPShuttleDNDLogger.log("AppKit INTERNAL payload read OK length=\(encoded.count)")
                 parent.onInternalDrop(encoded)
                 return true
             }
 
             guard acceptsFinderFiles(draggingInfo) else {
-                OpenMTPDNDLogger.log("AppKit perform rejected")
+                MTPShuttleDNDLogger.log("AppKit perform rejected")
                 return false
             }
 
@@ -609,10 +620,10 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             )
 
             let urls = (objects as? [NSURL])?.map { $0 as URL } ?? []
-            OpenMTPDNDLogger.log("AppKit Finder URLs=\\(urls)")
+            MTPShuttleDNDLogger.log("AppKit Finder URLs=\\(urls)")
 
             guard !urls.isEmpty else {
-                OpenMTPDNDLogger.log("AppKit Finder URL read FAILED")
+                MTPShuttleDNDLogger.log("AppKit Finder URL read FAILED")
                 return false
             }
 

@@ -1,0 +1,193 @@
+/* MTP Shuttle Traditional Chinese localization */
+
+"Workspace" = "工作區";
+"Show only Android Device" = "僅顯示 Android 設備";
+"Hide the This Mac pane and use the window as a single-pane Android file browser." = "隱藏“此 Mac”面板，將窗口用作单栏 Android 檔案浏览器。";
+"Drag & Drop" = "拖放";
+"When dragging items between panes" = "在面板之间拖动项目时";
+"Choose whether a drag between panes copies items, moves them, or asks each time." = "選擇面板之间拖动时是複製、移動，还是每次詢問。";
+"Preview" = "預覽";
+"Enable Quick Look with Space" = "使用空格鍵启用 Quick Look";
+"Select a file and press Space to open the macOS Quick Look preview." = "選擇檔案后按空格键打开 macOS Quick Look 預覽。";
+"Diagnostics" = "診斷";
+"Debug mode" = "除錯模式";
+"Open Debug Log" = "開啟除錯日誌";
+"Copy Debug Log" = "複製调试日志";
+
+"Settings" = "設定";
+"OK" = "好";
+"Cancel" = "取消";
+"Create" = "建立";
+"New Folder" = "新增資料夾";
+"Folder name" = "資料夾名稱";
+"Create a folder in the current directory" = "在当前目录建立檔案夹";
+"Copy" = "複製";
+"Move (Cut)" = "移動（剪下）";
+"Drop items" = "拖放項目";
+"Refresh" = "重新整理";
+"Connect" = "連線";
+"Back" = "上一頁";
+"Forward" = "下一頁";
+"View" = "檢視";
+"Change view" = "切换檢視";
+"New Folder" = "新增資料夾";
+"Paste" = "貼上";
+"Properties" = "屬性";
+"Cut" = "剪下";
+"Delete" = "刪除";
+"This folder is empty" = "此資料夾為空";
+"No visible files in this folder." = "此資料夾中沒有可顯示的檔案。";
+"Root folder" = "根目錄";
+"Loading folder…" = "正在載入資料夾…";
+"Pause loading and show loaded items" = "暫停載入並顯示已讀取項目";
+"Connect to the Android device" = "連線 Android 設備";
+"Refresh this pane" = "重新整理此面板";
+
+"This Mac" = "此 Mac";
+"Android Device" = "Android 設備";
+"Local files" = "本機檔案";
+"MTP device" = "MTP 設備";
+"Ready" = "就緒";
+"Deleting" = "正在刪除";
+"No items selected" = "未選擇项目";
+"Copying" = "正在複製";
+"Moving" = "正在移動";
+"Please wait for the current transfer to finish" = "請等待目前傳輸結束";
+"Operation cancelled" = "操作已取消";
+"Cancelled" = "已取消";
+"Completed" = "已完成";
+"Task Details" = "工作詳細資料";
+"Completed operations in this session" = "本次啟動已完成的操作";
+"No operations yet" = "目前沒有操作";
+"Cancel Operation" = "取消操作";
+"Preparing transfer" = "準備傳輸";
+"Transferring" = "正在傳輸";
+"Cancelling…" = "正在取消…";
+"Running" = "執行中";
+
+"Not connected" = "未連線";
+"Connecting…" = "正在連線…";
+"Connected" = "已連線";
+"Connection failed" = "連線失敗";
+"Connecting to Android device…" = "正在連線 Android 設備…";
+"Connect an Android device in MTP mode" = "请以 MTP 模式連線 Android 設備";
+"This storage is no longer available. Return to Storages and refresh." = "此存储空间已不可用，请返回存储空间并重新整理。";
+"Unable to read this folder: " = "無法讀取此資料夾：";
+"Unable to connect to the Android device." = "无法連線 Android 設備。";
+"Unable to fetch MTP storages" = "無法取得 MTP 儲存空間";
+"Unable to refresh MTP storages" = "无法重新整理 MTP 存储空间";
+"Unable to upload files" = "無法上傳檔案";
+"Unable to download files" = "無法下載檔案";
+"Unable to delete files" = "无法刪除檔案";
+"Unable to create folder" = "无法建立檔案夹";
+"Kalam connected to the device but returned no storage volumes." = "Kalam 已連線設備，但設備没有返回存储空间。";
+
+"File" = "檔案";
+"Folder" = "檔案夹";
+"Plain Text" = "純文字";
+"PDF Document" = "PDF 文件";
+"ZIP Archive" = "ZIP 壓縮檔";
+"Markdown" = "Markdown";
+"Spreadsheet" = "試算表";
+"JSON" = "JSON";
+"Video" = "影片";
+"Audio" = "音訊";
+"JPEG Image" = "JPEG 圖片";
+"PNG Image" = "PNG 圖片";
+"HEIC Image" = "HEIC 圖片";
+"Swift Source" = "Swift 原始碼";
+"Disk Image" = "磁碟映像";
+
+
+"Please wait for the current transfer to finish" = "請等待目前傳輸結束";
+"Finder items can be dropped into Android Device" = "可以將 Finder 项目拖入 Android 設備面板";
+"Drop between the two panes to transfer items" = "请在两个面板之间拖放項目以传输";
+"This Mac refreshed" = "此 Mac 已重新整理";
+"Loading paused; showing loaded items" = "加载已暂停，正在显示已读取项目";
+"Refreshing Android device…" = "正在重新整理 Android 設備…";
+
+
+"Language" = "語言";
+"App Language" = "应用語言";
+"Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese." = "自動跟隨 macOS 語言。你也可以選擇 English、簡體中文或繁體中文。";
+"Automatic (System)" = "自动（系統）";
+"English" = "English";
+"简体中文" = "簡體中文";
+"繁體中文" = "繁體中文";
+"Failed" = "失敗";
+"Transferred %@ · Total unknown" = "已傳輸 %@ · 總大小未知";
+
+
+"Ask every time" = "每次詢問";
+"Copy Folder" = "複製資料夾";
+"Copy Folders" = "複製資料夾";
+"Don't ask again for folder drags" = "資料夾拖曳時不再詢問";
+"Create folder failed" = "建立資料夾失敗";
+"Delete failed" = "刪除失敗";
+"Download failed" = "下載失敗";
+"Invalid Android destination" = "Android 目標位置無效";
+"Invalid MTP source" = "MTP 來源位置無效";
+"Kalam initialization failed" = "Kalam 初始化失敗";
+"Refreshing MTP storages" = "正在重新整理 MTP 儲存空間";
+"MTP disposed" = "MTP 已釋放";
+"Starting MTP connection" = "正在開始 MTP 連線";
+"Upload failed" = "上傳失敗";
+"Folder name" = "資料夾名稱";
+"Create folder in the current directory" = "在目前目錄建立資料夾";
+"已完成" = "已完成";
+"已取消" = "已取消";
+"Android Package" = "Android 應用程式套件";
+"English" = "英文";
+"Automatic follows the macOS language. You can also choose English, Simplified Chinese, or Traditional Chinese." = "自動跟隨 macOS 語言。你也可以選擇英文、簡體中文或繁體中文。";
+"Automatic (System)" = "自動（系統）";
+"简体中文" = "簡體中文";
+"繁體中文" = "繁體中文";
+"Language" = "語言";
+"App Language" = "應用程式語言";
+"Failed" = "失敗";
+"Transferred %@ · Total unknown" = "已傳輸 %@ · 總大小未知";
+
+
+"暂停加载并显示已读取项目" = "暫停載入並顯示已讀取項目";
+"加载已暂停，仅显示已加载的部分项目" = "載入已暫停，僅顯示已載入的部分項目";
+"加载已暂停，当前目录暂无已加载项目" = "載入已暫停，目前資料夾沒有已載入項目";
+"发现同名项目" = "發現同名項目";
+"发现 (count) 个同名项目" = "發現 (count) 個同名項目";
+"覆盖已有文件" = "覆蓋已有項目";
+"全部重命名（添加 .1、.2…）" = "全部重新命名（新增 .1、.2…）";
+"将在当前目录创建文件夹" = "將在目前目錄建立資料夾";
+"文件夹名称" = "資料夾名稱";
+"新建文件夹" = "新增資料夾";
+"取消当前操作" = "取消目前操作";
+"打开任务详情" = "開啟工作詳細資料";
+"计算中" = "計算中";
+"运行中" = "執行中";
+"已完成" = "已完成";
+"已取消" = "已取消";
+"失败：" = "失敗：";
+
+"%@ · %d storage(s)" = "%@ · %d 個儲存空間";
+
+
+/* 完整傳輸狀態文字 */
+"Waiting" = "等待中";
+"Transferring" = "傳輸中";
+"Completed" = "已完成";
+"Failed" = "失敗";
+"Cancelled" = "已取消";
+"Cancelling" = "取消中";
+"Operation cancelled" = "操作已取消";
+"Failed:" = "失敗：";
+"Task Details" = "任務詳細資訊";
+"Completed operations in this session" = "本次啟動已完成的操作";
+"No operations yet" = "目前沒有操作";
+"Cancel Operation" = "取消操作";
+"Speed" = "速度";
+"Estimated remaining" = "預計剩餘";
+"Current file" = "目前檔案";
+"Directory" = "目錄";
+"Task list" = "任務清單";
+"Failure reason" = "失敗原因";
+"Unknown" = "未知";
+"Calculating" = "計算中";
+"Not available" = "暫不可用";

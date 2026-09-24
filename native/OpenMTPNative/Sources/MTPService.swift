@@ -10,13 +10,13 @@ enum MTPConnectionState: Equatable {
     var label: String {
         switch self {
         case .disconnected:
-            return "Not connected"
+            return MTPShuttleText.localized("Not connected")
         case .connecting:
-            return "Connecting…"
+            return MTPShuttleText.localized("Connecting…")
         case .connected:
-            return "Connected"
+            return MTPShuttleText.localized("Connected")
         case .failed:
-            return "Connection failed"
+            return MTPShuttleText.localized("Connection failed")
         }
     }
 }
@@ -31,6 +31,7 @@ final class MTPService: ObservableObject {
     @Published private(set) var isBrowsing = false
     @Published private(set) var browseError: String?
     @Published private(set) var isBrowsePartial = false
+    @Published private(set) var connectionError: String?
     private var browseGeneration = UUID()
 
     func browse(path: String) async {
@@ -44,7 +45,7 @@ final class MTPService: ObservableObject {
         guard isConnected, path != "/" else { return }
         guard let location = MTPBrowsePath(browserPath: path),
               storages.contains(where: { $0.storageID == location.storageID }) else {
-            browseError = "This storage is no longer available. Return to Storages and refresh."
+            browseError = MTPShuttleText.localized("This storage is no longer available. Return to Storages and refresh.")
             return
         }
         isBrowsing = true
@@ -71,6 +72,9 @@ final class MTPService: ObservableObject {
             DebugLogger.info("MTP directory loaded: \(entries.count) unique entries")
         } catch {
             guard request == browseGeneration else { return }
+            if handleConnectionFailure(error) {
+                return
+            }
             browseError = "Unable to read this folder: \(error.localizedDescription)"
             DebugLogger.error("MTP directory read failed: \(error.localizedDescription)")
         }
@@ -83,7 +87,7 @@ final class MTPService: ObservableObject {
         KalamBridge.shared.cancelCurrentOperation()
         isBrowsing = false
         isBrowsePartial = true
-        browseError = entries.isEmpty ? "加载已暂停，当前目录暂无已加载项目" : "加载已暂停，仅显示已加载的部分项目"
+        browseError = entries.isEmpty ? MTPShuttleText.localized("加载已暂停，当前目录暂无已加载项目") : MTPShuttleText.localized("加载已暂停，仅显示已加载的部分项目")
         DebugLogger.info("MTP directory browsing paused by user")
     }
 
@@ -104,13 +108,13 @@ final class MTPService: ObservableObject {
             if let device {
                 return "MTP · \(device.detail)"
             }
-            return "MTP · Connected"
+            return "MTP · " + MTPShuttleText.localized("Connected")
         case .connecting:
-            return "MTP · Connecting…"
+            return "MTP · " + MTPShuttleText.localized("Connecting…")
         case .failed(let message):
             return "MTP · \(message)"
         case .disconnected:
-            return "MTP · Not connected"
+            return "MTP · " + MTPShuttleText.localized("Not connected")
         }
     }
     
@@ -119,14 +123,28 @@ final class MTPService: ObservableObject {
         case .connected:
             return "\(deviceTitle) · \(storages.count) storage(s)"
         case .connecting:
-            return "Connecting to Android device…"
+            return MTPShuttleText.localized("Connecting to Android device…")
         case .failed(let message):
             return message
         case .disconnected:
-            return "Connect an Android device in MTP mode"
+            return MTPShuttleText.localized("Connect an Android device in MTP mode")
         }
     }
     
+    var connectionPrompt: String {
+        switch state {
+        case .connected:
+            return ""
+        case .connecting:
+            return "Connecting to Android device…"
+        case .failed(let message):
+            return "Unable to connect to the Android device.\n\(message)\n\nConnect it with USB, select MTP / File Transfer, and allow access on the device."
+        case .disconnected:
+            let reason = connectionError ?? "The Android device is not connected."
+            return "\(reason)\n\nTo connect:\n1. Connect the Android device with a USB cable.\n2. On Android, choose MTP / File Transfer in the USB notification.\n3. Allow access if Android asks for permission."
+        }
+    }
+
     var storageEntries: [DemoEntry] {
         storages.map { $0.demoEntry() }
     }
@@ -143,6 +161,7 @@ final class MTPService: ObservableObject {
         guard state != .connecting else { return }
         
         state = .connecting
+        connectionError = nil
         device = nil
         storages = []
         DebugLogger.info("Starting MTP connection")
@@ -180,9 +199,13 @@ final class MTPService: ObservableObject {
             }
             
             state = .connected
+            connectionError = nil
             DebugLogger.info("MTP connection ready; storages=\(storages.count)")
         } catch {
-            state = .failed(error.localizedDescription)
+            if !handleConnectionFailure(error) {
+                state = .failed(error.localizedDescription)
+                connectionError = error.localizedDescription
+            }
             DebugLogger.error("MTP connection failed: \(error.localizedDescription)")
         }
     }
@@ -212,7 +235,10 @@ final class MTPService: ObservableObject {
             storages = updated
             DebugLogger.info("MTP storages refreshed; count=\(updated.count)")
         } catch {
-            state = .failed(error.localizedDescription)
+            if !handleConnectionFailure(error) {
+                state = .failed(error.localizedDescription)
+                connectionError = error.localizedDescription
+            }
             DebugLogger.error("MTP storage refresh failed: \(error.localizedDescription)")
         }
     }
@@ -229,63 +255,109 @@ final class MTPService: ObservableObject {
             DebugLogger.error("MTP dispose failed: \(error.localizedDescription)")
         }
         
-        browseGeneration = UUID()
-        entries = []
-        browseError = nil
-        isBrowsing = false
-        state = .disconnected
-        device = nil
-        storages = []
+        clearDisconnectedState(message: nil)
     }
 
     func upload(sources: [String], destination: String, storageID: UInt32) async throws {
-        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
-        let response = try await performNativeCall {
-            try await KalamBridge.shared.upload(storageID: storageID, sources: sources, destination: destination)
+        do {
+            if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
+            let response = try await performNativeCall {
+                try await KalamBridge.shared.upload(storageID: storageID, sources: sources, destination: destination)
+            }
+            if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
+            guard response.isSuccess else {
+                throw MTPServiceError.backend(
+                    type: response.errorType ?? "Upload failed",
+                    message: response.errorMessage ?? "Unable to upload files"
+                )
+            }
+            TaskActivityStore.shared.finishSegment()
+        } catch {
+            _ = handleConnectionFailure(error)
+            throw error
         }
-        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
-        guard response.isSuccess else {
-            throw MTPServiceError.backend(
-                type: response.errorType ?? "Upload failed",
-                message: response.errorMessage ?? "Unable to upload files"
-            )
-        }
-        TaskActivityStore.shared.finishSegment()
     }
 
     func download(sources: [String], destination: String, storageID: UInt32) async throws {
-        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
-        let response = try await performNativeCall {
-            try await KalamBridge.shared.download(storageID: storageID, sources: sources, destination: destination)
+        do {
+            if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
+            let response = try await performNativeCall {
+                try await KalamBridge.shared.download(storageID: storageID, sources: sources, destination: destination)
+            }
+            if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
+            guard response.isSuccess else {
+                throw MTPServiceError.backend(
+                    type: response.errorType ?? "Download failed",
+                    message: response.errorMessage ?? "Unable to download files"
+                )
+            }
+            TaskActivityStore.shared.finishSegment()
+        } catch {
+            _ = handleConnectionFailure(error)
+            throw error
         }
-        if TaskActivityStore.shared.cancellationRequested { throw MTPServiceError.cancelled }
-        guard response.isSuccess else {
-            throw MTPServiceError.backend(
-                type: response.errorType ?? "Download failed",
-                message: response.errorMessage ?? "Unable to download files"
-            )
-        }
-        TaskActivityStore.shared.finishSegment()
     }
 
     func delete(files: [String], storageID: UInt32) async throws {
-        let response = try await performNativeCall {
-            try await KalamBridge.shared.delete(storageID: storageID, files: files)
-        }
-        guard response.isSuccess else {
-            throw MTPServiceError.backend(type: response.errorType ?? "Delete failed",
-                                          message: response.errorMessage ?? "Unable to delete files")
+        do {
+            let response = try await performNativeCall {
+                try await KalamBridge.shared.delete(storageID: storageID, files: files)
+            }
+            guard response.isSuccess else {
+                throw MTPServiceError.backend(type: response.errorType ?? "Delete failed",
+                                              message: response.errorMessage ?? "Unable to delete files")
+            }
+        } catch {
+            _ = handleConnectionFailure(error)
+            throw error
         }
     }
 
     func makeDirectory(path: String, storageID: UInt32) async throws {
-        let response = try await performNativeCall {
-            try await KalamBridge.shared.makeDirectory(storageID: storageID, path: path)
+        do {
+            let response = try await performNativeCall {
+                try await KalamBridge.shared.makeDirectory(storageID: storageID, path: path)
+            }
+            guard response.isSuccess else {
+                throw MTPServiceError.backend(type: response.errorType ?? "Create folder failed",
+                                              message: response.errorMessage ?? "Unable to create folder")
+            }
+        } catch {
+            _ = handleConnectionFailure(error)
+            throw error
         }
-        guard response.isSuccess else {
-            throw MTPServiceError.backend(type: response.errorType ?? "Create folder failed",
-                                          message: response.errorMessage ?? "Unable to create folder")
+    }
+    @discardableResult
+    private func handleConnectionFailure(_ error: Error) -> Bool {
+        guard isConnectionLoss(error) else { return false }
+        clearDisconnectedState(message: "Android device disconnected or is no longer available.")
+        DebugLogger.error("MTP connection lost: \(error.localizedDescription)")
+        return true
+    }
+
+    private func isConnectionLoss(_ error: Error) -> Bool {
+        if case MTPServiceError.cancelled = error {
+            return false
         }
+        let text = error.localizedDescription.lowercased()
+        let indicators = [
+            "device disconnected", "device is disconnected", "no device",
+            "device not found", "not connected", "connection lost",
+            "usb", "libusb", "transport", "session", "mtp device"
+        ]
+        return indicators.contains { text.contains($0) }
+    }
+
+    private func clearDisconnectedState(message: String?) {
+        browseGeneration = UUID()
+        KalamBridge.shared.cancelCurrentOperation()
+        entries = []
+        browseError = nil
+        isBrowsing = false
+        state = .disconnected
+        connectionError = message
+        device = nil
+        storages = []
     }
 }
 
@@ -299,9 +371,9 @@ enum MTPServiceError: LocalizedError {
         case .backend(let type, let message):
             return "\(type): \(message)"
         case .noStorages:
-            return "Kalam connected to the device but returned no storage volumes."
+            return MTPShuttleText.localized("Kalam connected to the device but returned no storage volumes.")
         case .cancelled:
-            return "操作已取消"
+            return MTPShuttleText.localized("Operation cancelled")
         }
     }
 }

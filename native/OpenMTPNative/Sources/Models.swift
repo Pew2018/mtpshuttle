@@ -98,9 +98,19 @@ struct OpenMTPEditActions {
     let cut: () -> Void
     let paste: () -> Void
     let selectAll: () -> Void
+    let newFolder: () -> Void
+    let showProperties: () -> Void
+    let delete: () -> Void
+    let copyToOther: () -> Void
+    let moveToOther: () -> Void
     let canCopy: Bool
     let canPaste: Bool
     let canSelectAll: Bool
+    let canNewFolder: Bool
+    let canShowProperties: Bool
+    let canDelete: Bool
+    let canCopyToOther: Bool
+    let canMoveToOther: Bool
 }
 
 private struct OpenMTPEditActionsKey: FocusedValueKey {
@@ -135,6 +145,13 @@ struct TransferConflictRequest: Identifiable, Hashable {
     let targetPath: String
     let mode: ClipboardMode
     let clearClipboardAfterMove: Bool
+    let conflictNames: [String]
+}
+
+struct ExternalDropConflictRequest: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+    let targetPath: String
     let conflictNames: [String]
 }
 

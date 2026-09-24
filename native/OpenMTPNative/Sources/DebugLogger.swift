@@ -8,7 +8,7 @@ enum DebugLogger {
         in: .userDomainMask
     ).first!
         .appendingPathComponent("Logs", isDirectory: true)
-        .appendingPathComponent("OpenMTPNative", isDirectory: true)
+        .appendingPathComponent("MTPShuttle", isDirectory: true)
     
     static let logURL = directoryURL.appendingPathComponent("debug.log")
     
@@ -32,7 +32,7 @@ enum DebugLogger {
     static func startSession() {
         write(
             level: "INFO",
-            message: "========== OpenMTP Native session =========="
+            message: "========== MTP Shuttle session =========="
         )
         write(
             level: "INFO",
@@ -45,7 +45,7 @@ enum DebugLogger {
         defer { lock.unlock() }
         
         guard let data = try? Data(contentsOf: logURL) else {
-            return "No OpenMTP Native debug log has been created yet."
+            return "No MTP Shuttle debug log has been created yet."
         }
         
         return String(decoding: data, as: UTF8.self)
