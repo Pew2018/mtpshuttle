@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var pendingDrop: PendingDrop?
     @State private var pendingFolderDrop: FolderDropRequest?
     @State private var pendingConflict: TransferConflictRequest?
+    @State private var pendingExternalDrop: ExternalDropConflictRequest?
     @State private var newFolderPane: PaneKind?
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
@@ -109,6 +110,20 @@ struct ContentView: View {
         } message: {
             Text(transferConflictMessage)
         }
+        .confirmationDialog(
+            externalConflictTitle,
+            isPresented: Binding(
+                get: { pendingExternalDrop != nil },
+                set: { if !$0 { pendingExternalDrop = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("覆盖已有项目") { resolveExternalConflict(.overwrite) }
+            Button("重命名冲突项目") { resolveExternalConflict(.rename) }
+            Button("取消", role: .cancel) { pendingExternalDrop = nil }
+        } message: {
+            Text(externalConflictMessage)
+        }
         .alert(
             "新建文件夹",
             isPresented: Binding(
@@ -205,6 +220,16 @@ struct ContentView: View {
     private var transferConflictMessage: String {
         guard let pendingConflict else { return "" }
         return "\(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 \(pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
+    }
+
+    private var externalConflictTitle: String {
+        let count = pendingExternalDrop?.conflictNames.count ?? 0
+        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（(count) 项）"
+    }
+
+    private var externalConflictMessage: String {
+        guard let pendingExternalDrop else { return "" }
+        return "(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
     }
 
     private var pendingDropTitle: String {
@@ -446,7 +471,44 @@ struct ContentView: View {
             return
         }
 
-        transferExternal(urls, targetPath: rightPane.path)
+        guard mtpService.isConnected else {
+            statusMessage = "Connect an Android device before dropping Finder items"
+            return
+        }
+
+        guard MTPBrowsePath(browserPath: rightPane.path) != nil else {
+            statusMessage = "Open an Android storage folder before dropping Finder items"
+            return
+        }
+
+        let validURLs = urls
+            .map(\.standardizedFileURL)
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+
+        guard !validURLs.isEmpty else {
+            statusMessage = "The dropped Finder items are no longer available"
+            return
+        }
+
+        let destinationNames = Set(entries(for: .android, path: rightPane.path).map(\.name))
+        let names = validURLs.map(\.lastPathComponent)
+        let conflicts = names.filter { destinationNames.contains($0) }
+        if !conflicts.isEmpty {
+            pendingExternalDrop = ExternalDropConflictRequest(
+                urls: validURLs,
+                targetPath: rightPane.path,
+                conflictNames: Array(NSOrderedSet(array: conflicts)) as? [String] ?? conflicts
+            )
+            return
+        }
+
+        transferExternal(validURLs, targetPath: rightPane.path, resolution: nil)
+    }
+
+    private func resolveExternalConflict(_ resolution: TransferConflictResolution) {
+        guard let request = pendingExternalDrop else { return }
+        pendingExternalDrop = nil
+        transferExternal(request.urls, targetPath: request.targetPath, resolution: resolution)
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
@@ -715,31 +777,128 @@ struct ContentView: View {
         }
     }
 
-    private func transferExternal(_ urls: [URL], targetPath: String) {
-        guard let storage = MTPBrowsePath(browserPath: targetPath) else { return }
+    private func transferExternal(
+        _ urls: [URL],
+        targetPath: String,
+        resolution: TransferConflictResolution?
+    ) {
+        guard let storage = MTPBrowsePath(browserPath: targetPath) else {
+            statusMessage = "Open an Android storage folder before dropping Finder items"
+            return
+        }
+
         Task { @MainActor in
             guard tasks.current == nil else {
                 statusMessage = "请等待当前传输结束"
                 return
             }
+
+            let destinationEntries = entries(for: .android, path: targetPath)
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
-            tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
-            do {
-                for url in urls {
-                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
-                    try await mtpService.upload(
-                        sources: [url.path], destination: storage.fullPath, storageID: storage.storageID
-                    )
+            var reserved = Set(destinationEntries.map(\.name))
+            var targetNames: [String] = []
+
+            for url in urls {
+                let originalName = url.lastPathComponent
+                var candidate = originalName
+                if resolution == .rename {
+                    var index = 1
+                    while reserved.contains(candidate) {
+                        candidate = "(originalName).(index)"
+                        index += 1
+                    }
                 }
-                if tasks.cancellationRequested { throw MTPServiceError.cancelled }
-                statusMessage = "\(urls.count) item(s) copied to Android Device"
+                targetNames.append(candidate)
+                reserved.insert(candidate)
+            }
+
+            tasks.begin("Copying (urls.count) Finder item(s)", total: knownBytes)
+
+            do {
+                if resolution == .overwrite {
+                    let names = Set(urls.map(\.lastPathComponent))
+                    let conflictingRemote = destinationEntries
+                        .filter { names.contains($0.name) }
+                        .compactMap(\.remotePath)
+                    if !conflictingRemote.isEmpty {
+                        try await mtpService.delete(
+                            files: conflictingRemote,
+                            storageID: storage.storageID
+                        )
+                    }
+                }
+
+                for (index, originalURL) in urls.enumerated() {
+                    if tasks.cancellationRequested {
+                        throw MTPServiceError.cancelled
+                    }
+
+                    let url = originalURL.standardizedFileURL
+                    guard FileManager.default.fileExists(atPath: url.path) else {
+                        throw CocoaError(.fileNoSuchFile)
+                    }
+
+                    let secured = url.startAccessingSecurityScopedResource()
+                    defer {
+                        if secured {
+                            url.stopAccessingSecurityScopedResource()
+                        }
+                    }
+
+                    let targetName = targetNames[index]
+                    if resolution == .rename && targetName != url.lastPathComponent {
+                        if FileManager.default.fileExists(atPath: url.path) {
+                            if url.hasDirectoryPath {
+                                let remoteFolder = storage.fullPath + "/" + targetName
+                                try await mtpService.makeDirectory(
+                                    path: remoteFolder,
+                                    storageID: storage.storageID
+                                )
+                                try await uploadLocalFolderContents(
+                                    url,
+                                    remotePath: remoteFolder,
+                                    storageID: storage.storageID
+                                )
+                            } else {
+                                let temporary = FileManager.default.temporaryDirectory
+                                    .appendingPathComponent("MTP-Shuttle-rename-(UUID().uuidString)", isDirectory: true)
+                                try FileManager.default.createDirectory(
+                                    at: temporary,
+                                    withIntermediateDirectories: true
+                                )
+                                defer { try? FileManager.default.removeItem(at: temporary) }
+
+                                let renamedURL = temporary.appendingPathComponent(targetName)
+                                try FileManager.default.copyItem(at: url, to: renamedURL)
+                                try await mtpService.upload(
+                                    sources: [renamedURL.path],
+                                    destination: storage.fullPath,
+                                    storageID: storage.storageID
+                                )
+                            }
+                        }
+                    } else {
+                        try await mtpService.upload(
+                            sources: [url.path],
+                            destination: storage.fullPath,
+                            storageID: storage.storageID
+                        )
+                    }
+                }
+
+                if tasks.cancellationRequested {
+                    throw MTPServiceError.cancelled
+                }
+                statusMessage = "(urls.count) Finder item(s) copied to Android Device"
                 await mtpService.browse(path: targetPath)
                 tasks.finish("已完成")
             } catch {
-                statusMessage = tasks.cancellationRequested ? "操作已取消" : error.localizedDescription
-                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
+                statusMessage = tasks.cancellationRequested
+                    ? "操作已取消"
+                    : "Finder 拖拽失败：(error.localizedDescription)"
+                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：(error.localizedDescription)")
             }
         }
     }
