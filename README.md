@@ -1,14 +1,15 @@
 # MTP Shuttle
+MTP Shuttle 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MTP 文件传输工具，用于通过 USB 在 Mac 与 Android 设备之间浏览和传输文件。
+
+当前预览版重点是提供更贴近 macOS 系统体验的原生界面，同时复用 OpenMTP 项目中的 Kalam MTP 后端。
+
+
 
 MTP Shuttle is a native SwiftUI macOS application for browsing and transferring files between a Mac and Android/MTP devices over USB.
 
 MTP Shuttle is developed in the native SwiftUI target of this repository. The original Electron/React OpenMTP implementation is retained in the repository for compatibility and reference, but the current preview application is built from `native/OpenMTPNative`.
 
-## 中文说明
 
-MTP Shuttle 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MTP 文件传输工具，用于通过 USB 在 Mac 与 Android 设备之间浏览和传输文件。
-
-当前预览版重点是提供更贴近 macOS 系统体验的原生界面，同时复用 OpenMTP 项目中的 Kalam MTP 后端。
 
 ### 当前功能
 
