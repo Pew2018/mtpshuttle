@@ -167,3 +167,27 @@
 "失败：" = "失敗：";
 
 "%@ · %d storage(s)" = "%@ · %d 個儲存空間";
+
+
+/* 完整傳輸狀態文字 */
+"Waiting" = "等待中";
+"Transferring" = "傳輸中";
+"Completed" = "已完成";
+"Failed" = "失敗";
+"Cancelled" = "已取消";
+"Cancelling" = "取消中";
+"Operation cancelled" = "操作已取消";
+"Failed:" = "失敗：";
+"Task Details" = "任務詳細資訊";
+"Completed operations in this session" = "本次啟動已完成的操作";
+"No operations yet" = "目前沒有操作";
+"Cancel Operation" = "取消操作";
+"Speed" = "速度";
+"Estimated remaining" = "預計剩餘";
+"Current file" = "目前檔案";
+"Directory" = "目錄";
+"Task list" = "任務清單";
+"Failure reason" = "失敗原因";
+"Unknown" = "未知";
+"Calculating" = "計算中";
+"Not available" = "暫不可用";
