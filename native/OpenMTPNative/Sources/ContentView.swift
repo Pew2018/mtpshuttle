@@ -516,13 +516,13 @@ struct ContentView: View {
     }
 
     private func receiveDrop(_ payload: DemoDragPayload, targetPane: PaneKind) {
-        OpenMTPDNDLogger.log("ContentView.receiveDrop source=\(payload.sourcePane) target=\(targetPane) path=\(payload.sourcePath) ids=\(payload.itemIDs.count)")
+        MTPShuttleDNDLogger.log("ContentView.receiveDrop source=\(payload.sourcePane) target=\(targetPane) path=\(payload.sourcePath) ids=\(payload.itemIDs.count)")
         guard operation == nil else {
-            OpenMTPDNDLogger.log("receiveDrop ignored: operation active")
+            MTPShuttleDNDLogger.log("receiveDrop ignored: operation active")
             return
         }
         guard payload.sourcePane != targetPane else {
-            OpenMTPDNDLogger.log("receiveDrop rejected: same pane")
+            MTPShuttleDNDLogger.log("receiveDrop rejected: same pane")
             statusMessage = MTPShuttleText.localized("Drop between the two panes to transfer items")
             return
         }
