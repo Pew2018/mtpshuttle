@@ -74,7 +74,7 @@ final class TaskActivityStore: ObservableObject {
     func finish(_ state: String) {
         guard var record = current else { return }
         record.state = state
-        if state == "已完成", record.total > 0 { record.sent = record.total }
+        if (state == MTPShuttleText.localized("Completed") || state == "已完成"), record.total > 0 { record.sent = record.total }
         history.insert(record, at: 0)
         current = nil
         cancellationRequested = false
@@ -126,10 +126,19 @@ struct TaskDetailsView: View {
     }
 
     private func stateText(_ state: String) -> String {
-        if state == "已完成" { return MTPShuttleText.localized("Completed") }
-        if state == "已取消" { return MTPShuttleText.localized("Cancelled") }
-        if state == "运行中" { return MTPShuttleText.localized("Running") }
-        if state.hasPrefix("失败：") { return "\(MTPShuttleText.localized("Failed")): \(state.dropFirst(3))" }
+        if state == MTPShuttleText.localized("Completed") || state == "已完成" {
+            return MTPShuttleText.localized("Completed")
+        }
+        if state == MTPShuttleText.localized("Cancelled") || state == "已取消" {
+            return MTPShuttleText.localized("Cancelled")
+        }
+        if state == MTPShuttleText.localized("Running") || state == "运行中" {
+            return MTPShuttleText.localized("Running")
+        }
+        if state.hasPrefix("失败：") || state.hasPrefix("Failed:") {
+            let detail = state.hasPrefix("失败：") ? state.dropFirst(3) : state.dropFirst(7)
+            return "\(MTPShuttleText.localized("Failed")): \(detail)"
+        }
         return state
     }
 }
