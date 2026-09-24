@@ -2,12 +2,14 @@ import SwiftUI
 
 @main
 struct OpenMTPNativeApp: App {
+    @AppStorage(MTPShuttleLanguage.storageKey) private var appLanguage = MTPShuttleLanguage.system.rawValue
     @NSApplicationDelegateAdaptor(OpenMTPAppDelegate.self) private var appDelegate
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup("MTP Shuttle", id: "main") {
+        WindowGroup(MTPShuttleText.localized("MTP Shuttle"), id: "main") {
             ContentView()
+                .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
                 .frame(minWidth: 760, minHeight: 480)
                 .onAppear {
                     appDelegate.openMainWindow = {
@@ -24,14 +26,16 @@ struct OpenMTPNativeApp: App {
             SwiftMTPCommands()
         }
 
-        Window("Settings", id: "settings") {
+        Window(MTPShuttleText.localized("Settings"), id: "settings") {
             SettingsView()
+                .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         }
         .defaultSize(width: 560, height: 700)
         .windowResizability(.contentSize)
 
-        Window("任务详情", id: "tasks") {
+        Window(MTPShuttleText.localized("Task Details"), id: "tasks") {
             TaskDetailsView()
+                .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         }
         .defaultSize(width: 560, height: 420)
     }
@@ -46,32 +50,32 @@ private struct SwiftMTPCommands: Commands {
         }
 
         CommandGroup(after: .newItem) {
-            Button("Quick Look") {
+            Button(MTPShuttleText.localized("Quick Look")) {
                 NotificationCenter.default.post(name: .openMTPQuickLook, object: nil)
             }
             .keyboardShortcut(.space, modifiers: [])
 
             Divider()
 
-            Button("Copy") {
+            Button(MTPShuttleText.localized("Copy")) {
                 editActions?.copy()
             }
             .disabled(!(editActions?.canCopy ?? false))
             .keyboardShortcut("c", modifiers: .command)
 
-            Button("Cut") {
+            Button(MTPShuttleText.localized("Cut")) {
                 editActions?.cut()
             }
             .disabled(!(editActions?.canCopy ?? false))
             .keyboardShortcut("x", modifiers: .command)
 
-            Button("Paste") {
+            Button(MTPShuttleText.localized("Paste")) {
                 editActions?.paste()
             }
             .disabled(!(editActions?.canPaste ?? false))
             .keyboardShortcut("v", modifiers: .command)
 
-            Button("Select All") {
+            Button(MTPShuttleText.localized("Select All")) {
                 editActions?.selectAll()
             }
             .disabled(!(editActions?.canSelectAll ?? false))
@@ -79,17 +83,17 @@ private struct SwiftMTPCommands: Commands {
 
             Divider()
 
-            Button("New Folder") {
+            Button(MTPShuttleText.localized("New Folder")) {
                 editActions?.newFolder()
             }
             .disabled(!(editActions?.canNewFolder ?? false))
 
-            Button("Properties") {
+            Button(MTPShuttleText.localized("Properties")) {
                 editActions?.showProperties()
             }
             .disabled(!(editActions?.canShowProperties ?? false))
 
-            Button("Delete", role: .destructive) {
+            Button(MTPShuttleText.localized("Delete"), role: .destructive) {
                 editActions?.delete()
             }
             .disabled(!(editActions?.canDelete ?? false))
@@ -97,19 +101,19 @@ private struct SwiftMTPCommands: Commands {
 
             Divider()
 
-            Button("Copy to Other Pane") {
+            Button(MTPShuttleText.localized("Copy to Other Pane")) {
                 editActions?.copyToOther()
             }
             .disabled(!(editActions?.canCopyToOther ?? false))
 
-            Button("Move to Other Pane") {
+            Button(MTPShuttleText.localized("Move to Other Pane")) {
                 editActions?.moveToOther()
             }
             .disabled(!(editActions?.canMoveToOther ?? false))
 
             Divider()
 
-            Button("Settings…") {
+            Button(MTPShuttleText.localized("Settings…")) {
                 openWindow(id: "settings")
             }
             .keyboardShortcut(",", modifiers: .command)
