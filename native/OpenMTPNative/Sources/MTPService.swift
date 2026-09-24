@@ -44,7 +44,7 @@ final class MTPService: ObservableObject {
         guard isConnected, path != "/" else { return }
         guard let location = MTPBrowsePath(browserPath: path),
               storages.contains(where: { $0.storageID == location.storageID }) else {
-            browseError = "This storage is no longer available. Return to Storages and refresh."
+            browseError = MTPShuttleText.localized("This storage is no longer available. Return to Storages and refresh.")
             return
         }
         isBrowsing = true
@@ -71,7 +71,7 @@ final class MTPService: ObservableObject {
             DebugLogger.info("MTP directory loaded: \(entries.count) unique entries")
         } catch {
             guard request == browseGeneration else { return }
-            browseError = "Unable to read this folder: \(error.localizedDescription)"
+            browseError = MTPShuttleText.localized("Unable to read this folder: ") + error.localizedDescription
             DebugLogger.error("MTP directory read failed: \(error.localizedDescription)")
         }
         isBrowsing = false
@@ -83,7 +83,7 @@ final class MTPService: ObservableObject {
         KalamBridge.shared.cancelCurrentOperation()
         isBrowsing = false
         isBrowsePartial = true
-        browseError = entries.isEmpty ? "加载已暂停，当前目录暂无已加载项目" : "加载已暂停，仅显示已加载的部分项目"
+        browseError = entries.isEmpty ? MTPShuttleText.localized("加载已暂停，当前目录暂无已加载项目") : MTPShuttleText.localized("加载已暂停，仅显示已加载的部分项目")
         DebugLogger.info("MTP directory browsing paused by user")
     }
 
@@ -117,7 +117,7 @@ final class MTPService: ObservableObject {
     var statusText: String {
         switch state {
         case .connected:
-            return "\(deviceTitle) · \(storages.count) storage(s)"
+            return String(format: MTPShuttleText.localized("%@ · %d storage(s)"), deviceTitle, storages.count)
         case .connecting:
             return MTPShuttleText.localized("Connecting to Android device…")
         case .failed(let message):
