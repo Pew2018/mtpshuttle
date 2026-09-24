@@ -32,6 +32,9 @@ struct ContentView: View {
     @AppStorage("quickLookPreviewEnabled")
     private var quickLookPreviewEnabled = true
 
+    @AppStorage("appLanguage")
+    private var appLanguage = MTPShuttleLanguage.system.rawValue
+
     @State private var suppressFolderPromptThisSession = false
     @State private var folderDragSessionMode: ClipboardMode = .copy
 
@@ -69,6 +72,7 @@ struct ContentView: View {
 
     var body: some View {
         AnyView(workspaceView)
+        .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
