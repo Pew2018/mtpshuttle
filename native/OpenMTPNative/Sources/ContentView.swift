@@ -669,19 +669,64 @@ struct ContentView: View {
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> NSItemProvider {
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
         let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
+        let provider = NSItemProvider()
+
         if let encoded = payload.encoded {
-            // Register the payload as a concrete NSString as well as a custom
-            // data representation. AppKit may expose the custom type during
-            // dragging but omit its lazy data when the drop is performed.
-            let provider = NSItemProvider(object: encoded as NSString)
+            // Keep the custom payload for transfers between the two app panes.
             provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
                                                 visibility: .all) { completion in
                 completion(encoded.data(using: .utf8), nil)
                 return nil
             }
+        }
+
+        guard pane == .android else {
+            if let url = item.localURL {
+                provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
+                                                    visibility: .all) { completion in
+                    completion(url, false, nil)
+                    return nil
+                }
+            }
             return provider
         }
-        return item.localURL.map { NSItemProvider(object: $0 as NSURL) } ?? NSItemProvider()
+
+        // Finder needs a real file representation. The internal JSON/base64
+        // payload must never be advertised as the dragged file itself.
+        provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
+                                            visibility: .all) { [weak self] completion in
+            guard let self,
+                  let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
+                  let remotePath = entry.remotePath,
+                  let storageID = entry.storageID else {
+                completion(nil, false, NSError(domain: "MTPShuttleDrag", code: 1,
+                                               userInfo: [NSLocalizedDescriptionKey: "Unable to prepare the Android file for Finder."]))
+                return nil
+            }
+
+            let stagingDirectory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MTP-Shuttle-Drag-\(UUID().uuidString)", isDirectory: true)
+            let destination = stagingDirectory.path
+            Task { @MainActor in
+                do {
+                    try FileManager.default.createDirectory(at: stagingDirectory,
+                                                             withIntermediateDirectories: true)
+                    try await self.mtpService.download(sources: [remotePath],
+                                                       destination: destination,
+                                                       storageID: storageID)
+                    let exportedURL = stagingDirectory.appendingPathComponent(entry.name)
+                    guard FileManager.default.fileExists(atPath: exportedURL.path) else {
+                        throw NSError(domain: "MTPShuttleDrag", code: 2,
+                                      userInfo: [NSLocalizedDescriptionKey: "The Android file was not created in the staging folder."])
+                    }
+                    completion(exportedURL, true, nil)
+                } catch {
+                    completion(nil, false, error)
+                }
+            }
+            return nil
+        }
+        return provider
     }
 
     private func createFolder(_ pane: PaneKind) {
