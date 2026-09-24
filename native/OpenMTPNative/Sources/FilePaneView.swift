@@ -262,7 +262,7 @@ struct FilePaneView: View {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
-                selection = Set(items.map(\\.id))
+                selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
 
@@ -309,7 +309,7 @@ struct FilePaneView: View {
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
-                selection = Set(items.map(\\.id))
+                selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
 
