@@ -133,6 +133,20 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
     }
 }
 
+private struct MTPShuttleLocalPaneDrag: ViewModifier {
+    let enabled: Bool
+    let provider: () -> NSItemProvider
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled {
+            content.onDrag(provider)
+        } else {
+            content
+        }
+    }
+}
+
 enum MTPShuttleDNDLogger {
     private static let queue = DispatchQueue(label: "com.pew2018.mtpshuttle.dnd-log")
     private static let url = URL(fileURLWithPath: "/tmp/mtp-shuttle-dnd.log")
@@ -391,9 +405,9 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .onDrag {
+                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
                         onDragProvider(item, selection)
-                    }
+                    })
                 }
             }
             .padding(.horizontal, 4)
@@ -448,9 +462,9 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .onDrag {
+                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
                         onDragProvider(item, selection)
-                    }
+                    })
                 }
             }
             .padding(14)
