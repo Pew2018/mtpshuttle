@@ -8,41 +8,70 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Workspace") {
+            Section {
                 Toggle("Show only Android Device", isOn: $androidOnlyMode)
-                Text("Hide the This Mac pane and use the window as a single-pane Android file browser.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                Label("Workspace", systemImage: "rectangle.split.2x1")
+            } footer: {
+                Text("Hide This Mac and use a single-pane Android file browser.")
             }
-            Section("Drag & Drop") {
-                Picker("When dragging items between panes", selection: $dragDropMode) {
-                    ForEach(DragDropMode.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
-                }.pickerStyle(.radioGroup)
-                Text("Choose whether a drag between panes copies items, moves them, or asks each time.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("When dragging items between panes")
+                        .font(.body.weight(.medium))
+
+                    Picker("Drag behavior", selection: $dragDropMode) {
+                        ForEach(DragDropMode.allCases) { mode in
+                            Text(mode.title).tag(mode.rawValue)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+                }
+            } header: {
+                Label("Drag & Drop", systemImage: "arrow.left.arrow.right")
+            } footer: {
+                Text("Choose whether a drag copies items, moves them, or asks each time.")
             }
-            Section("Preview") {
+
+            Section {
                 Toggle("Enable Quick Look with Space", isOn: $quickLookPreviewEnabled)
+            } header: {
+                Label("Preview", systemImage: "doc.viewfinder")
+            } footer: {
                 Text("Select a file and press Space to open the macOS Quick Look preview.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            Section("Diagnostics") {
+
+            Section {
                 Toggle("Debug mode", isOn: $debugMode)
                     .onChange(of: debugMode) { enabled in
                         DebugLogger.info("Debug mode " + (enabled ? "enabled" : "disabled"))
                     }
-                HStack {
+
+                HStack(spacing: 10) {
                     Button("Open Debug Log") { DebugLogger.openLog() }
                     Button("Copy Debug Log") { DebugLogger.copyLogToClipboard() }
                 }
-                Text(DebugLogger.logURL.path)
-                    .font(.caption2.monospaced()).foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Log location")
+                        .font(.caption.weight(.medium))
+                    Text(DebugLogger.logURL.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(2)
+                }
+            } header: {
+                Label("Diagnostics", systemImage: "stethoscope")
+            } footer: {
+                Text("Enable debug mode only when investigating a problem. Diagnostics never change file operations.")
             }
         }
-        .formStyle(.grouped).padding(20).frame(width: 520, height: 500)
+        .formStyle(.grouped)
+        .padding(20)
+        .frame(minWidth: 560, minHeight: 520)
     }
 }
 
