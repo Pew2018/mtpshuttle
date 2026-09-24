@@ -670,7 +670,9 @@ struct ContentView: View {
     private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> NSItemProvider {
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
         let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
-        let provider = NSItemProvider()
+        // The AppKit drop receiver reads a concrete string from the drag
+        // pasteboard. SwiftUI's lazy data registration alone can leave it empty.
+        let provider = payload.encoded.map { NSItemProvider(object: $0 as NSString) } ?? NSItemProvider()
         if let encodedPayload = payload.encoded {
             provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier, visibility: .all) { completion in
                 completion(encodedPayload.data(using: .utf8), nil)
