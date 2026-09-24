@@ -24,6 +24,13 @@ cp Info.plist "$APP"/Contents/Info.plist
 cp ../../build/mac/bin/arm64/kalam.dylib "$APP"/Contents/Resources/Kalam/standard/kalam.dylib
 cp ../../build/mac/bin/arm64/libusb.dylib "$APP"/Contents/Resources/Kalam/standard/libusb.dylib
 
+if [[ -d Resources ]]; then
+  find Resources -maxdepth 1 -type d -name '*.lproj' -print0 |
+    while IFS= read -r -d '' locale_dir; do
+      cp -R "$locale_dir" "$APP/Contents/Resources/"
+    done
+fi
+
 if [[ -f ../../build/mac/bin/arm64/kalam-seg5.dylib ]]; then
   cp ../../build/mac/bin/arm64/kalam-seg5.dylib "$APP"/Contents/Resources/Kalam/seg5/kalam-seg5.dylib
 fi
