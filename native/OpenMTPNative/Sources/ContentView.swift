@@ -73,7 +73,7 @@ struct ContentView: View {
 
     var body: some View {
         AnyView(workspaceView)
-        .environment(\\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+        .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
