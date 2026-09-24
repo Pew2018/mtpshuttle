@@ -79,6 +79,36 @@ private struct SwiftMTPCommands: Commands {
 
             Divider()
 
+            Button("New Folder") {
+                editActions?.newFolder()
+            }
+            .disabled(!(editActions?.canNewFolder ?? false))
+
+            Button("Properties") {
+                editActions?.showProperties()
+            }
+            .disabled(!(editActions?.canShowProperties ?? false))
+
+            Button("Delete", role: .destructive) {
+                editActions?.delete()
+            }
+            .disabled(!(editActions?.canDelete ?? false))
+            .keyboardShortcut(.delete, modifiers: [])
+
+            Divider()
+
+            Button("Copy to Other Pane") {
+                editActions?.copyToOther()
+            }
+            .disabled(!(editActions?.canCopyToOther ?? false))
+
+            Button("Move to Other Pane") {
+                editActions?.moveToOther()
+            }
+            .disabled(!(editActions?.canMoveToOther ?? false))
+
+            Divider()
+
             Button("Settings…") {
                 openWindow(id: "settings")
             }
