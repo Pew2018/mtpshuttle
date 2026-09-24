@@ -44,8 +44,6 @@ MTP Shuttle 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MT
 - Intel Mac 架构
 - 自动更新和正式公证发布
 
-其中，Android 文件拖出到 Finder 不能直接把远程 MTP 路径伪装成本地文件，需要使用 macOS 的文件 Promise 机制，将远程文件先下载到 Finder 指定的位置。
-
 ### 系统要求
 
 - macOS 13 Ventura 或更高版本
@@ -55,9 +53,7 @@ MTP Shuttle 是一款基于 SwiftUI 和 AppKit 开发的 macOS 原生 Android/MT
 
 ### 下载
 
-当前预览版：
-
-- [MTP Shuttle v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
+当前版本：0.1.1（GitHub Actions arm64 构建产物；未创建 GitHub Release）
 
 ARM64 GitHub Actions 构建产物：
 
@@ -147,14 +143,11 @@ The current preview application is built from `native/OpenMTPNative`. The origin
 
 MTP Shuttle is currently a native SwiftUI preview. The following features are not implemented or are still planned:
 
-- Exporting Android files to the system Finder through a real file-promise transfer
 - Renaming Android files
 - Copy to Queue transfer queue
 - Legacy MTP mode
 - Intel Mac builds
 - Automatic updates and production notarized distribution
-
-Android-to-Finder drag-out requires macOS file-promise support. A remote MTP path cannot safely be presented as a local file URL; the application must download the selected remote content to the destination chosen by Finder.
 
 ### Requirements
 
@@ -165,9 +158,7 @@ Android-to-Finder drag-out requires macOS file-promise support. A remote MTP pat
 
 ### Downloads
 
-Current preview release:
-
-- [MTP Shuttle v0.1.0 Preview](https://github.com/Pew2018/swiftmtp/releases/tag/v0.1.0)
+Current version: 0.1.1 (GitHub Actions arm64 artifact; no GitHub Release has been published)
 
 ARM64 GitHub Actions builds:
 
