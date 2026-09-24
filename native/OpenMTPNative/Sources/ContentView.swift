@@ -1176,7 +1176,7 @@ struct ContentView: View {
         _ localURL: URL,
         targetName: String,
         targetPath: String,
-        storage: MTPStorageSummary
+        storage: MTPBrowsePath
     ) async -> Bool {
         await mtpService.browse(path: targetPath)
         guard mtpService.browseError == nil,
