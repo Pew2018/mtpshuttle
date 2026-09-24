@@ -83,7 +83,7 @@ final class MTPService: ObservableObject {
         KalamBridge.shared.cancelCurrentOperation()
         isBrowsing = false
         isBrowsePartial = true
-        browseError = entries.isEmpty ? MTPShuttleText.localized("加载已暂停，当前目录暂无已加载项目") : MTPShuttleText.localized("加载已暂停，仅显示已加载的部分项目")
+        browseError = entries.isEmpty ? MTPShuttleText.localized("Loading paused; no items loaded in current folder") : MTPShuttleText.localized("Loading paused; showing loaded items")
         DebugLogger.info("MTP directory browsing paused by user")
     }
 
