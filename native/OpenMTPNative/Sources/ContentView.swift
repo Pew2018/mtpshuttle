@@ -697,6 +697,7 @@ struct ContentView: View {
             guard let remotePath = entry.remotePath, let storageID = entry.storageID else { return nil }
             let fileType = entry.isDirectory ? UTType.directory.identifier : (UTType(filenameExtension: URL(fileURLWithPath: entry.name).pathExtension)?.identifier ?? UTType.data.identifier)
             return MTPShuttleFilePromiseProvider(fileType: fileType, fileName: entry.name, encodedPayload: encodedPayload) { destinationURL, completion in
+                DebugLogger.info("Android file promise download started: \(entry.name)")
                 let destinationDirectory = destinationURL.deletingLastPathComponent()
                 let stagingDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("MTP-Shuttle-Promise-\(UUID().uuidString)", isDirectory: true)
                 let stagedURL = stagingDirectory.appendingPathComponent(entry.name)
@@ -711,9 +712,11 @@ struct ContentView: View {
                         if FileManager.default.fileExists(atPath: destinationURL.path) { try FileManager.default.removeItem(at: destinationURL) }
                         try FileManager.default.moveItem(at: stagedURL, to: destinationURL)
                         try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.info("Android file promise completed: \(entry.name)")
                         completion(nil)
                     } catch {
                         try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.error("Android file promise failed: \(entry.name): \(error.localizedDescription)")
                         completion(error)
                     }
                 }
