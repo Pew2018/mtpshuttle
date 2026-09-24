@@ -1,4 +1,4 @@
-name: "00 - Transfer Status Page"
+name: 00-07 - Full Integration Test
 
 on:
   push:
