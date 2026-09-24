@@ -70,7 +70,6 @@ final class DirectoryTests: XCTestCase {
         XCTAssertTrue(service.entries.isEmpty)
         XCTAssertFalse(service.isLoading)
     }
-
     @MainActor
     func testFinderPromiseProvidersRetainDelegatesAndExportMultiplePromises() {
         let payload = #"{"source":"android"}"#
@@ -140,5 +139,94 @@ final class DirectoryTests: XCTestCase {
         XCTAssertEqual(providerRequests, 1)
         XCTAssertEqual(clicks, 1)
         XCTAssertEqual(opens, 1)
+    }
+
+    func testFolderTransferManifestIncludesHiddenNestedAndEmptyDirectories() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try Data("root hidden".utf8).write(to: root.appendingPathComponent(".root-hidden"))
+        let nested = root.appendingPathComponent("Nested", isDirectory: true)
+        let empty = nested.appendingPathComponent("Empty", isDirectory: true)
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+        try Data("nested hidden".utf8).write(to: nested.appendingPathComponent(".nested-hidden"))
+
+        let manifest = try FolderTransferManifest.localEntries(at: root)
+        XCTAssertEqual(
+            manifest.map(\.relativePath),
+            [".root-hidden", "Nested", "Nested/.nested-hidden", "Nested/Empty"]
+        )
+        XCTAssertEqual(manifest.first(where: { $0.relativePath == ".root-hidden" })?.sizeBytes, 11)
+        XCTAssertEqual(manifest.first(where: { $0.relativePath == "Nested/Empty" })?.isDirectory, true)
+    }
+
+    func testEmptyFolderManifestIsVerifiable() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let local = try FolderTransferManifest.localEntries(at: root)
+        XCTAssertTrue(local.isEmpty)
+        XCTAssertTrue(FolderTransferManifest.matches(local: local, remote: []))
+    }
+
+    func testMoveSafetyKeepsSourcesAfterInterruptionCancellationOrFailedVerification() {
+        XCTAssertFalse(FolderMoveSafety.canDeleteOriginals(
+            uploadsCompleted: false, cancelled: false, integrityVerified: true
+        ))
+        XCTAssertFalse(FolderMoveSafety.canDeleteOriginals(
+            uploadsCompleted: true, cancelled: true, integrityVerified: true
+        ))
+        XCTAssertFalse(FolderMoveSafety.canDeleteOriginals(
+            uploadsCompleted: true, cancelled: false, integrityVerified: false
+        ))
+        XCTAssertTrue(FolderMoveSafety.canDeleteOriginals(
+            uploadsCompleted: true, cancelled: false, integrityVerified: true
+        ))
+    }
+
+    func testFolderManifestRequiresExactPathsTypesAndFileSizes() {
+        let local = [
+            FolderTransferManifestEntry(relativePath: ".secret", isDirectory: false, sizeBytes: 7),
+            FolderTransferManifestEntry(relativePath: "Nested", isDirectory: true, sizeBytes: nil),
+            FolderTransferManifestEntry(relativePath: "Nested/file.bin", isDirectory: false, sizeBytes: 12)
+        ]
+        XCTAssertTrue(FolderTransferManifest.matches(local: local, remote: local))
+        XCTAssertFalse(FolderTransferManifest.matches(local: local, remote: Array(local.dropFirst())))
+        XCTAssertFalse(FolderTransferManifest.matches(
+            local: local,
+            remote: [
+                local[0],
+                local[1],
+                FolderTransferManifestEntry(relativePath: "Nested/file.bin", isDirectory: false, sizeBytes: 11)
+            ]
+        ))
+        XCTAssertFalse(FolderTransferManifest.matches(
+            local: local,
+            remote: [
+                FolderTransferManifestEntry(relativePath: ".secret", isDirectory: true, sizeBytes: nil),
+                local[1], local[2]
+            ]
+        ))
+    }
+
+    func testExternalDropDetectsSameBasenameWhenDestinationIsEmpty() {
+        let names = ["one/report.txt", "two/report.txt"].map { URL(fileURLWithPath: $0).lastPathComponent }
+        XCTAssertEqual(ExternalDropNaming.conflicts(sourceNames: names, destinationNames: []), ["report.txt"])
+        XCTAssertNil(ExternalDropNaming.plan(sourceNames: names, destinationNames: [], resolution: nil))
+    }
+
+    func testExternalDropRenameMakesBatchNamesUniqueAndPreservesExtension() {
+        let names = ["one/archive.tar.gz", "two/archive.tar.gz"].map { URL(fileURLWithPath: $0).lastPathComponent }
+        let planned = ExternalDropNaming.plan(sourceNames: names, destinationNames: ["archive.tar (1).gz"], resolution: .rename)
+        XCTAssertEqual(planned, ["archive.tar.gz", "archive.tar (2).gz"])
+        XCTAssertEqual(Set(planned ?? []).count, 2)
+    }
+
+    func testExternalDropOverwriteDoesNotOverwriteWithinBatch() {
+        let names = ["one/report.txt", "two/report.txt"].map { URL(fileURLWithPath: $0).lastPathComponent }
+        let planned = ExternalDropNaming.plan(sourceNames: names, destinationNames: ["report.txt"], resolution: .overwrite)
+        XCTAssertEqual(planned, ["report.txt", "report (1).txt"])
+        XCTAssertEqual(Set(planned ?? []).count, 2)
     }
 }
