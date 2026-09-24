@@ -30,9 +30,11 @@ enum FolderTransferManifest {
                 throw CocoaError(.fileReadUnsupportedScheme)
             }
             let values = try child.resourceValues(forKeys: keys)
-            let relativePath = child.pathComponents
-                .dropFirst(rootURL.pathComponents.count)
-                .joined(separator: "/")
+            let rootPrefix = rootURL.path.hasSuffix("/") ? rootURL.path : rootURL.path + "/"
+            guard child.path.hasPrefix(rootPrefix) else {
+                throw CocoaError(.fileReadInvalidFileName)
+            }
+            let relativePath = String(child.path.dropFirst(rootPrefix.count))
             guard !relativePath.isEmpty else {
                 throw CocoaError(.fileReadInvalidFileName)
             }
