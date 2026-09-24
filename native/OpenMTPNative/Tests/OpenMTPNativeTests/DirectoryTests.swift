@@ -70,7 +70,7 @@ final class DirectoryTests: XCTestCase {
         XCTAssertFalse(service.isLoading)
     }
     @MainActor
-    func testFilePromiseProviderInitializationAndPasteboardPayload() {
+    func testFinderPromiseDoesNotExposeInternalPayload() {
         let payload = #"{"source":"android"}"#
         let provider = MTPShuttleFilePromiseProvider(
             fileType: "public.data",
@@ -82,9 +82,8 @@ final class DirectoryTests: XCTestCase {
         XCTAssertEqual(provider.fileType, "public.data")
         XCTAssertEqual(provider.delegate?.filePromiseProvider(provider, fileNameForType: provider.fileType), "example.txt")
         let customType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-        XCTAssertTrue(provider.writableTypes(for: .general).contains(customType))
-        XCTAssertEqual(provider.pasteboardPropertyList(forType: customType) as? Data, Data(payload.utf8))
-        XCTAssertTrue(provider.writingOptions(forType: customType, pasteboard: .general).isEmpty)
+        XCTAssertEqual(provider.internalPayload, payload)
+        XCTAssertFalse(provider.writableTypes(for: .general).contains(customType))
 
         // Finder discovers promises through a pasteboard reader, not by calling
         // our provider directly. Exercise that boundary as well.
@@ -93,7 +92,7 @@ final class DirectoryTests: XCTestCase {
         XCTAssertTrue(pasteboard.writeObjects([provider]))
         let received = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil)
         XCTAssertEqual(received?.count, 1)
-        XCTAssertEqual(pasteboard.data(forType: customType), Data(payload.utf8))
+        XCTAssertNil(pasteboard.data(forType: customType))
     }
 
     @MainActor
