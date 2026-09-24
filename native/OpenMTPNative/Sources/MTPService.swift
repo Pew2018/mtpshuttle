@@ -345,7 +345,7 @@ final class MTPService: ObservableObject {
             "device not found", "not connected", "connection lost",
             "usb", "libusb", "transport", "session", "mtp device"
         ]
-        return indicators.contains(where: text.contains)
+        return indicators.contains { text.contains($0) }
     }
 
     private func clearDisconnectedState(message: String?) {
