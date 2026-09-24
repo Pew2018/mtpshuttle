@@ -96,7 +96,7 @@ struct ContentView: View {
             Alert(
                 title: Text(item.name),
                 message: Text(propertyDescription(for: item)),
-                dismissButton: .default(Text("OK"))
+                dismissButton: .default(Text(MTPShuttleText.localized("OK")))
             )
         }
         .confirmationDialog(
@@ -107,25 +107,25 @@ struct ContentView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("覆盖已有文件") { resolveConflict(.overwrite) }
-            Button("全部重命名（添加 .1、.2…）") { resolveConflict(.rename) }
-            Button("取消", role: .cancel) { pendingConflict = nil }
+            Button(MTPShuttleText.localized("Overwrite existing file")) { resolveConflict(.overwrite) }
+            Button(MTPShuttleText.localized("Rename all with suffixes")) { resolveConflict(.rename) }
+            Button(MTPShuttleText.localized("Cancel"), role: .cancel) { pendingConflict = nil }
         } message: {
             Text(transferConflictMessage)
         }
         .alert(
-            "新建文件夹",
+            MTPShuttleText.localized("New Folder"),,
             isPresented: Binding(
                 get: { newFolderPane != nil },
                 set: { if !$0 { newFolderPane = nil } }
             )
         ) {
-            TextField("文件夹名称", text: $newFolderName)
-            Button("取消", role: .cancel) {}
-            Button("创建") { commitNewFolder() }
+            TextField(MTPShuttleText.localized("Folder name"), text: $newFolderName)
+            Button(MTPShuttleText.localized("Cancel"), role: .cancel) { pendingConflict = nil }
+            Button(MTPShuttleText.localized("Create")) { commitNewFolder() }
                 .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: {
-            Text("将在当前目录创建文件夹")
+            Text(MTPShuttleText.localized("Create a folder in the current directory"))
         }
 
         .confirmationDialog(
@@ -140,15 +140,15 @@ struct ContentView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("Copy") {
+            Button(MTPShuttleText.localized("Copy")) {
                 finishPendingDrop(mode: .copy)
             }
 
-            Button("Move (Cut)") {
+            Button(MTPShuttleText.localized("Move (Cut)")) {
                 finishPendingDrop(mode: .move)
             }
 
-            Button("Cancel", role: .cancel) {
+            Button(MTPShuttleText.localized("Cancel"), role: .cancel) {
                 pendingDrop = nil
             }
         } message: {
@@ -203,12 +203,12 @@ struct ContentView: View {
 
     private var transferConflictTitle: String {
         let count = pendingConflict?.conflictNames.count ?? 0
-        return count == 1 ? "发现同名项目" : "发现 (count) 个同名项目"
+        return count == 1 ? MTPShuttleText.localized("One conflicting item found") : MTPShuttleText.format("%d conflicting items found", count)
     }
 
     private var transferConflictMessage: String {
         guard let pendingConflict else { return "" }
-        return "\(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 \(pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
+        return MTPShuttleText.format("Conflicts in %@: %@. Choose whether to overwrite or rename.", pendingConflict.targetPane.localizedTitle, pendingConflict.conflictNames.joined(separator: ", "))
     }
 
     private var pendingDropTitle: String {
@@ -329,7 +329,7 @@ struct ContentView: View {
             rightPane.selection.removeAll()
         }
 
-        statusMessage = "\(pane.title) went back"
+        statusMessage = MTPShuttleText.format("%@ went back", pane.localizedTitle)
     }
 
     private func goForward(_ pane: PaneKind) {
@@ -346,7 +346,7 @@ struct ContentView: View {
             rightPane.selection.removeAll()
         }
 
-        statusMessage = "\(pane.title) went forward"
+        statusMessage = MTPShuttleText.format("%@ went forward", pane.localizedTitle)
     }
 
     private func navigateTo(_ pane: PaneKind, _ path: String) {
@@ -357,7 +357,7 @@ struct ContentView: View {
             navigate(state: &rightPane, to: path)
         }
 
-        statusMessage = "\(pane.title) opened \(path)"
+        statusMessage = MTPShuttleText.format("%@ opened %@", pane.localizedTitle, path)
     }
 
     private func navigate(state: inout PaneNavigationState, to path: String) {
@@ -598,11 +598,11 @@ struct ContentView: View {
                     try await mtpService.makeDirectory(path: base + name + "/", storageID: location.storageID)
                     await mtpService.browse(path: path)
                 }
-                statusMessage = "Created folder \(name)"
-                tasks.record("创建文件夹：\(name)", state: "已完成")
+                statusMessage = MTPShuttleText.format("Created folder %@", name)
+                tasks.record(MTPShuttleText.format("Created folder %@", name), state: MTPShuttleText.localized("Completed"))
             } catch {
                 statusMessage = error.localizedDescription
-                tasks.record("创建文件夹：\(name)", state: "失败：\(error.localizedDescription)")
+                tasks.record(MTPShuttleText.format("Created folder %@", name), state: MTPShuttleText.localized("Completed"))
             }
         }
     }
@@ -612,7 +612,7 @@ struct ContentView: View {
         guard !items.isEmpty else { return }
         let path = paneState(for: pane).path
         Task { @MainActor in
-            operation = DemoOperation(title: "Deleting", detail: "\(items.count) item(s)", progress: 0.2)
+            operation = DemoOperation(title: MTPShuttleText.localized("Deleting"), detail: MTPShuttleText.format("%d items", items.count), progress: 0.2)
             do {
                 if pane == .mac {
                     for item in items {
@@ -623,12 +623,12 @@ struct ContentView: View {
                 }
                 clearSelection(for: pane)
                 statusMessage = "\(items.count) item(s) deleted"
-                tasks.record("删除 \(items.count) 个项目", state: "已完成")
+                tasks.record(MTPShuttleText.format("Deleted %d item(s)", items.count), state: MTPShuttleText.localized("Completed"))
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
             } catch {
                 statusMessage = error.localizedDescription
-                tasks.record("删除 \(items.count) 个项目", state: "失败：\(error.localizedDescription)")
+                tasks.record(MTPShuttleText.format("Deleted %d item(s)", items.count), state: MTPShuttleText.localized("Completed"))
             }
             operation = nil
         }
@@ -684,7 +684,7 @@ struct ContentView: View {
     ) {
         let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
         guard !sources.isEmpty else { statusMessage = MTPShuttleText.localized("No items selected"); return }
-        let noun = mode == .copy ? "Copying" : "Moving"
+        let noun = MTPShuttleText.localized(mode == .copy ? "Copying" : "Moving")
         Task { @MainActor in
             guard tasks.current == nil else {
                 statusMessage = MTPShuttleText.localized("Please wait for the current transfer to finish")
@@ -694,20 +694,20 @@ struct ContentView: View {
                 sources,
                 sourcePane: sourcePane
             )
-            tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
+            tasks.begin(MTPShuttleText.format("%d item(s) %@", sources.count, noun), total: knownBytes)
             do {
                 try await performTransfer(sources: sources, sourcePane: sourcePane, sourcePath: sourcePath,
                                           targetPane: targetPane, targetPath: targetPath, mode: mode,
                                           resolution: resolution)
                 clearSelection(for: sourcePane)
                 if clearClipboardAfterMove { clipboard = nil }
-                statusMessage = "\(sources.count) item(s) \(mode == .copy ? "copied" : "moved") to \(targetPane.title)"
+                statusMessage = MTPShuttleText.format("%d item(s) %@ to %@", sources.count, MTPShuttleText.localized(mode == .copy ? "Copied" : "Moved"), targetPane.localizedTitle)
                 await localBrowser.load(path: leftPane.path)
                 await mtpService.browse(path: rightPane.path)
-                tasks.finish("已完成")
+                tasks.finish(MTPShuttleText.localized("Completed"))
             } catch {
                 statusMessage = tasks.cancellationRequested ? MTPShuttleText.localized("Operation cancelled") : error.localizedDescription
-                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
+                tasks.finish(tasks.cancellationRequested ? MTPShuttleText.localized("Cancelled") : MTPShuttleText.format("Failed: %@", error.localizedDescription))
             }
         }
     }
@@ -729,7 +729,7 @@ struct ContentView: View {
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
-            tasks.begin("Copying \(urls.count) item(s)", total: knownBytes)
+            tasks.begin(MTPShuttleText.format("Copying %d item(s)", urls.count), total: knownBytes)
             do {
                 for url in urls {
                     if tasks.cancellationRequested { throw MTPServiceError.cancelled }
@@ -738,12 +738,12 @@ struct ContentView: View {
                     )
                 }
                 if tasks.cancellationRequested { throw MTPServiceError.cancelled }
-                statusMessage = "\(urls.count) item(s) copied to Android Device"
+                statusMessage = MTPShuttleText.format("%d item(s) copied to %@", urls.count, MTPShuttleText.localized("Android Device"))
                 await mtpService.browse(path: targetPath)
-                tasks.finish("已完成")
+                tasks.finish(MTPShuttleText.localized("Completed"))
             } catch {
                 statusMessage = tasks.cancellationRequested ? MTPShuttleText.localized("Operation cancelled") : error.localizedDescription
-                tasks.finish(tasks.cancellationRequested ? "已取消" : "失败：\(error.localizedDescription)")
+                tasks.finish(tasks.cancellationRequested ? MTPShuttleText.localized("Cancelled") : MTPShuttleText.format("Failed: %@", error.localizedDescription))
             }
         }
     }
@@ -1076,7 +1076,7 @@ private struct FolderDropConfirmationView: View {
                     Text(title)
                         .font(.headline)
 
-                    Text("Copy \(folderSummary) to \(request.targetPane.title)?")
+                    Text(MTPShuttleText.format("Copy %@ to %@?", folderSummary, request.targetPane.localizedTitle))
                         .font(.body)
                 }
             }
@@ -1095,16 +1095,16 @@ private struct FolderDropConfirmationView: View {
             HStack {
                 Spacer()
 
-                Button("Cancel") {
+                Button(MTPShuttleText.localized("Cancel")) {
                     onCancel()
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button("Cut") {
+                Button(MTPShuttleText.localized("Cut")) {
                     onDecision(.move, suppressFuturePrompts)
                 }
 
-                Button("Copy") {
+                Button(MTPShuttleText.localized("Copy")) {
                     onDecision(.copy, suppressFuturePrompts)
                 }
                 .buttonStyle(.borderedProminent)
@@ -1289,16 +1289,16 @@ private struct OperationProgressView: View {
                 }
             }
             .buttonStyle(.plain)
-            .help("打开任务详情")
+            .help(MTPShuttleText.localized("Open task details"))
 
             Spacer()
 
-            Text(indeterminate ? "计算中" : "\(Int(operation.progress * 100))%")
+            Text(indeterminate ? MTPShuttleText.localized("Calculating…") : "\(Int(operation.progress * 100))%")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 46, alignment: .trailing)
             Button(action: onCancel) { Image(systemName: "xmark.circle") }
-                .buttonStyle(.borderless).help("取消当前操作")
+                .buttonStyle(.borderless).help(MTPShuttleText.localized("Cancel current operation"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
