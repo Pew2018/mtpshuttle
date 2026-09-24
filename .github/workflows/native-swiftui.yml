@@ -5,6 +5,7 @@ on:
     branches:
       - "native/**"
       - "feature/**"
+      - "fix/**"
       - master
   pull_request:
     branches:
