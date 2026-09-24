@@ -29,7 +29,8 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
     // AppKit's init(fileType:delegate:) is a convenience initializer that calls
     // self.init(). Keep that initializer available on this Swift subclass.
     private var promiseDelegate: MTPShuttleFilePromiseDelegate?
-    private var encodedPayload: String?
+    // Used only by another pane in this process; never advertise it to Finder.
+    private(set) var internalPayload: String?
 
     override init() {
         super.init()
@@ -39,31 +40,9 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
         self.init()
         let promiseDelegate = MTPShuttleFilePromiseDelegate(fileName: fileName, writePromise: writePromise)
         self.promiseDelegate = promiseDelegate // NSFilePromiseProvider holds its delegate weakly.
-        self.encodedPayload = encodedPayload
+        self.internalPayload = encodedPayload
         self.fileType = fileType
         self.delegate = promiseDelegate
-    }
-    override func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
-        var types = super.writableTypes(for: pasteboard)
-        if encodedPayload != nil {
-            let type = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
-            if !types.contains(type) { types.append(type) }
-        }
-        return types
-    }
-    override func writingOptions(forType type: NSPasteboard.PasteboardType, pasteboard: NSPasteboard) -> NSPasteboard.WritingOptions {
-        if type == NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier) {
-            // The in-app JSON is available immediately; only the file is promised.
-            return []
-        }
-        return super.writingOptions(forType: type, pasteboard: pasteboard)
-    }
-    override func pasteboardPropertyList(forType type: NSPasteboard.PasteboardType) -> Any? {
-        if type == NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
-           let encodedPayload, let data = encodedPayload.data(using: .utf8) {
-            return data
-        }
-        return super.pasteboardPropertyList(forType: type)
     }
 }
 struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
@@ -90,6 +69,7 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
         // AppKit consumes NSDraggingItem instances when the session begins. Keep
         // the promise writers and their delegates alive until the next drag.
         private var retainedProviders: [NSFilePromiseProvider] = []
+        private(set) var internalPayload: String?
         private var lastDragContext: NSDraggingContext?
         private let dragDistance: CGFloat = 6
 
@@ -137,6 +117,7 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
                 return item
             }
             retainedProviders = providers
+            internalPayload = (providers.first as? MTPShuttleFilePromiseProvider)?.internalPayload
             hasDraggingSession = true
             lastDragContext = nil
             DebugLogger.info("Android file drag started: count=\(providers.count)")
@@ -169,6 +150,7 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             DebugLogger.info("Android file drag ended: operation=\(operation.rawValue)")
             hasDraggingSession = false
             mouseDownEvent = nil
+            internalPayload = nil
             lastDragContext = nil
             // Finder may request the promised file after this callback.
             // Retain the providers until the next drag or this row disappears.
@@ -647,7 +629,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
             .string,
             .fileURL
-        ])
+        ] + NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) })
         context.coordinator.parent = self
         view.coordinator = context.coordinator
         view.autoresizingMask = [.width, .height]
@@ -673,13 +655,15 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
         }
 
-        private func hasInternalPayload(_ draggingInfo: NSDraggingInfo) -> Bool {
-            let types = draggingInfo.draggingPasteboard.types ?? []
-            return types.contains(internalPasteboardType)
-                || types.contains(.string)
+        private func localSourcePayload(_ draggingInfo: NSDraggingInfo) -> String? {
+            guard let source = draggingInfo.draggingSource as? MTPShuttleFilePromiseDragSource.DragSourceView,
+                  let encoded = source.internalPayload,
+                  DemoDragPayload.decode(encoded) != nil else { return nil }
+            return encoded
         }
 
         private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
+            if localSourcePayload(draggingInfo) != nil { return true }
             let pasteboard = draggingInfo.draggingPasteboard
 
             if pasteboard.types?.contains(internalPasteboardType) == true {
@@ -808,7 +792,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             if isInternalDrag(draggingInfo) {
                 MTPShuttleDNDLogger.log("AppKit perform INTERNAL types=\\(pasteboard.types ?? [])")
 
-                guard let encoded = readInternalPayload(from: pasteboard) else {
+                guard let encoded = localSourcePayload(draggingInfo) ?? readInternalPayload(from: pasteboard) else {
                     MTPShuttleDNDLogger.log("AppKit INTERNAL payload read FAILED")
                     DebugLogger.error("Pane drop failed: internal payload could not be read")
                     return false
