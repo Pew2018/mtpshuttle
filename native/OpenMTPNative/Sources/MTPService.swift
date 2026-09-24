@@ -10,13 +10,13 @@ enum MTPConnectionState: Equatable {
     var label: String {
         switch self {
         case .disconnected:
-            return "Not connected"
+            return MTPShuttleText.localized("Not connected")
         case .connecting:
-            return "Connecting…"
+            return MTPShuttleText.localized("Connecting…")
         case .connected:
-            return "Connected"
+            return MTPShuttleText.localized("Connected")
         case .failed:
-            return "Connection failed"
+            return MTPShuttleText.localized("Connection failed")
         }
     }
 }
@@ -104,13 +104,13 @@ final class MTPService: ObservableObject {
             if let device {
                 return "MTP · \(device.detail)"
             }
-            return "MTP · Connected"
+            return "MTP · " + MTPShuttleText.localized("Connected")
         case .connecting:
-            return "MTP · Connecting…"
+            return "MTP · " + MTPShuttleText.localized("Connecting…")
         case .failed(let message):
             return "MTP · \(message)"
         case .disconnected:
-            return "MTP · Not connected"
+            return "MTP · " + MTPShuttleText.localized("Not connected")
         }
     }
     
@@ -119,11 +119,11 @@ final class MTPService: ObservableObject {
         case .connected:
             return "\(deviceTitle) · \(storages.count) storage(s)"
         case .connecting:
-            return "Connecting to Android device…"
+            return MTPShuttleText.localized("Connecting to Android device…")
         case .failed(let message):
             return message
         case .disconnected:
-            return "Connect an Android device in MTP mode"
+            return MTPShuttleText.localized("Connect an Android device in MTP mode")
         }
     }
     
@@ -299,9 +299,9 @@ enum MTPServiceError: LocalizedError {
         case .backend(let type, let message):
             return "\(type): \(message)"
         case .noStorages:
-            return "Kalam connected to the device but returned no storage volumes."
+            return MTPShuttleText.localized("Kalam connected to the device but returned no storage volumes.")
         case .cancelled:
-            return "操作已取消"
+            return MTPShuttleText.localized("Operation cancelled")
         }
     }
 }
