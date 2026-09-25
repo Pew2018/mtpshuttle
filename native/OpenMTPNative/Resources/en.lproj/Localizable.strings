@@ -177,3 +177,69 @@
 "Unknown" = "Unknown";
 "Calculating" = "Calculating";
 "Not available" = "Not available";
+
+/* Additional localized interface and transfer strings */
+"MTP Shuttle" = "MTP Shuttle";
+"Select All" = "Select All";
+"Copy %@ to %@?" = "Copy %@ to %@?";
+"Created folder %@" = "Created folder %@";
+"Deleted %d item(s)" = "Deleted %d item(s)";
+"Failed: %@" = "Failed: %@";
+"%d item(s) %@ to %@" = "%d item(s) %@ to %@";
+"Copied" = "Copied";
+"Moved" = "Moved";
+"Copying %d item(s)" = "Copying %d item(s)";
+"%d item(s) copied to %@" = "%d item(s) copied to %@";
+"Loading; %d items shown. Select Refresh to pause." = "Loading; %d items shown. Select Refresh to pause.";
+"%d items" = "%d items";
+"%d selected" = "%d selected";
+"Open %@" = "Open %@";
+"Copy to %@" = "Copy to %@";
+"Move to %@" = "Move to %@";
+"Debug mode enabled" = "Debug mode enabled";
+"Debug mode disabled" = "Debug mode disabled";
+"Quick Look" = "Quick Look";
+"Settings…" = "Settings…";
+"Overwrite existing file" = "Overwrite existing file";
+"Rename all with suffixes" = "Rename all with suffixes";
+"One conflicting item found" = "One conflicting item found";
+"%d conflicting items found" = "%d conflicting items found";
+"Conflicts in %@: %@. Choose whether to overwrite or rename." = "Conflicts in %@: %@. Choose whether to overwrite or rename.";
+"%@ went back" = "%@ went back";
+"%@ went forward" = "%@ went forward";
+"%@ opened %@" = "%@ opened %@";
+"%d item(s) %@" = "%d item(s) %@";
+"Open task details" = "Open task details";
+"Calculating…" = "Calculating…";
+"Cancel current operation" = "Cancel current operation";
+"Loading paused; no items loaded in current folder" = "Loading paused; no items loaded in current folder";
+"Copy to Other Pane" = "Copy to Other Pane";
+"Move to Other Pane" = "Move to Other Pane";
+"Transferring: %@" = "Transferring: %@";
+
+"Appearance" = "Appearance";
+"Mode" = "Mode";
+"System" = "System";
+"Light" = "Light";
+"Dark" = "Dark";
+"Choose Light, Dark, or System to follow macOS." = "Choose Light, Dark, or System to follow macOS.";
+
+"About MTP Shuttle" = "About MTP Shuttle";
+"App icon placeholder" = "App icon placeholder";
+"App icon coming soon" = "App icon coming soon";
+"A simple, native way to move files between your Mac and Android device." = "A simple, native way to move files between your Mac and Android device.";
+"Version" = "Version";
+"MTP Shuttle on GitHub" = "MTP Shuttle on GitHub";
+"Project repository" = "Project repository";
+"OpenMTP on GitHub" = "OpenMTP on GitHub";
+"Original project" = "Original project";
+"Built for macOS" = "Built for macOS";
+"About" = "About";
+
+
+"Clear Debug Log…" = "Clear Debug Log…";
+"Clear Debug Log?" = "Clear Debug Log?";
+"Clear Log" = "Clear Log";
+"This permanently removes all current log entries." = "This permanently removes all current log entries.";
+"Debug log cleared." = "Debug log cleared.";
+"Could not clear the debug log: %@" = "Could not clear the debug log: %@";

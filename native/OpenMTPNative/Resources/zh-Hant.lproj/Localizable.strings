@@ -191,3 +191,69 @@
 "Unknown" = "未知";
 "Calculating" = "計算中";
 "Not available" = "暫不可用";
+
+/* Additional localized interface and transfer strings */
+"MTP Shuttle" = "MTP Shuttle";
+"Select All" = "全選";
+"Copy %@ to %@?" = "要將 %@ 複製到 %@ 嗎？";
+"Created folder %@" = "已建立資料夾 %@";
+"Deleted %d item(s)" = "已刪除 %d 個項目";
+"Failed: %@" = "失敗：%@";
+"%d item(s) %@ to %@" = "已將 %d 個項目%@至 %@";
+"Copied" = "已複製";
+"Moved" = "已移動";
+"Copying %d item(s)" = "正在複製 %d 個項目";
+"%d item(s) copied to %@" = "已將 %d 個項目複製到 %@";
+"Loading; %d items shown. Select Refresh to pause." = "正在載入，已顯示 %d 個項目。選擇「重新整理」可暫停。";
+"%d items" = "%d 個項目";
+"%d selected" = "已選取 %d 個項目";
+"Open %@" = "開啟 %@";
+"Copy to %@" = "複製到 %@";
+"Move to %@" = "移動到 %@";
+"Debug mode enabled" = "除錯模式已啟用";
+"Debug mode disabled" = "除錯模式已關閉";
+"Quick Look" = "Quick Look";
+"Settings…" = "設定…";
+"Overwrite existing file" = "覆寫現有檔案";
+"Rename all with suffixes" = "全部重新命名（新增 .1、.2…）";
+"One conflicting item found" = "找到 1 個同名項目";
+"%d conflicting items found" = "找到 %d 個同名項目";
+"Conflicts in %@: %@. Choose whether to overwrite or rename." = "%@ 中有衝突：%@。請選擇覆寫或重新命名。";
+"%@ went back" = "%@ 已返回上一層";
+"%@ went forward" = "%@ 已前進";
+"%@ opened %@" = "%@ 已開啟 %@";
+"%d item(s) %@" = "%d 個項目%@";
+"Open task details" = "開啟工作詳細資料";
+"Calculating…" = "計算中…";
+"Cancel current operation" = "取消目前操作";
+"Loading paused; no items loaded in current folder" = "載入已暫停，目前資料夾沒有已載入項目";
+"Copy to Other Pane" = "複製到另一個面板";
+"Move to Other Pane" = "移動到另一個面板";
+"Transferring: %@" = "正在傳輸：%@";
+
+"Appearance" = "外觀";
+"Mode" = "模式";
+"System" = "跟隨系統";
+"Light" = "淺色";
+"Dark" = "深色";
+"Choose Light, Dark, or System to follow macOS." = "選擇淺色、深色，或跟隨 macOS 系統外觀。";
+
+"About MTP Shuttle" = "關於 MTP Shuttle";
+"App icon placeholder" = "應用程式圖示預留位置";
+"App icon coming soon" = "應用程式圖示即將推出";
+"A simple, native way to move files between your Mac and Android device." = "在 Mac 與 Android 裝置之間傳輸檔案的原生工具。";
+"Version" = "版本";
+"MTP Shuttle on GitHub" = "MTP Shuttle 專案";
+"Project repository" = "專案 GitHub 儲存庫";
+"OpenMTP on GitHub" = "OpenMTP 上游專案";
+"Original project" = "原專案 GitHub 儲存庫";
+"Built for macOS" = "為 macOS 打造";
+"About" = "關於";
+
+
+"Clear Debug Log…" = "清除除錯日誌…";
+"Clear Debug Log?" = "清除除錯日誌？";
+"Clear Log" = "清除日誌";
+"This permanently removes all current log entries." = "此操作會永久刪除目前所有日誌內容。";
+"Debug log cleared." = "除錯日誌已清除。";
+"Could not clear the debug log: %@" = "無法清除除錯日誌：%@";

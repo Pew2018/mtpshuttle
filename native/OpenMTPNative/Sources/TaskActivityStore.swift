@@ -144,9 +144,8 @@ final class TaskActivityStore: ObservableObject {
         lastProgressDate = now
         lastProgressSent = task.items[index].sent
 
-        task.step = name.isEmpty
-            ? "正在传输：\(task.items[index].name)"
-            : "正在传输：\(URL(fileURLWithPath: name).lastPathComponent)"
+        let fileName = name.isEmpty ? task.items[index].name : URL(fileURLWithPath: name).lastPathComponent
+        task.step = MTPShuttleText.format("Transferring: %@", fileName)
 
         let itemRemaining = max(0, reportedTotal - task.items[index].sent)
         task.items[index].etaSeconds = task.items[index].speedBytesPerSecond > 0
@@ -242,7 +241,7 @@ final class TaskActivityStore: ObservableObject {
     func finish(_ state: String) {
         guard var record = current else { return }
 
-        if state == "已完成" {
+        if state == MTPShuttleText.localized("Completed") || state == "已完成" {
             record.sent = record.total > 0 ? record.total : record.sent
             for index in record.items.indices where record.items[index].state == "传输中" {
                 record.items[index].state = "已完成"
@@ -318,7 +317,7 @@ struct TaskDetailsView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
-                    Text("\(byteText(item.sent)) / \(byteText(item.total)) · \(item.state)")
+                    Text("\(byteText(item.sent)) / \(byteText(item.total)) · \(displayStatus(item.state))")
                         .font(.caption.monospacedDigit())
                 }
             }
@@ -354,7 +353,7 @@ struct TaskDetailsView: View {
     private func historyTaskView(_ task: TaskRecord) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(task.title) · \(task.state)")
-            Text("\(task.items.count) 个文件 · \(task.step)")
+            Text("\(MTPShuttleText.format("%d items", task.items.count)) · \(task.step)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let failureReason = task.failureReason {

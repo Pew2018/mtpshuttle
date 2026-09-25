@@ -6,6 +6,8 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
     case simplifiedChinese = "zh-Hans"
     case traditionalChinese = "zh-Hant"
 
+    static let storageKey = "appLanguage"
+
     var id: String { rawValue }
 
     var displayName: String {
@@ -13,33 +15,26 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
         case .system:
             return MTPShuttleText.localized("Automatic (System)")
         case .english:
-            return MTPShuttleText.localized("English")
+            return "English"
         case .simplifiedChinese:
-            return MTPShuttleText.localized("简体中文")
+            return "简体中文"
         case .traditionalChinese:
-            return MTPShuttleText.localized("繁體中文")
+            return "繁體中文"
         }
     }
 
     static func locale(for rawValue: String) -> Locale {
-        let language = MTPShuttleLanguage(rawValue: rawValue) ?? .system
-        switch language {
-        case .system:
-            return Locale(identifier: detectedLanguageIdentifier())
-        case .english:
-            return Locale(identifier: "en")
-        case .simplifiedChinese:
-            return Locale(identifier: "zh-Hans")
-        case .traditionalChinese:
-            return Locale(identifier: "zh-Hant")
-        }
+        Locale(identifier: resolvedIdentifier(for: rawValue))
     }
 
     static func resourceIdentifier(for rawValue: String) -> String {
-        let language = MTPShuttleLanguage(rawValue: rawValue) ?? .system
-        switch language {
+        resolvedIdentifier(for: rawValue)
+    }
+
+    static func resolvedIdentifier(for rawValue: String) -> String {
+        switch MTPShuttleLanguage(rawValue: rawValue) ?? .system {
         case .system:
-            return detectedLanguageIdentifier()
+            return detectedSystemLanguage()
         case .english:
             return "en"
         case .simplifiedChinese:
@@ -49,25 +44,51 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
         }
     }
 
-    private static func detectedLanguageIdentifier() -> String {
-        let identifier = Locale.preferredLanguages.first?.lowercased() ?? Locale.current.identifier.lowercased()
-        if identifier.contains("hant") || identifier.contains("tw") || identifier.contains("hk") || identifier.contains("mo") {
-            return "zh-Hant"
+    private static func detectedSystemLanguage() -> String {
+        for identifier in Locale.preferredLanguages {
+            let locale = Locale(identifier: identifier)
+            guard let languageCode = locale.languageCode?.lowercased() else { continue }
+
+            if languageCode == "en" {
+                return "en"
+            }
+
+            if languageCode == "zh" {
+                let script = locale.language.script?.identifier.lowercased()
+                let region = locale.region?.identifier.uppercased()
+                if script == "hant" || ["TW", "HK", "MO"].contains(region) {
+                    return "zh-Hant"
+                }
+                return "zh-Hans"
+            }
         }
-        if identifier.hasPrefix("zh") {
-            return "zh-Hans"
-        }
+
+        // The app currently ships English, Simplified Chinese, and Traditional Chinese.
+        // Any other macOS language intentionally falls back to English.
         return "en"
     }
 }
 
 enum MTPShuttleText {
+    static var currentLanguage: MTPShuttleLanguage {
+        MTPShuttleLanguage(rawValue: UserDefaults.standard.string(forKey: MTPShuttleLanguage.storageKey) ?? "")
+            ?? .system
+    }
+
     static func localized(_ key: String) -> String {
-        let selected = UserDefaults.standard.string(forKey: "appLanguage")
-            ?? MTPShuttleLanguage.system.rawValue
-        let resource = MTPShuttleLanguage.resourceIdentifier(for: selected)
-        let bundle = Bundle(path: Bundle.main.path(forResource: resource, ofType: "lproj") ?? "")
-        return bundle?.localizedString(forKey: key, value: key, table: "Localizable")
-            ?? Bundle.main.localizedString(forKey: key, value: key, table: "Localizable")
+        localized(key, language: currentLanguage)
+    }
+
+    static func localized(_ key: String, language: MTPShuttleLanguage) -> String {
+        let resource = MTPShuttleLanguage.resourceIdentifier(for: language.rawValue)
+        guard let path = Bundle.main.path(forResource: resource, ofType: "lproj"),
+              let bundle = Bundle(path: path) else {
+            return key
+        }
+        return bundle.localizedString(forKey: key, value: key, table: "Localizable")
+    }
+
+    static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        String(format: localized(key), arguments: arguments)
     }
 }
