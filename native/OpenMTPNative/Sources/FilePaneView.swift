@@ -53,6 +53,8 @@ struct FilePaneView: View {
     let onNewFolder: () -> Void
     let onPaste: () -> Void
     let showCrossPaneActions: Bool
+    let isFavorite: (DemoEntry) -> Bool
+    let onToggleFavorite: (DemoEntry) -> Void
     let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
     let onDragProvider: (DemoEntry, Set<UUID>) -> NSItemProvider
@@ -339,6 +341,10 @@ struct FilePaneView: View {
             onAction(.properties, item)
         }
         .disabled(!canModifyFiles)
+
+        Button(FavoriteStrings.localized(isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")) {
+            onToggleFavorite(item)
+        }
 
         Divider()
 

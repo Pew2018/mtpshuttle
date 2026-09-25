@@ -32,6 +32,11 @@ struct ContentView: View {
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
     @State private var propertyItem: DemoEntry?
+    @State private var propertyFavoriteLocation: FavoriteLocation?
+    @State private var pendingFavoriteSelection: FavoriteLocation?
+    @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
+    @State private var isFavoritesShelfPresented = false
+    @State private var areFavoritesExpanded = true
     @State private var statusMessage = MTPShuttleText.localized("Ready")
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
@@ -85,7 +90,18 @@ struct ContentView: View {
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider,
             mtpService: mtpService,
-            localBrowser: localBrowser
+            localBrowser: localBrowser,
+            favorites: favoriteLocations,
+            favoritesVisible: isFavoritesShelfPresented,
+            favoritesExpanded: $areFavoritesExpanded,
+            isFavorite: isFavorite,
+            onToggleFavorite: toggleFavorite,
+            onOpenFavorite: openFavorite,
+            onRemoveFavorite: removeFavorite,
+            onRebindFavorite: rebindFavorite,
+            isFavoriteAvailable: isFavoriteAvailable,
+            androidDeviceSerial: mtpService.device?.serialNumber,
+            androidSessionID: mtpService.connectionSessionID
         )
     }
 
@@ -93,6 +109,15 @@ struct ContentView: View {
         AnyView(workspaceView)
         .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    isFavoritesShelfPresented.toggle()
+                } label: {
+                    Image(systemName: isFavoritesShelfPresented ? "star.fill" : "star")
+                }
+                .help(FavoriteStrings.localized("Favorites"))
+                .accessibilityLabel(FavoriteStrings.localized("Favorites"))
+            }
             ToolbarItem(placement: .automatic) {
                 Button {
                     openWindow(id: "settings")
@@ -122,12 +147,18 @@ struct ContentView: View {
                 onCancel: { pendingExternalFolderDrop = nil }
             )
         }
-        .alert(item: $propertyItem) { item in
-            Alert(
-                title: Text(item.name),
-                message: Text(propertyDescription(for: item)),
-                dismissButton: .default(Text("OK"))
+        .sheet(item: $propertyItem) { item in
+            FilePropertiesSheet(
+                item: item,
+                message: propertyDescription(for: item),
+                canShowContainingFolder: propertyFavoriteLocation?.kind == .file,
+                onShowContainingFolder: {
+                    guard let location = propertyFavoriteLocation else { return }
+                    propertyItem = nil
+                    locateFavoriteFile(location)
+                }
             )
+            .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         }
         .confirmationDialog(
             transferConflictTitle,
@@ -256,6 +287,12 @@ struct ContentView: View {
                 leftPane.selection.removeAll()
                 activePane = .android
             }
+        }
+        .onChange(of: localBrowser.entries) { _ in
+            selectPendingFavoriteIfLoaded(in: .mac)
+        }
+        .onChange(of: mtpService.entries) { _ in
+            selectPendingFavoriteIfLoaded(in: .android)
         }
     }
 
@@ -409,6 +446,7 @@ struct ContentView: View {
                 NSWorkspace.shared.open(url)
                 return
             }
+            propertyFavoriteLocation = favoriteLocation(for: pane, item: item)
             propertyItem = item
             return
         }
@@ -493,7 +531,9 @@ struct ContentView: View {
         case .properties:
             let items = pane == .mac ? localBrowser.entries : (rightPane.path == "/" ? mtpService.storageEntries : mtpService.entries)
             let fallback = items.first { ids.contains($0.id) }
-            propertyItem = item ?? fallback
+            let selectedItem = item ?? fallback
+            propertyFavoriteLocation = selectedItem.map { favoriteLocation(for: pane, item: $0) }
+            propertyItem = selectedItem
 
         case .copy:
             clipboard = ClipboardPayload(
@@ -1448,6 +1488,128 @@ struct ContentView: View {
                 statusMessage = mtpService.browseError ?? mtpService.statusText
             }
         }
+    }
+
+    private var favoriteLocations: [FavoriteLocation] {
+        FavoriteLocation.decode(favoritesPayload)
+    }
+
+    private func saveFavorites(_ favorites: [FavoriteLocation]) {
+        favoritesPayload = FavoriteLocation.encode(favorites)
+    }
+
+    private func favoriteLocation(for pane: PaneKind, item: DemoEntry) -> FavoriteLocation {
+        FavoriteLocation.from(
+            pane: pane,
+            item: item,
+            currentPath: paneState(for: pane).path,
+            deviceSerial: mtpService.device?.serialNumber,
+            deviceSessionID: mtpService.connectionSessionID,
+            storageName: item.storageID.flatMap { id in mtpService.storages.first { $0.storageID == id }?.name }
+        )
+    }
+
+    private func isFavorite(_ pane: PaneKind, _ item: DemoEntry) -> Bool {
+        let location = favoriteLocation(for: pane, item: item)
+        return favoriteLocations.contains { $0.sameLocation(as: location) }
+    }
+
+    private func toggleFavorite(_ pane: PaneKind, _ item: DemoEntry) {
+        let location = favoriteLocation(for: pane, item: item)
+        saveFavorites(FavoriteLocation.toggled(location, in: favoriteLocations))
+        statusMessage = favoriteLocations.contains { $0.sameLocation(as: location) }
+            ? FavoriteStrings.localized("Added to Favorites")
+            : FavoriteStrings.localized("Removed from Favorites")
+    }
+
+    private func removeFavorite(_ location: FavoriteLocation) {
+        saveFavorites(favoriteLocations.filter { $0.id != location.id })
+    }
+
+    private func isFavoriteAvailable(_ location: FavoriteLocation) -> Bool {
+        switch location.pane {
+        case .mac:
+            return FileManager.default.fileExists(atPath: location.path)
+        case .android:
+            return location.canResolveAndroid(
+                deviceSerial: mtpService.device?.serialNumber,
+                sessionID: mtpService.connectionSessionID,
+                storages: mtpService.storages,
+                isConnected: mtpService.isConnected
+            )
+        }
+    }
+
+    private func rebindFavorite(_ location: FavoriteLocation) {
+        guard location.pane == .android, mtpService.isConnected else { return }
+        guard let storageName = location.storageName else {
+            statusMessage = FavoriteStrings.localized("Cannot identify the Android storage")
+            return
+        }
+        let matchingStorages = mtpService.storages.filter { $0.name == storageName }
+        guard matchingStorages.count == 1, let storage = matchingStorages.first else {
+            statusMessage = FavoriteStrings.localized("Storage is ambiguous; favorite was not changed")
+            return
+        }
+        var updated = location
+        updated.rebind(
+            deviceSerial: mtpService.device?.serialNumber,
+            sessionID: mtpService.connectionSessionID,
+            storageID: storage.storageID
+        )
+        saveFavorites(favoriteLocations.map { $0.id == location.id ? updated : $0 })
+        statusMessage = FavoriteStrings.localized("Android favorite rebound to current device")
+    }
+
+    private func openFavorite(_ location: FavoriteLocation) {
+        guard isFavoriteAvailable(location) else {
+            statusMessage = FavoriteStrings.localized("Favorite is currently unavailable")
+            return
+        }
+        if location.kind == .directory {
+            navigateTo(location.pane, location.path)
+            return
+        }
+
+        let localURL = location.pane == .mac ? URL(fileURLWithPath: location.path) : nil
+        let mtpPath = location.pane == .android ? MTPBrowsePath(browserPath: location.path)?.fullPath : nil
+        propertyFavoriteLocation = location
+        propertyItem = DemoEntry(
+            id: location.id,
+            name: location.name,
+            subtitle: "File",
+            sizeBytes: localURL.flatMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize },
+            isDirectory: false,
+            localURL: localURL,
+            storageID: MTPBrowsePath(browserPath: location.path)?.storageID,
+            remotePath: mtpPath,
+            objectID: nil
+        )
+    }
+
+    private func locateFavoriteFile(_ location: FavoriteLocation) {
+        guard location.kind == .file, isFavoriteAvailable(location) else { return }
+        pendingFavoriteSelection = location
+        let parent = location.parentPath
+        if paneState(for: location.pane).path == parent {
+            selectPendingFavoriteIfLoaded(in: location.pane)
+        } else {
+            navigateTo(location.pane, parent)
+        }
+    }
+
+    private func selectPendingFavoriteIfLoaded(in pane: PaneKind) {
+        guard let location = pendingFavoriteSelection, location.pane == pane else { return }
+        switch pane {
+        case .mac:
+            guard let entry = localBrowser.entries.first(where: { $0.localURL?.standardizedFileURL.path == location.path }) else { return }
+            leftPane.selection = [entry.id]
+        case .android:
+            guard let browsePath = MTPBrowsePath(browserPath: location.path),
+                  let entry = mtpService.entries.first(where: { $0.remotePath == browsePath.fullPath }) else { return }
+            rightPane.selection = [entry.id]
+        }
+        pendingFavoriteSelection = nil
     }
 
     private func propertyDescription(for item: DemoEntry) -> String {

@@ -237,3 +237,20 @@
 "Light" = "淺色";
 "Dark" = "深色";
 "Choose Light, Dark, or System to follow macOS." = "選擇淺色、深色，或跟隨 macOS 系統外觀。";
+
+"Favorites" = "收藏夾";
+"Add to Favorites" = "加入收藏夾";
+"Removed from Favorites" = "已從收藏夾移除";
+"Show in Containing Folder" = "進入所屬目錄";
+"Close" = "關閉";
+"No favorites yet" = "尚無收藏項目";
+"Unavailable" = "無法使用";
+"Rebind to Current Android Device" = "重新綁定至目前的 Android 裝置";
+"Collapse Favorites" = "摺疊收藏夾";
+"Expand Favorites" = "展開收藏夾";
+"Added to Favorites" = "已加入收藏夾";
+"Cannot identify the Android storage" = "無法識別 Android 儲存空間";
+"Storage is ambiguous; favorite was not changed" = "儲存空間不唯一，未變更收藏項目";
+"Android favorite rebound to current device" = "Android 收藏項目已重新綁定至目前裝置";
+"Favorite is currently unavailable" = "收藏項目目前無法使用";
+"Open" = "開啟";

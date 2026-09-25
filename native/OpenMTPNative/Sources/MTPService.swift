@@ -26,6 +26,7 @@ final class MTPService: ObservableObject {
     @Published private(set) var state: MTPConnectionState = .disconnected
     @Published private(set) var device: MTPDeviceSummary?
     @Published private(set) var storages: [MTPStorageSummary] = []
+    @Published private(set) var connectionSessionID = UUID().uuidString
     
     @Published private(set) var entries: [DemoEntry] = []
     @Published private(set) var isBrowsing = false
@@ -159,7 +160,8 @@ final class MTPService: ObservableObject {
     
     func connect() async {
         guard state != .connecting else { return }
-        
+
+        connectionSessionID = UUID().uuidString
         state = .connecting
         connectionError = nil
         device = nil

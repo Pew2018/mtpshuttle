@@ -223,3 +223,20 @@
 "Light" = "Light";
 "Dark" = "Dark";
 "Choose Light, Dark, or System to follow macOS." = "Choose Light, Dark, or System to follow macOS.";
+
+"Favorites" = "Favorites";
+"Add to Favorites" = "Add to Favorites";
+"Removed from Favorites" = "Removed from Favorites";
+"Show in Containing Folder" = "Show in Containing Folder";
+"Close" = "Close";
+"No favorites yet" = "No favorites yet";
+"Unavailable" = "Unavailable";
+"Rebind to Current Android Device" = "Rebind to Current Android Device";
+"Collapse Favorites" = "Collapse Favorites";
+"Expand Favorites" = "Expand Favorites";
+"Added to Favorites" = "Added to Favorites";
+"Cannot identify the Android storage" = "Cannot identify the Android storage";
+"Storage is ambiguous; favorite was not changed" = "Storage is ambiguous; favorite was not changed";
+"Android favorite rebound to current device" = "Android favorite rebound to current device";
+"Favorite is currently unavailable" = "Favorite is currently unavailable";
+"Open" = "Open";
