@@ -1708,6 +1708,7 @@ private struct DemoOperation: Identifiable {
 }
 
 private struct WorkspaceView: View {
+    @State private var favoritesExpandedHeight: CGFloat = 180
     @Binding var fileSystem: DemoFileSystem
     @Binding var leftPane: PaneNavigationState
     @Binding var rightPane: PaneNavigationState
@@ -1813,6 +1814,17 @@ private struct WorkspaceView: View {
         )
     }
 
+    private func resizeFavoriteShelf(_ proposedHeight: CGFloat) {
+        let minimumExpandedHeight: CGFloat = 112
+        guard proposedHeight >= minimumExpandedHeight else {
+            favoritesExpanded = false
+            return
+        }
+
+        favoritesExpandedHeight = min(proposedHeight, 360)
+        favoritesExpanded = true
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -1838,6 +1850,8 @@ private struct WorkspaceView: View {
                 FavoriteShelfView(
                     favorites: favorites,
                     isExpanded: $favoritesExpanded,
+                    expandedHeight: favoritesExpandedHeight,
+                    onHeightChange: resizeFavoriteShelf,
                     isAndroidConnected: mtpService.isConnected,
                     isAvailable: isFavoriteAvailable,
                     onOpen: onOpenFavorite,

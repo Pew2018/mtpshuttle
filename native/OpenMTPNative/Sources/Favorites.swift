@@ -177,6 +177,9 @@ struct FilePropertiesSheet: View {
 struct FavoriteShelfView: View {
     let favorites: [FavoriteLocation]
     let isExpanded: Binding<Bool>
+    let expandedHeight: CGFloat
+    let onHeightChange: (CGFloat) -> Void
+    @State private var dragStartHeight: CGFloat?
     let isAndroidConnected: Bool
     let isAvailable: (FavoriteLocation) -> Bool
     let onOpen: (FavoriteLocation) -> Void
@@ -185,6 +188,8 @@ struct FavoriteShelfView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            resizeHandle
+
             HStack {
                 Label(FavoriteStrings.localized("Favorites"), systemImage: "star.fill")
                     .font(.headline)
@@ -210,8 +215,29 @@ struct FavoriteShelfView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isExpanded.wrappedValue ? 180 : 36)
+        .frame(height: isExpanded.wrappedValue ? expandedHeight : 44)
         .background(.bar)
+    }
+
+    private var resizeHandle: some View {
+        Capsule()
+            .fill(Color.secondary.opacity(0.55))
+            .frame(width: 36, height: 4)
+            .frame(maxWidth: .infinity)
+            .frame(height: 8)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        if dragStartHeight == nil {
+                            dragStartHeight = isExpanded.wrappedValue ? expandedHeight : 44
+                        }
+                        onHeightChange((dragStartHeight ?? 44) - value.translation.height)
+                    }
+                    .onEnded { _ in dragStartHeight = nil }
+            )
+            .accessibilityLabel(Text(FavoriteStrings.localized("Resize Favorites")))
+            .accessibilityHint(Text(FavoriteStrings.localized("Drag up or down to adjust the favorites shelf height.")))
     }
 
     private func favoriteColumn(title: String, pane: PaneKind) -> some View {

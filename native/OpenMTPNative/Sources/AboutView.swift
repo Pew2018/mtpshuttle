@@ -72,7 +72,6 @@ struct AboutView: View {
         }
         .padding(24)
         .frame(width: 380)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private func repositoryLink(title: String, subtitle: String, symbol: String, url: URL) -> some View {

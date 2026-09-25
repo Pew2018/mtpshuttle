@@ -264,3 +264,7 @@
 "Choose what happens when you double-click a favorite file." = "選擇雙擊收藏檔案時的操作。";
 "Reveal Containing Folder and Select File" = "進入所屬目錄並選取檔案";
 "Show File Properties" = "顯示檔案屬性";
+
+
+"Resize Favorites" = "調整收藏夾大小";
+"Drag up or down to adjust the favorites shelf height." = "上下拖曳以調整收藏列高度。";
