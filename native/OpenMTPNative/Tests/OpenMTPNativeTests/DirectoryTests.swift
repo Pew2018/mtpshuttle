@@ -87,6 +87,22 @@ final class DirectoryTests: XCTestCase {
         XCTAssertEqual(FinderOpenTarget.target(for: folder), .openDirectory(folderURL))
     }
 
+    func testFinderOpenTargetSelectsPackageDirectoriesAsSingleItems() {
+        for packageName in ["Example.app", "Document.pages", "Library.photoslibrary", "Code.framework"] {
+            let packageURL = URL(fileURLWithPath: "/Applications/\(packageName)", isDirectory: true)
+            let package = DemoEntry(
+                id: UUID(), name: packageName, subtitle: "Package", sizeBytes: nil,
+                isDirectory: true, localURL: packageURL,
+                storageID: nil, remotePath: nil, objectID: nil
+            )
+            XCTAssertEqual(
+                FinderOpenTarget.target(for: package, isPackage: true),
+                .selectFileInContainingFolder(packageURL),
+                "\(packageName) should be selected in Finder, not opened as a directory"
+            )
+        }
+    }
+
     func testFinderOpenTargetIgnoresItemsWithoutLocalURLs() {
         let remoteItem = DemoEntry(
             id: UUID(), name: "photo.jpg", subtitle: "Image", sizeBytes: nil,
