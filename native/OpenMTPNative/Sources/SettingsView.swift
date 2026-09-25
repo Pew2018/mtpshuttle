@@ -1,15 +1,31 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openWindow) private var openWindow
     @AppStorage("dragDropMode") private var dragDropMode = DragDropMode.copy.rawValue
     @AppStorage("androidOnlyMode") private var androidOnlyMode = false
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
     @AppStorage("debugMode") private var debugMode = false
     @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
+    @AppStorage(AppearanceMode.storageKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
+    @State private var isClearLogConfirmationPresented = false
+    @State private var logClearResult: String?
 
     var body: some View {
         Form {
+            Section {
+                Picker("Mode", selection: $appAppearance) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Text(LocalizedStringKey(mode.localizationKey)).tag(mode.rawValue)
+                    }
+                }
+            } header: {
+                Label("Appearance", systemImage: "circle.lefthalf.filled")
+            } footer: {
+                Text("Choose Light, Dark, or System to follow macOS.")
+            }
+
             Section {
                 Picker("App Language", selection: $appLanguage) {
                     ForEach(MTPShuttleLanguage.allCases) { language in
@@ -74,6 +90,7 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Button("Open Debug Log") { DebugLogger.openLog() }
                     Button("Copy Debug Log") { DebugLogger.copyLogToClipboard() }
+                    Button("Clear Debug Log…") { isClearLogConfirmationPresented = true }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -90,6 +107,43 @@ struct SettingsView: View {
             } footer: {
                 Text("Enable debug mode only when investigating a problem. Diagnostics never change file operations.")
             }
+
+            Section {
+                Button {
+                    openWindow(id: "about")
+                } label: {
+                    HStack {
+                        Label("About MTP Shuttle", systemImage: "info.circle")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .confirmationDialog("Clear Debug Log?", isPresented: $isClearLogConfirmationPresented) {
+            Button("Clear Log", role: .destructive) {
+                do {
+                    try DebugLogger.clearLog()
+                    logClearResult = "Debug log cleared."
+                } catch {
+                    logClearResult = "Could not clear the debug log: \(error.localizedDescription)"
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes all current log entries.")
+        }
+        .alert("Debug Log", isPresented: Binding(
+            get: { logClearResult != nil },
+            set: { if !$0 { logClearResult = nil } }
+        )) {
+            Button("OK") { logClearResult = nil }
+        } message: {
+            Text(logClearResult ?? "")
         }
         .formStyle(.grouped)
         .padding(20)

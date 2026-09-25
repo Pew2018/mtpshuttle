@@ -1846,10 +1846,6 @@ private struct WorkspaceView: View {
                         .font(.caption)
 
                     Spacer()
-
-                    Text(mtpService.deviceSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)

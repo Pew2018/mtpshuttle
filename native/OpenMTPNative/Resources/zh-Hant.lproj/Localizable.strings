@@ -230,3 +230,30 @@
 "Copy to Other Pane" = "複製到另一個面板";
 "Move to Other Pane" = "移動到另一個面板";
 "Transferring: %@" = "正在傳輸：%@";
+
+"Appearance" = "外觀";
+"Mode" = "模式";
+"System" = "跟隨系統";
+"Light" = "淺色";
+"Dark" = "深色";
+"Choose Light, Dark, or System to follow macOS." = "選擇淺色、深色，或跟隨 macOS 系統外觀。";
+
+"About MTP Shuttle" = "關於 MTP Shuttle";
+"App icon placeholder" = "應用程式圖示預留位置";
+"App icon coming soon" = "應用程式圖示即將推出";
+"A simple, native way to move files between your Mac and Android device." = "在 Mac 與 Android 裝置之間傳輸檔案的原生工具。";
+"Version" = "版本";
+"MTP Shuttle on GitHub" = "MTP Shuttle 專案";
+"Project repository" = "專案 GitHub 儲存庫";
+"OpenMTP on GitHub" = "OpenMTP 上游專案";
+"Original project" = "原專案 GitHub 儲存庫";
+"Built for macOS" = "為 macOS 打造";
+"About" = "關於";
+
+
+"Clear Debug Log…" = "清除除錯日誌…";
+"Clear Debug Log?" = "清除除錯日誌？";
+"Clear Log" = "清除日誌";
+"This permanently removes all current log entries." = "此操作會永久刪除目前所有日誌內容。";
+"Debug log cleared." = "除錯日誌已清除。";
+"Could not clear the debug log: %@" = "無法清除除錯日誌：%@";

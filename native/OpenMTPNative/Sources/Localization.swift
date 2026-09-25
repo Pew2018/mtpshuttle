@@ -10,17 +10,17 @@ enum MTPShuttleLanguage: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var localizationKey: String {
-        switch self {
-        case .system: return "Automatic (System)"
-        case .english: return "English"
-        case .simplifiedChinese: return "简体中文"
-        case .traditionalChinese: return "繁體中文"
-        }
-    }
-
     var displayName: String {
-        MTPShuttleText.localized(localizationKey)
+        switch self {
+        case .system:
+            return MTPShuttleText.localized("Automatic (System)")
+        case .english:
+            return "English"
+        case .simplifiedChinese:
+            return "简体中文"
+        case .traditionalChinese:
+            return "繁體中文"
+        }
     }
 
     static func locale(for rawValue: String) -> Locale {
