@@ -216,3 +216,10 @@
 "Copy to Other Pane" = "Copy to Other Pane";
 "Move to Other Pane" = "Move to Other Pane";
 "Transferring: %@" = "Transferring: %@";
+
+"Appearance" = "Appearance";
+"Mode" = "Mode";
+"System" = "System";
+"Light" = "Light";
+"Dark" = "Dark";
+"Choose Light, Dark, or System to follow macOS." = "Choose Light, Dark, or System to follow macOS.";
