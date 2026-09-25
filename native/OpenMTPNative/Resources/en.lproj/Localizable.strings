@@ -235,3 +235,11 @@
 "Original project" = "Original project";
 "Built for macOS" = "Built for macOS";
 "About" = "About";
+
+
+"Clear Debug Log…" = "Clear Debug Log…";
+"Clear Debug Log?" = "Clear Debug Log?";
+"Clear Log" = "Clear Log";
+"This permanently removes all current log entries." = "This permanently removes all current log entries.";
+"Debug log cleared." = "Debug log cleared.";
+"Could not clear the debug log: %@" = "Could not clear the debug log: %@";

@@ -9,6 +9,8 @@ struct SettingsView: View {
     @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
     @AppStorage(AppearanceMode.storageKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
+    @State private var isClearLogConfirmationPresented = false
+    @State private var logClearResult: String?
 
     var body: some View {
         Form {
@@ -88,6 +90,7 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Button("Open Debug Log") { DebugLogger.openLog() }
                     Button("Copy Debug Log") { DebugLogger.copyLogToClipboard() }
+                    Button("Clear Debug Log…") { isClearLogConfirmationPresented = true }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -119,9 +122,28 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-            } header: {
-                Label("About", systemImage: "info.circle")
             }
+        }
+        .confirmationDialog("Clear Debug Log?", isPresented: $isClearLogConfirmationPresented) {
+            Button("Clear Log", role: .destructive) {
+                do {
+                    try DebugLogger.clearLog()
+                    logClearResult = "Debug log cleared."
+                } catch {
+                    logClearResult = "Could not clear the debug log: \\(error.localizedDescription)"
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes all current log entries.")
+        }
+        .alert("Debug Log", isPresented: Binding(
+            get: { logClearResult != nil },
+            set: { if !$0 { logClearResult = nil } }
+        )) {
+            Button("OK") { logClearResult = nil }
+        } message: {
+            Text(logClearResult ?? "")
         }
         .formStyle(.grouped)
         .padding(20)

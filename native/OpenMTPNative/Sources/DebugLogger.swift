@@ -51,6 +51,17 @@ enum DebugLogger {
         return String(decoding: data, as: UTF8.self)
     }
     
+    static func clearLog() throws {
+        lock.lock()
+        defer { lock.unlock() }
+
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        try Data().write(to: logURL, options: .atomic)
+    }
+
     static func openLog() {
         _ = NSWorkspace.shared.open(logURL)
     }
