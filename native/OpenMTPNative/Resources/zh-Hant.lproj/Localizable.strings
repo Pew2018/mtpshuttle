@@ -230,3 +230,10 @@
 "Copy to Other Pane" = "複製到另一個面板";
 "Move to Other Pane" = "移動到另一個面板";
 "Transferring: %@" = "正在傳輸：%@";
+
+"Appearance" = "外觀";
+"Mode" = "模式";
+"System" = "跟隨系統";
+"Light" = "淺色";
+"Dark" = "深色";
+"Choose Light, Dark, or System to follow macOS." = "選擇淺色、深色，或跟隨 macOS 系統外觀。";

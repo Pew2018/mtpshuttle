@@ -6,10 +6,23 @@ struct SettingsView: View {
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
     @AppStorage("debugMode") private var debugMode = false
     @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
+    @AppStorage(AppearanceMode.storageKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
 
     var body: some View {
         Form {
+            Section {
+                Picker("Mode", selection: $appAppearance) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Text(LocalizedStringKey(mode.localizationKey)).tag(mode.rawValue)
+                    }
+                }
+            } header: {
+                Label("Appearance", systemImage: "circle.lefthalf.filled")
+            } footer: {
+                Text("Choose Light, Dark, or System to follow macOS.")
+            }
+
             Section {
                 Picker("App Language", selection: $appLanguage) {
                     ForEach(MTPShuttleLanguage.allCases) { language in
