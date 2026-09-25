@@ -130,7 +130,7 @@ struct SettingsView: View {
                     try DebugLogger.clearLog()
                     logClearResult = "Debug log cleared."
                 } catch {
-                    logClearResult = "Could not clear the debug log: \\(error.localizedDescription)"
+                    logClearResult = "Could not clear the debug log: \(error.localizedDescription)"
                 }
             }
             Button("Cancel", role: .cancel) {}
