@@ -69,4 +69,31 @@ final class DirectoryTests: XCTestCase {
         XCTAssertTrue(service.entries.isEmpty)
         XCTAssertFalse(service.isLoading)
     }
+    func testFinderOpenTargetSelectsFilesAndOpensDirectories() {
+        let fileURL = URL(fileURLWithPath: "/Users/test/Documents/notes.txt")
+        let file = DemoEntry(
+            id: UUID(), name: "notes.txt", subtitle: "Text", sizeBytes: 1,
+            isDirectory: false, localURL: fileURL,
+            storageID: nil, remotePath: nil, objectID: nil
+        )
+        XCTAssertEqual(FinderOpenTarget.target(for: file), .selectFileInContainingFolder(fileURL))
+
+        let folderURL = URL(fileURLWithPath: "/Users/test/Documents/Archive", isDirectory: true)
+        let folder = DemoEntry(
+            id: UUID(), name: "Archive", subtitle: "Folder", sizeBytes: nil,
+            isDirectory: true, localURL: folderURL,
+            storageID: nil, remotePath: nil, objectID: nil
+        )
+        XCTAssertEqual(FinderOpenTarget.target(for: folder), .openDirectory(folderURL))
+    }
+
+    func testFinderOpenTargetIgnoresItemsWithoutLocalURLs() {
+        let remoteItem = DemoEntry(
+            id: UUID(), name: "photo.jpg", subtitle: "Image", sizeBytes: nil,
+            isDirectory: false, localURL: nil,
+            storageID: 1, remotePath: "/photo.jpg", objectID: 2
+        )
+        XCTAssertNil(FinderOpenTarget.target(for: remoteItem))
+    }
+
 }

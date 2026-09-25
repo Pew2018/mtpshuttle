@@ -245,3 +245,5 @@
 "This permanently removes all current log entries." = "此操作会永久删除当前所有日志内容。";
 "Debug log cleared." = "调试日志已清空。";
 "Could not clear the debug log: %@" = "无法清空调试日志：%@";
+
+"Show in Finder" = "在 Finder 中显示";
