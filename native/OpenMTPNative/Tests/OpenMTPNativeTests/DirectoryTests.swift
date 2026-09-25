@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import SwiftMTP
 
 final class DirectoryTests: XCTestCase {
@@ -101,6 +102,36 @@ final class DirectoryTests: XCTestCase {
                 "\(packageName) should be selected in Finder, not opened as a directory"
             )
         }
+    }
+
+    func testFinderOpenTargetUsesAppKitPackageRecognition() throws {
+        let packageURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MTPShuttlePackage-\(UUID().uuidString).app", isDirectory: true)
+        let contentsURL = packageURL.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: packageURL) }
+
+        let bundleIdentifier = "com.example.mtpshuttle.test.\(UUID().uuidString)"
+        let info: [String: Any] = [
+            "CFBundleDevelopmentRegion": "en",
+            "CFBundleIdentifier": bundleIdentifier,
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "MTP Shuttle Package Test",
+            "CFBundlePackageType": "APPL",
+            "CFBundleVersion": "1"
+        ]
+        let plist = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        try plist.write(to: contentsURL.appendingPathComponent("Info.plist"))
+
+        XCTAssertTrue(NSWorkspace.shared.isFilePackage(atPath: packageURL.path))
+        let package = DemoEntry(
+            id: UUID(), name: packageURL.lastPathComponent, subtitle: "Package",
+            isDirectory: true, localURL: packageURL
+        )
+        XCTAssertEqual(
+            FinderOpenTarget.target(for: package),
+            .selectFileInContainingFolder(packageURL)
+        )
     }
 
     func testFinderOpenTargetIgnoresItemsWithoutLocalURLs() {
