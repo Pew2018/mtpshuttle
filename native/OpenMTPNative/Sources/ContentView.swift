@@ -99,7 +99,9 @@ struct ContentView: View {
             onOpenFavorite: openFavorite,
             onRemoveFavorite: removeFavorite,
             onRebindFavorite: rebindFavorite,
-            isFavoriteAvailable: isFavoriteAvailable
+            isFavoriteAvailable: isFavoriteAvailable,
+            androidDeviceSerial: mtpService.device?.serialNumber,
+            androidSessionID: mtpService.connectionSessionID
         )
     }
 
@@ -1613,7 +1615,7 @@ struct ContentView: View {
     private func propertyDescription(for item: DemoEntry) -> String {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
-        let path = propertyFavoriteLocation?.path ?? item.localURL?.path ?? item.remotePath ?? item.name
+        let path = item.localURL?.path ?? item.remotePath ?? item.name
         return "Type: \(type)\nSize: \(size)\nPath: \(path)"
     }
 }
@@ -1727,15 +1729,6 @@ private struct WorkspaceView: View {
     let onExternalDragProvider: (PaneKind, String, DemoEntry, Set<UUID>) -> NSItemProvider
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
-    let favorites: [FavoriteLocation]
-    let favoritesVisible: Bool
-    @Binding var favoritesExpanded: Bool
-    let isFavorite: (PaneKind, DemoEntry) -> Bool
-    let onToggleFavorite: (PaneKind, DemoEntry) -> Void
-    let onOpenFavorite: (FavoriteLocation) -> Void
-    let onRemoveFavorite: (FavoriteLocation) -> Void
-    let onRebindFavorite: (FavoriteLocation) -> Void
-    let isFavoriteAvailable: (FavoriteLocation) -> Bool
 
     private var macPane: some View {
         FilePaneView(
@@ -1758,8 +1751,6 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.mac) },
             onPaste: { onPaste(.mac) },
             showCrossPaneActions: !androidOnlyMode && mtpService.isConnected,
-            isFavorite: { isFavorite(.mac, $0) },
-            onToggleFavorite: { onToggleFavorite(.mac, $0) },
             onInternalDrop: { encoded in
                 onInternalDrop(encoded, .mac)
             },
@@ -1795,8 +1786,6 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.android) },
             onPaste: { onPaste(.android) },
             showCrossPaneActions: !androidOnlyMode,
-            isFavorite: { isFavorite(.android, $0) },
-            onToggleFavorite: { onToggleFavorite(.android, $0) },
             onInternalDrop: { encoded in
                 onInternalDrop(encoded, .android)
             },
@@ -1826,18 +1815,6 @@ private struct WorkspaceView: View {
 
                     androidPane
                 }
-            }
-
-            if favoritesVisible {
-                FavoriteShelfView(
-                    favorites: favorites,
-                    isExpanded: $favoritesExpanded,
-                    isAndroidConnected: mtpService.isConnected,
-                    isAvailable: isFavoriteAvailable,
-                    onOpen: onOpenFavorite,
-                    onRemove: onRemoveFavorite,
-                    onRebind: onRebindFavorite
-                )
             }
 
             Divider()

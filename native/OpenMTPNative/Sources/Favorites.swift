@@ -39,13 +39,15 @@ struct FavoriteLocation: Identifiable, Codable, Hashable {
             path = currentPath
         }
 
+        let normalizedSerial = deviceSerial?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stableSerial = normalizedSerial?.isEmpty == false ? normalizedSerial : nil
         return FavoriteLocation(
             id: UUID(),
             pane: pane,
             kind: item.isDirectory ? .directory : .file,
             name: item.name,
             path: path,
-            deviceSerial: pane == .android ? deviceSerial : nil,
+            deviceSerial: pane == .android ? stableSerial : nil,
             deviceSessionID: pane == .android ? deviceSessionID : nil,
             storageID: pane == .android ? item.storageID : nil,
             storageName: pane == .android ? storageName : nil
@@ -67,9 +69,9 @@ struct FavoriteLocation: Identifiable, Codable, Hashable {
     func sameLocation(as other: FavoriteLocation) -> Bool {
         guard pane == other.pane, path == other.path else { return false }
         if pane == .mac { return true }
-        return deviceSerial == other.deviceSerial
-            && deviceSessionID == other.deviceSessionID
-            && storageID == other.storageID
+        guard storageID == other.storageID, deviceSerial == other.deviceSerial else { return false }
+        if deviceSerial != nil { return true }
+        return deviceSessionID == other.deviceSessionID
     }
 
     static func decode(_ payload: String) -> [FavoriteLocation] {
@@ -98,12 +100,14 @@ struct FavoriteLocation: Identifiable, Codable, Hashable {
     ) -> Bool {
         guard pane == .android, isConnected,
               let storageID, let storageName,
-              let storage = storages.first(where: { $0.storageID == storageID && $0.name == storageName }) else { return false }
+              storages.contains(where: { $0.storageID == storageID && $0.name == storageName }) else { return false }
+        let normalizedCurrentSerial = currentSerial?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stableCurrentSerial = normalizedCurrentSerial?.isEmpty == false ? normalizedCurrentSerial : nil
         if let deviceSerial {
-            return currentSerial == deviceSerial
+            return stableCurrentSerial == deviceSerial
         }
-        guard let deviceSessionID else { return false }
-        return deviceSerial == nil && deviceSessionID == currentSessionID
+        guard stableCurrentSerial == nil, let deviceSessionID else { return false }
+        return deviceSessionID == currentSessionID
     }
 
     mutating func rebind(deviceSerial: String?, sessionID: String, storageID: UInt32) {

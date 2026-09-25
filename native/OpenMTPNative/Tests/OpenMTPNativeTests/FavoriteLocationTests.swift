@@ -39,6 +39,19 @@ final class FavoriteLocationTests: XCTestCase {
         XCTAssertFalse(favorite.canResolveAndroid(deviceSerial: "SERIAL-A", sessionID: "new-session", storages: [storage], isConnected: false))
     }
 
+    func testSerialIdentitySurvivesReconnectAndEmptySerialUsesSessionIdentity() {
+        let a = FavoriteLocation(id: UUID(), pane: .android, kind: .file, name: "x", path: "/1/x",
+                                 deviceSerial: "SERIAL", deviceSessionID: "old", storageID: 1, storageName: "Phone")
+        let b = FavoriteLocation(id: UUID(), pane: .android, kind: .file, name: "x", path: "/1/x",
+                                 deviceSerial: "SERIAL", deviceSessionID: "new", storageID: 1, storageName: "Phone")
+        XCTAssertTrue(a.sameLocation(as: b))
+        let storage = MTPStorageSummary(id: UUID(), storageID: 1, name: "Phone", maxCapacity: nil, freeSpace: nil)
+        let noSerial = FavoriteLocation(id: UUID(), pane: .android, kind: .file, name: "x", path: "/1/x",
+                                        deviceSerial: nil, deviceSessionID: "session", storageID: 1, storageName: "Phone")
+        XCTAssertTrue(noSerial.canResolveAndroid(deviceSerial: "", sessionID: "session", storages: [storage], isConnected: true))
+        XCTAssertFalse(noSerial.canResolveAndroid(deviceSerial: "", sessionID: "other", storages: [storage], isConnected: true))
+    }
+
     func testAndroidWithoutSerialIsScopedToCurrentConnectionSession() {
         let storage = MTPStorageSummary(id: UUID(), storageID: 1, name: "Phone", maxCapacity: nil, freeSpace: nil)
         var favorite = FavoriteLocation(
