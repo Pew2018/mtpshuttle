@@ -3,63 +3,60 @@ import SwiftUI
 struct AboutView: View {
     private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
 
-    private var text: (String) -> String {
-        MTPShuttleText.localized
+    private func text(_ key: String) -> String {
+        MTPShuttleText.localized(key)
     }
 
     var body: some View {
-        VStack(spacing: 22) {
-            VStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 23, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(nsColor: .controlAccentColor).opacity(0.14),
-                                Color(nsColor: .controlBackgroundColor)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+        VStack(spacing: 16) {
+            VStack(spacing: 9) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 23, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
                     }
                     .overlay {
                         Image(systemName: "shippingbox")
-                            .font(.system(size: 43, weight: .light))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(Color(nsColor: .controlAccentColor))
+                            .font(.system(size: 30, weight: .regular))
+                            .foregroundStyle(.secondary)
                     }
-                    .frame(width: 96, height: 96)
+                    .frame(width: 68, height: 68)
                     .accessibilityLabel(text("App icon placeholder"))
 
                 Text(text("App icon coming soon"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
 
-            VStack(spacing: 5) {
+            VStack(spacing: 4) {
                 Text("MTP Shuttle")
-                    .font(.system(size: 25, weight: .semibold, design: .rounded))
+                    .font(.title2.weight(.semibold))
                 Text(text("A simple, native way to move files between your Mac and Android device."))
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("\(text("Version")) \(appVersion)")
-                    .font(.caption.monospacedDigit())
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 2)
             }
 
-            VStack(spacing: 9) {
+            Divider()
+                .padding(.vertical, 2)
+
+            VStack(spacing: 0) {
                 repositoryLink(
                     title: text("MTP Shuttle on GitHub"),
                     subtitle: text("Project repository"),
                     symbol: "chevron.left.forwardslash.chevron.right",
                     url: URL(string: "https://github.com/Pew2018/mtpshuttle")!
                 )
+
+                Divider()
+                    .padding(.leading, 34)
+
                 repositoryLink(
                     title: text("OpenMTP on GitHub"),
                     subtitle: text("Original project"),
@@ -71,9 +68,10 @@ struct AboutView: View {
             Text(text("Built for macOS"))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .padding(.top, 1)
         }
-        .padding(30)
-        .frame(width: 440)
+        .padding(24)
+        .frame(width: 380)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
@@ -81,14 +79,13 @@ struct AboutView: View {
         Link(destination: url) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(nsColor: .controlAccentColor))
-                    .frame(width: 34, height: 34)
-                    .background(Color(nsColor: .controlAccentColor).opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
+                    .font(.system(size: 16))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.subheadline.weight(.medium))
+                        .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                     Text(subtitle)
                         .font(.caption)
@@ -98,16 +95,11 @@ struct AboutView: View {
                 Spacer()
 
                 Image(systemName: "arrow.up.right")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
             }
-            .padding(11)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.vertical, 9)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
