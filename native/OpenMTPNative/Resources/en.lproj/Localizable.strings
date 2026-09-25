@@ -223,3 +223,15 @@
 "Light" = "Light";
 "Dark" = "Dark";
 "Choose Light, Dark, or System to follow macOS." = "Choose Light, Dark, or System to follow macOS.";
+
+"About MTP Shuttle" = "About MTP Shuttle";
+"App icon placeholder" = "App icon placeholder";
+"App icon coming soon" = "App icon coming soon";
+"A simple, native way to move files between your Mac and Android device." = "A simple, native way to move files between your Mac and Android device.";
+"Version" = "Version";
+"MTP Shuttle on GitHub" = "MTP Shuttle on GitHub";
+"Project repository" = "Project repository";
+"OpenMTP on GitHub" = "OpenMTP on GitHub";
+"Original project" = "Original project";
+"Built for macOS" = "Built for macOS";
+"About" = "About";

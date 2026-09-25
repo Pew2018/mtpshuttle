@@ -36,6 +36,14 @@ struct OpenMTPNativeApp: App {
         .defaultSize(width: 560, height: 700)
         .windowResizability(.contentSize)
 
+        Window(MTPShuttleText.localized("About MTP Shuttle"), id: "about") {
+            AboutView()
+                .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+                .preferredColorScheme(AppearanceMode.resolve(appAppearance).colorScheme)
+        }
+        .defaultSize(width: 440, height: 520)
+        .windowResizability(.contentSize)
+
         Window(MTPShuttleText.localized("Task Details"), id: "tasks") {
             TaskDetailsView()
                 .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
@@ -50,6 +58,12 @@ private struct SwiftMTPCommands: Commands {
     @FocusedValue(\.openMTPEditActions) private var editActions
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button(MTPShuttleText.localized("About MTP Shuttle")) {
+                openWindow(id: "about")
+            }
+        }
+
         CommandGroup(replacing: .pasteboard) {
         }
 

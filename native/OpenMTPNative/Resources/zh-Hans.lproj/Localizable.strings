@@ -225,3 +225,15 @@
 "Light" = "浅色";
 "Dark" = "深色";
 "Choose Light, Dark, or System to follow macOS." = "选择浅色、深色，或跟随 macOS 系统外观。";
+
+"About MTP Shuttle" = "关于 MTP Shuttle";
+"App icon placeholder" = "应用图标占位区域";
+"App icon coming soon" = "应用图标即将推出";
+"A simple, native way to move files between your Mac and Android device." = "在 Mac 与 Android 设备之间传输文件的原生工具。";
+"Version" = "版本";
+"MTP Shuttle on GitHub" = "MTP Shuttle 项目";
+"Project repository" = "项目 GitHub 仓库";
+"OpenMTP on GitHub" = "OpenMTP 上游项目";
+"Original project" = "原项目 GitHub 仓库";
+"Built for macOS" = "为 macOS 打造";
+"About" = "关于";

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openWindow) private var openWindow
     @AppStorage("dragDropMode") private var dragDropMode = DragDropMode.copy.rawValue
     @AppStorage("androidOnlyMode") private var androidOnlyMode = false
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
@@ -102,6 +103,24 @@ struct SettingsView: View {
                 Label("Diagnostics", systemImage: "stethoscope")
             } footer: {
                 Text("Enable debug mode only when investigating a problem. Diagnostics never change file operations.")
+            }
+
+            Section {
+                Button {
+                    openWindow(id: "about")
+                } label: {
+                    HStack {
+                        Label("About MTP Shuttle", systemImage: "info.circle")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } header: {
+                Label("About", systemImage: "info.circle")
             }
         }
         .formStyle(.grouped)
