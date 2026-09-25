@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-enum FavoriteFileOpenBehavior: String, CaseIterable, Identifiable {
+enum FavoriteFileOpenBehavior: String, CaseIterable, Identifiable, Equatable {
     case revealAndSelect
     case showProperties
 
