@@ -99,9 +99,7 @@ struct ContentView: View {
             onOpenFavorite: openFavorite,
             onRemoveFavorite: removeFavorite,
             onRebindFavorite: rebindFavorite,
-            isFavoriteAvailable: isFavoriteAvailable,
-            androidDeviceSerial: mtpService.device?.serialNumber,
-            androidSessionID: mtpService.connectionSessionID
+            isFavoriteAvailable: isFavoriteAvailable
         )
     }
 
@@ -1615,7 +1613,7 @@ struct ContentView: View {
     private func propertyDescription(for item: DemoEntry) -> String {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
-        let path = item.localURL?.path ?? item.remotePath ?? item.name
+        let path = propertyFavoriteLocation?.path ?? item.localURL?.path ?? item.remotePath ?? item.name
         return "Type: \(type)\nSize: \(size)\nPath: \(path)"
     }
 }
