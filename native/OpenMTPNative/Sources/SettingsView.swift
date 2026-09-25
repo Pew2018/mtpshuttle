@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openWindow) private var openWindow
     @AppStorage("dragDropMode") private var dragDropMode = DragDropMode.copy.rawValue
     @AppStorage("androidOnlyMode") private var androidOnlyMode = false
     @AppStorage("quickLookPreviewEnabled") private var quickLookPreviewEnabled = true
@@ -8,6 +9,9 @@ struct SettingsView: View {
     @AppStorage("appLanguage") private var appLanguage = MTPShuttleLanguage.system.rawValue
     @AppStorage(AppearanceMode.storageKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
+    @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
+    @State private var isClearLogConfirmationPresented = false
+    @State private var logClearResult: String?
 
     var body: some View {
         Form {
@@ -21,6 +25,19 @@ struct SettingsView: View {
                 Label("Appearance", systemImage: "circle.lefthalf.filled")
             } footer: {
                 Text("Choose Light, Dark, or System to follow macOS.")
+            }
+
+            Section {
+                Picker("Double-clicking a favorite file", selection: $favoriteFileOpenBehavior) {
+                    ForEach(FavoriteFileOpenBehavior.allCases) { behavior in
+                        Text(LocalizedStringKey(behavior.localizationKey)).tag(behavior.rawValue)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+            } header: {
+                Label("Favorites", systemImage: "star")
+            } footer: {
+                Text("Choose what happens when you double-click a favorite file.")
             }
 
             Section {
@@ -87,6 +104,7 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Button("Open Debug Log") { DebugLogger.openLog() }
                     Button("Copy Debug Log") { DebugLogger.copyLogToClipboard() }
+                    Button("Clear Debug Log…") { isClearLogConfirmationPresented = true }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -103,6 +121,43 @@ struct SettingsView: View {
             } footer: {
                 Text("Enable debug mode only when investigating a problem. Diagnostics never change file operations.")
             }
+
+            Section {
+                Button {
+                    openWindow(id: "about")
+                } label: {
+                    HStack {
+                        Label("About MTP Shuttle", systemImage: "info.circle")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .confirmationDialog("Clear Debug Log?", isPresented: $isClearLogConfirmationPresented) {
+            Button("Clear Log", role: .destructive) {
+                do {
+                    try DebugLogger.clearLog()
+                    logClearResult = "Debug log cleared."
+                } catch {
+                    logClearResult = "Could not clear the debug log: \(error.localizedDescription)"
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes all current log entries.")
+        }
+        .alert("Debug Log", isPresented: Binding(
+            get: { logClearResult != nil },
+            set: { if !$0 { logClearResult = nil } }
+        )) {
+            Button("OK") { logClearResult = nil }
+        } message: {
+            Text(logClearResult ?? "")
         }
         .formStyle(.grouped)
         .padding(20)

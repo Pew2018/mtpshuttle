@@ -35,6 +35,7 @@ struct ContentView: View {
     @State private var propertyFavoriteLocation: FavoriteLocation?
     @State private var pendingFavoriteSelection: FavoriteLocation?
     @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
+    @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
     @State private var isFavoritesShelfPresented = false
     @State private var areFavoritesExpanded = true
     @State private var statusMessage = MTPShuttleText.localized("Ready")
@@ -1569,6 +1570,11 @@ struct ContentView: View {
             return
         }
 
+        if (FavoriteFileOpenBehavior(rawValue: favoriteFileOpenBehavior) ?? .defaultValue) == .revealAndSelect {
+            locateFavoriteFile(location)
+            return
+        }
+
         let localURL = location.pane == .mac ? URL(fileURLWithPath: location.path) : nil
         let mtpPath = location.pane == .android ? MTPBrowsePath(browserPath: location.path)?.fullPath : nil
         propertyFavoriteLocation = location
@@ -1855,9 +1861,6 @@ private struct WorkspaceView: View {
 
                     Spacer()
 
-                    Text(mtpService.deviceSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)

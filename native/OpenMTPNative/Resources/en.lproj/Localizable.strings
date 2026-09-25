@@ -224,19 +224,29 @@
 "Dark" = "Dark";
 "Choose Light, Dark, or System to follow macOS." = "Choose Light, Dark, or System to follow macOS.";
 
-"Favorites" = "Favorites";
-"Add to Favorites" = "Add to Favorites";
-"Removed from Favorites" = "Removed from Favorites";
-"Show in Containing Folder" = "Show in Containing Folder";
-"Close" = "Close";
-"No favorites yet" = "No favorites yet";
-"Unavailable" = "Unavailable";
-"Rebind to Current Android Device" = "Rebind to Current Android Device";
-"Collapse Favorites" = "Collapse Favorites";
-"Expand Favorites" = "Expand Favorites";
-"Added to Favorites" = "Added to Favorites";
-"Cannot identify the Android storage" = "Cannot identify the Android storage";
-"Storage is ambiguous; favorite was not changed" = "Storage is ambiguous; favorite was not changed";
-"Android favorite rebound to current device" = "Android favorite rebound to current device";
-"Favorite is currently unavailable" = "Favorite is currently unavailable";
-"Open" = "Open";
+"About MTP Shuttle" = "About MTP Shuttle";
+"App icon placeholder" = "App icon placeholder";
+"App icon coming soon" = "App icon coming soon";
+"A simple, native way to move files between your Mac and Android device." = "A simple, native way to move files between your Mac and Android device.";
+"Version" = "Version";
+"MTP Shuttle on GitHub" = "MTP Shuttle on GitHub";
+"Project repository" = "Project repository";
+"OpenMTP on GitHub" = "OpenMTP on GitHub";
+"Original project" = "Original project";
+"Built for macOS" = "Built for macOS";
+"About" = "About";
+
+
+"Clear Debug Log…" = "Clear Debug Log…";
+"Clear Debug Log?" = "Clear Debug Log?";
+"Clear Log" = "Clear Log";
+"This permanently removes all current log entries." = "This permanently removes all current log entries.";
+"Debug log cleared." = "Debug log cleared.";
+"Could not clear the debug log: %@" = "Could not clear the debug log: %@";
+
+
+
+"Double-clicking a favorite file" = "Double-clicking a favorite file";
+"Choose what happens when you double-click a favorite file." = "Choose what happens when you double-click a favorite file.";
+"Reveal Containing Folder and Select File" = "Reveal Containing Folder and Select File";
+"Show File Properties" = "Show File Properties";

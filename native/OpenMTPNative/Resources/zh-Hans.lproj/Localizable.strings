@@ -226,19 +226,29 @@
 "Dark" = "深色";
 "Choose Light, Dark, or System to follow macOS." = "选择浅色、深色，或跟随 macOS 系统外观。";
 
-"Favorites" = "收藏夹";
-"Add to Favorites" = "加入收藏夹";
-"Removed from Favorites" = "已从收藏夹移除";
-"Show in Containing Folder" = "进入所属目录";
-"Close" = "关闭";
-"No favorites yet" = "暂无收藏项";
-"Unavailable" = "不可用";
-"Rebind to Current Android Device" = "重新绑定到当前 Android 设备";
-"Collapse Favorites" = "折叠收藏夹";
-"Expand Favorites" = "展开收藏夹";
-"Added to Favorites" = "已加入收藏夹";
-"Cannot identify the Android storage" = "无法识别 Android 存储空间";
-"Storage is ambiguous; favorite was not changed" = "存储空间不唯一，未更改收藏项";
-"Android favorite rebound to current device" = "Android 收藏项已重新绑定到当前设备";
-"Favorite is currently unavailable" = "收藏项当前不可用";
-"Open" = "打开";
+"About MTP Shuttle" = "关于 MTP Shuttle";
+"App icon placeholder" = "应用图标占位区域";
+"App icon coming soon" = "应用图标即将推出";
+"A simple, native way to move files between your Mac and Android device." = "在 Mac 与 Android 设备之间传输文件的原生工具。";
+"Version" = "版本";
+"MTP Shuttle on GitHub" = "MTP Shuttle 项目";
+"Project repository" = "项目 GitHub 仓库";
+"OpenMTP on GitHub" = "OpenMTP 上游项目";
+"Original project" = "原项目 GitHub 仓库";
+"Built for macOS" = "为 macOS 打造";
+"About" = "关于";
+
+
+"Clear Debug Log…" = "清空调试日志…";
+"Clear Debug Log?" = "清空调试日志？";
+"Clear Log" = "清空日志";
+"This permanently removes all current log entries." = "此操作会永久删除当前所有日志内容。";
+"Debug log cleared." = "调试日志已清空。";
+"Could not clear the debug log: %@" = "无法清空调试日志：%@";
+
+
+
+"Double-clicking a favorite file" = "双击收藏的文件时";
+"Choose what happens when you double-click a favorite file." = "选择双击收藏文件时的操作。";
+"Reveal Containing Folder and Select File" = "进入所属目录并选中文件";
+"Show File Properties" = "显示文件属性";

@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+enum FavoriteFileOpenBehavior: String, CaseIterable, Identifiable {
+    case revealAndSelect
+    case showProperties
+
+    static let defaultValue: Self = .revealAndSelect
+
+    var id: String { rawValue }
+
+    var localizationKey: String {
+        switch self {
+        case .revealAndSelect: return "Reveal Containing Folder and Select File"
+        case .showProperties: return "Show File Properties"
+        }
+    }
+}
+
 enum FavoriteItemKind: String, Codable, Hashable {
     case directory
     case file

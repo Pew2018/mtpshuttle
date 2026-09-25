@@ -65,4 +65,8 @@ final class FavoriteLocationTests: XCTestCase {
         XCTAssertEqual(favorite.path, "/2/DCIM/")
         XCTAssertFalse(favorite.canResolveAndroid(deviceSerial: nil, sessionID: "old-session", storages: [storage], isConnected: true))
     }
+    func testFavoriteFileOpenBehaviorDefaultsToRevealAndSelect() {
+        XCTAssertEqual(FavoriteFileOpenBehavior.defaultValue, .revealAndSelect)
+        XCTAssertEqual(FavoriteFileOpenBehavior.allCases, [.revealAndSelect, .showProperties])
+    }
 }
