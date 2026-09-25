@@ -1815,13 +1815,12 @@ private struct WorkspaceView: View {
     }
 
     private func resizeFavoriteShelf(_ proposedHeight: CGFloat) {
-        let minimumExpandedHeight: CGFloat = 112
-        guard proposedHeight >= minimumExpandedHeight else {
+        guard let height = FavoriteShelfResizePolicy.expandedHeight(for: proposedHeight) else {
             favoritesExpanded = false
             return
         }
 
-        favoritesExpandedHeight = min(proposedHeight, 360)
+        favoritesExpandedHeight = height
         favoritesExpanded = true
     }
 

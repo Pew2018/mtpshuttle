@@ -92,9 +92,6 @@ struct FilePaneView: View {
                 gridView
             }
 
-            Divider()
-
-            paneFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
@@ -395,27 +392,6 @@ struct FilePaneView: View {
         .padding(24)
     }
 
-    private var paneFooter: some View {
-        HStack(spacing: 8) {
-            Text("\(items.count) items")
-
-            if !selection.isEmpty {
-                Text("•")
-                    .foregroundStyle(.tertiary)
-
-                Text("\(selection.count) selected")
-            }
-
-            Spacer()
-
-            Text(path == pane.rootPath ? "Root folder" : "Ready")
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.bar)
-    }
 
     private var otherPaneTitle: String {
         pane == .mac ? "Android Device" : "This Mac"

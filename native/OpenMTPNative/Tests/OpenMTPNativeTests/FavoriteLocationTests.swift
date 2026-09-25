@@ -69,4 +69,13 @@ final class FavoriteLocationTests: XCTestCase {
         XCTAssertEqual(FavoriteFileOpenBehavior.defaultValue, .revealAndSelect)
         XCTAssertEqual(FavoriteFileOpenBehavior.allCases, [.revealAndSelect, .showProperties])
     }
+    func testFavoriteShelfResizePolicyKeepsExpectedBoundsAndCollapseThreshold() {
+        XCTAssertNil(FavoriteShelfResizePolicy.expandedHeight(for: 111))
+        XCTAssertEqual(FavoriteShelfResizePolicy.expandedHeight(for: 112), 112)
+        XCTAssertEqual(FavoriteShelfResizePolicy.expandedHeight(for: 240), 240)
+        XCTAssertEqual(FavoriteShelfResizePolicy.expandedHeight(for: 500), 360)
+        XCTAssertEqual(FavoriteShelfResizePolicy.collapsedHeight, 44)
+        XCTAssertFalse(FavoriteShelfResizePolicy.isExpanded(for: 111))
+        XCTAssertTrue(FavoriteShelfResizePolicy.isExpanded(for: 112))
+    }
 }
