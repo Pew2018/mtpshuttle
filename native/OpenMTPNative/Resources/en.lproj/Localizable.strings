@@ -342,3 +342,11 @@
 "Link this favorite to the current Android device?" = "Link this favorite to the current Android device?";
 "This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device." = "This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device.";
 "Link Favorite" = "Link Favorite";
+"Copying one item" = "Copying one item";
+"Copying %d items" = "Copying %d items";
+"Moving one item" = "Moving one item";
+"Moving %d items" = "Moving %d items";
+"No active transfer" = "No active transfer";
+"Recent Activity" = "Recent Activity";
+"Overall transfer progress" = "Overall transfer progress";
+"Current file progress" = "Current file progress";

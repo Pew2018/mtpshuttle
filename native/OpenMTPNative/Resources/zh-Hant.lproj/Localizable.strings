@@ -356,3 +356,11 @@
 "Link this favorite to the current Android device?" = "要將此收藏項目關聯到目前的 Android 裝置嗎？";
 "This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device." = "這會將此收藏項目儲存的裝置和儲存空間更新為目前連接的 Android 裝置，不會修改裝置上的檔案。";
 "Link Favorite" = "關聯收藏項目";
+"Copying one item" = "正在複製 1 個項目";
+"Copying %d items" = "正在複製 %d 個項目";
+"Moving one item" = "正在移動 1 個項目";
+"Moving %d items" = "正在移動 %d 個項目";
+"No active transfer" = "目前沒有進行中的傳輸";
+"Recent Activity" = "最近活動";
+"Overall transfer progress" = "傳輸總進度";
+"Current file progress" = "目前檔案進度";

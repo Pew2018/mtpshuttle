@@ -260,10 +260,12 @@ struct ContentView: View {
             )
             .frame(width: 1, height: 1)
         }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .openMTPQuickLook)
-        ) { _ in
-            presentQuickLook()
+        .background {
+            QuickLookKeyboardShortcutMonitor(
+                isEnabled: { hasQuickLookSelection },
+                onShortcut: { presentQuickLook() }
+            )
+            .frame(width: 1, height: 1)
         }
         .focusedSceneValue(
             \.openMTPEditActions,
@@ -452,6 +454,14 @@ struct ContentView: View {
         case .android:
             return rightPane.selection
         }
+    }
+
+    private var hasQuickLookSelection: Bool {
+        quickLookPreviewEnabled
+            && activePane == .mac
+            && localBrowser.entries.contains {
+                leftPane.selection.contains($0.id) && !$0.isDirectory && $0.localURL != nil
+            }
     }
 
     private func presentQuickLook() {
@@ -1025,6 +1035,14 @@ struct ContentView: View {
                       clearClipboardAfterMove: request.clearClipboardAfterMove, resolution: resolution)
     }
 
+    private func transferTaskTitle(mode: ClipboardMode, count: Int) -> String {
+        let copy = mode == .copy
+        if count == 1 {
+            return MTPShuttleText.localized(copy ? "Copying one item" : "Moving one item")
+        }
+        return MTPShuttleText.format(copy ? "Copying %d items" : "Moving %d items", count)
+    }
+
     private func beginTransfer(
         itemIDs: [UUID], sourcePane: PaneKind, sourcePath: String,
         targetPane: PaneKind, targetPath: String, mode: ClipboardMode,
@@ -1032,7 +1050,6 @@ struct ContentView: View {
     ) {
         let sources = entries(for: sourcePane, path: sourcePath).filter { itemIDs.contains($0.id) }
         guard !sources.isEmpty else { statusMessage = MTPShuttleText.localized("No items selected"); return }
-        let noun = mode == .copy ? "Copying" : "Moving"
         Task { @MainActor in
             guard tasks.current == nil else {
                 statusMessage = MTPShuttleText.localized("Please wait for the current transfer to finish")
@@ -1042,7 +1059,7 @@ struct ContentView: View {
                 sources,
                 sourcePane: sourcePane
             )
-            tasks.begin("\(noun) \(sources.count) item(s)", total: knownBytes)
+            tasks.begin(transferTaskTitle(mode: mode, count: sources.count), total: knownBytes)
             if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(sources.map {
                 (
@@ -1138,7 +1155,7 @@ struct ContentView: View {
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
-            tasks.begin("\(mode == .copy ? "Copying" : "Moving") \(urls.count) Finder item(s)", total: knownBytes)
+            tasks.begin(transferTaskTitle(mode: mode, count: urls.count), total: knownBytes)
             if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(urls.map {
                 (

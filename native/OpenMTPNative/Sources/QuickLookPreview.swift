@@ -3,7 +3,6 @@ import AppKit
 import QuickLookUI
 
 extension Notification.Name {
-    static let openMTPQuickLook = Notification.Name("OpenMTP.QuickLook")
     static let openMTPCopy = Notification.Name("OpenMTP.Copy")
     static let openMTPCut = Notification.Name("OpenMTP.Cut")
     static let openMTPPaste = Notification.Name("OpenMTP.Paste")
@@ -172,3 +171,58 @@ private final class OpenMTPQuickLookItem: NSObject, QLPreviewItem {
         super.init()
     }
 }
+struct QuickLookKeyboardShortcutMonitor: NSViewRepresentable {
+    let isEnabled: () -> Bool
+    let onShortcut: () -> Void
+
+    func makeNSView(context: Context) -> QuickLookShortcutView {
+        let view = QuickLookShortcutView()
+        view.isEnabled = isEnabled
+        view.onShortcut = onShortcut
+        return view
+    }
+
+    func updateNSView(_ view: QuickLookShortcutView, context: Context) {
+        view.isEnabled = isEnabled
+        view.onShortcut = onShortcut
+    }
+
+    static func dismantleNSView(_ view: QuickLookShortcutView, coordinator: ()) {
+        view.stopMonitoring()
+    }
+}
+
+@MainActor
+final class QuickLookShortcutView: NSView {
+    var isEnabled: () -> Bool = { false }
+    var onShortcut: () -> Void = {}
+    private var eventMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        stopMonitoring()
+        guard window != nil else { return }
+
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self,
+                  let window = self.window,
+                  event.window === window,
+                  event.keyCode == 49,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+                  !(window.firstResponder is NSTextView),
+                  self.isEnabled() else {
+                return event
+            }
+            self.onShortcut()
+            return nil
+        }
+    }
+
+    func stopMonitoring() {
+        if let eventMonitor {
+            NSEvent.removeMonitor(eventMonitor)
+            self.eventMonitor = nil
+        }
+    }
+}
+

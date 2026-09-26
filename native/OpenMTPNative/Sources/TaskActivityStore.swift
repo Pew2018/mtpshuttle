@@ -260,137 +260,214 @@ final class TaskActivityStore: ObservableObject {
 
 struct TaskDetailsView: View {
     @ObservedObject private var tasks = TaskActivityStore.shared
+    @Environment(\.locale) private var locale
+    @State private var isHistoryExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(MTPShuttleText.localized("Task Details")).font(.title2.bold())
-
+        VStack(alignment: .leading, spacing: 16) {
             if let task = tasks.current {
                 currentTaskView(task)
+            } else {
+                emptyState
             }
 
-            Text(MTPShuttleText.localized("Completed operations in this session")).font(.headline)
-            if tasks.history.isEmpty {
-                Text(MTPShuttleText.localized("No operations yet")).foregroundStyle(.secondary)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(tasks.history) { task in
-                            historyTaskView(task)
+            if !tasks.history.isEmpty {
+                DisclosureGroup(isExpanded: $isHistoryExpanded) {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(tasks.history) { task in
+                                historyTaskView(task)
+                            }
                         }
                     }
+                    .frame(maxHeight: 150)
+                    .padding(.top, 8)
+                } label: {
+                    Label(MTPShuttleText.localized("Recent Activity"), systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline.weight(.semibold))
                 }
+                .padding(.top, 2)
             }
         }
-        .padding(18)
-        .frame(minWidth: 560, minHeight: 480)
+        .padding(20)
+        .frame(minWidth: 540, minHeight: 320, alignment: .topLeading)
     }
 
-    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "arrow.left.arrow.right.circle")
+                .font(.system(size: 28))
+                .foregroundStyle(.tertiary)
+            Text(MTPShuttleText.localized("No active transfer"))
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 160)
+    }
+
     private func currentTaskView(_ task: TaskRecord) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                Text(task.title).font(.headline)
-                Spacer()
-                Text(displayStatus(task.state)).foregroundStyle(.secondary)
-            }
-
-            if let fraction = task.fraction {
-                ProgressView(value: fraction)
-            } else {
-                ProgressView()
-            }
-            Text("\(byteText(task.sent)) / \(byteText(task.total))")
-                .font(.caption.monospacedDigit())
-
-            HStack(spacing: 14) {
-                Text(MTPShuttleText.localized("Speed") + ": " + speedText(task.speedBytesPerSecond))
-                Text(MTPShuttleText.localized("Estimated remaining") + ": " + etaText(task.etaSeconds))
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            if let item = task.currentItem {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(MTPShuttleText.localized("Current file") + ": " + item.name).font(.subheadline.weight(.semibold))
-                    Text(MTPShuttleText.localized("Directory") + ": " + item.path)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(.title3.weight(.semibold))
                         .lineLimit(2)
-                    Text("\(byteText(item.sent)) / \(byteText(item.total)) · \(displayStatus(item.state))")
-                        .font(.caption.monospacedDigit())
+                    Text(displayStatus(task.state))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+
+                Spacer(minLength: 8)
+
+                Button(role: .destructive) {
+                    tasks.cancel()
+                } label: {
+                    Label("Cancel Operation", systemImage: "xmark.circle")
+                }
+                .buttonStyle(.bordered)
+                .disabled(tasks.cancellationRequested)
             }
 
-            if !task.items.isEmpty {
-                Divider()
-                Text(MTPShuttleText.localized("Task list")).font(.subheadline.weight(.semibold))
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 5) {
-                        ForEach(task.items) { item in
-                            taskItemRow(item)
-                        }
+            VStack(alignment: .leading, spacing: 8) {
+                progressBar(task.fraction)
+                    .accessibilityLabel(Text("Overall transfer progress"))
+
+                HStack(spacing: 12) {
+                    Text("\(byteText(task.sent)) / \(byteText(task.total))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let fraction = task.fraction {
+                        Text("\(Int((fraction * 100).rounded()))%")
+                            .font(.caption.monospacedDigit().weight(.medium))
                     }
                 }
-                .frame(maxHeight: 190)
+
+                HStack(spacing: 16) {
+                    Label(
+                        MTPShuttleText.localized("Speed") + ": " + speedText(task.speedBytesPerSecond),
+                        systemImage: "speedometer"
+                    )
+                    Spacer(minLength: 8)
+                    Label(
+                        MTPShuttleText.localized("Estimated remaining") + ": " + etaText(task.etaSeconds),
+                        systemImage: "clock"
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            if let item = progressItem(for: task) {
+                currentFileView(item, showsProgress: task.items.count > 1)
             }
 
             if let failureReason = task.failureReason {
-                Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
+                Label {
+                    Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
+                        .textSelection(.enabled)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                }
+                .font(.caption)
+                .foregroundStyle(.red)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func currentFileView(_ item: TaskItemRecord, showsProgress: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(MTPShuttleText.localized("Current file"), systemImage: "doc")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(displayStatus(item.state))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(item.name)
+                .font(.body.weight(.medium))
+                .lineLimit(1)
+
+            Text(item.path)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+
+            if showsProgress {
+                progressBar(item.fraction)
+                    .accessibilityLabel(Text("Current file progress"))
+
+                HStack(spacing: 12) {
+                    Text("\(byteText(item.sent)) / \(byteText(item.total))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let fraction = item.fraction {
+                        Text("\(Int((fraction * 100).rounded()))%")
+                            .font(.caption.monospacedDigit().weight(.medium))
+                    }
+                }
+            }
+
+            if let errorMessage = item.errorMessage {
+                Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
             }
-
-            Button(MTPShuttleText.localized("Cancel Operation")) { tasks.cancel() }
-                .disabled(tasks.cancellationRequested)
         }
-        .padding()
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.bar)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    @ViewBuilder
+    private func progressBar(_ fraction: Double?) -> some View {
+        if let fraction {
+            ProgressView(value: fraction)
+                .progressViewStyle(.linear)
+        } else {
+            ProgressView()
+                .progressViewStyle(.linear)
+        }
+    }
+
+    private func progressItem(for task: TaskRecord) -> TaskItemRecord? {
+        task.currentItem ?? task.items.first(where: { $0.state == "等待中" })
     }
 
     private func historyTaskView(_ task: TaskRecord) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("\(task.title) · \(task.state)")
-            Text("\(MTPShuttleText.format("%d items", task.items.count)) · \(task.step)")
+            HStack {
+                Text(task.title)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                Spacer()
+                Text(displayStatus(task.state))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(MTPShuttleText.format("%d items", task.items.count))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let failureReason = task.failureReason {
                 Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
                     .font(.caption)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
         }
-        .padding(8)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func taskItemRow(_ item: TaskItemRecord) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(item.name).lineLimit(1)
-                Spacer()
-                Text(displayStatus(item.state)).foregroundStyle(.secondary)
-            }
-            Text(item.path)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            HStack(spacing: 8) {
-                if let fraction = item.fraction {
-                    ProgressView(value: fraction)
-                        .frame(maxWidth: 150)
-                }
-                Text("\(byteText(item.sent)) / \(byteText(item.total))")
-                if let errorMessage = item.errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).lineLimit(1)
-                }
-            }
-            .font(.caption2.monospacedDigit())
-        }
-        .padding(.vertical, 3)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func displayStatus(_ status: String) -> String {
@@ -418,10 +495,17 @@ struct TaskDetailsView: View {
     }
 
     private func etaText(_ value: TimeInterval?) -> String {
-        guard let value, value.isFinite, value >= 0 else { return MTPShuttleText.localized("Not available") }
-        let seconds = Int(value.rounded())
-        if seconds < 60 { return "\(seconds) 秒" }
-        return "\(seconds / 60) 分 \(seconds % 60) 秒"
+        guard let value, value.isFinite, value >= 0 else {
+            return MTPShuttleText.localized("Not available")
+        }
+        var formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .short
+        formatter.maximumUnitCount = 2
+        formatter.zeroFormattingBehavior = .dropAll
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = locale
+        return formatter.string(from: value) ?? MTPShuttleText.localized("Not available")
     }
 }
 

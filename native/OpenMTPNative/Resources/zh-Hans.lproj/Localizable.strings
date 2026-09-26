@@ -344,3 +344,11 @@
 "Link this favorite to the current Android device?" = "将此收藏项目关联到当前 Android 设备？";
 "This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device." = "这会将此收藏项目保存的设备和存储位置更新为当前已连接的 Android 设备，不会修改设备上的文件。";
 "Link Favorite" = "关联收藏项目";
+"Copying one item" = "正在复制 1 个项目";
+"Copying %d items" = "正在复制 %d 个项目";
+"Moving one item" = "正在移动 1 个项目";
+"Moving %d items" = "正在移动 %d 个项目";
+"No active transfer" = "当前没有正在进行的传输";
+"Recent Activity" = "最近活动";
+"Overall transfer progress" = "传输总进度";
+"Current file progress" = "当前文件进度";

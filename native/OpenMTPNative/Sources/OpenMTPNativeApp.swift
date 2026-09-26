@@ -49,7 +49,7 @@ struct OpenMTPNativeApp: App {
                 .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
                 .preferredColorScheme(AppearanceMode.resolve(appAppearance).colorScheme)
         }
-        .defaultSize(width: 560, height: 420)
+        .defaultSize(width: 560, height: 360)
     }
 }
 
@@ -68,11 +68,6 @@ private struct SwiftMTPCommands: Commands {
         }
 
         CommandGroup(after: .newItem) {
-            Button(MTPShuttleText.localized("Quick Look")) {
-                NotificationCenter.default.post(name: .openMTPQuickLook, object: nil)
-            }
-            .keyboardShortcut(.space, modifiers: [])
-
             Divider()
 
             Button(MTPShuttleText.localized("Copy")) {
