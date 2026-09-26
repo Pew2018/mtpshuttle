@@ -44,7 +44,6 @@ struct ContentView: View {
     @State private var isFavoritesShelfPresented = false
     @State private var didApplyFavoritesLaunchPreference = false
     @AppStorage("openFavoritesOnLaunch") private var openFavoritesOnLaunch = false
-    @State private var areFavoritesExpanded = true
     @State private var statusMessage = MTPShuttleText.localized("Ready")
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
@@ -102,7 +101,6 @@ struct ContentView: View {
             localBrowser: localBrowser,
             favorites: favoriteLocations,
             favoritesVisible: isFavoritesShelfPresented,
-            favoritesExpanded: $areFavoritesExpanded,
             isFavorite: isFavorite,
             onToggleFavorite: toggleFavorite,
             onOpenFavorite: openFavorite,
@@ -1914,39 +1912,14 @@ private struct WorkspaceView: View {
     let onFilePromiseProviders: (PaneKind, String, DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
-    @State private var favoriteAvailabilityByID: [UUID: Bool] = [:]
-    @State private var favoritesAvailabilitySnapshot: [FavoriteLocation] = []
-    @State private var didInitializeFavoriteAvailability = false
     let favorites: [FavoriteLocation]
     let favoritesVisible: Bool
-    @Binding var favoritesExpanded: Bool
     let isFavorite: (PaneKind, DemoEntry) -> Bool
     let onToggleFavorite: (PaneKind, DemoEntry) -> Void
     let onOpenFavorite: (FavoriteLocation) -> Void
     let onRemoveFavorite: (FavoriteLocation) -> Void
     let onRebindFavorite: (FavoriteLocation) -> Void
     let isFavoriteAvailable: (FavoriteLocation) -> Bool
-
-    private func refreshFavoriteAvailability() {
-        favoriteAvailabilityByID = Dictionary(
-            favorites.map { ($0.id, isFavoriteAvailable($0)) },
-            uniquingKeysWith: { _, latest in latest }
-        )
-        favoritesAvailabilitySnapshot = favorites
-    }
-
-    private func syncFavoriteAvailabilityWithListChanges() {
-        let previousByID = Dictionary(
-            favoritesAvailabilitySnapshot.map { ($0.id, $0) },
-            uniquingKeysWith: { _, latest in latest }
-        )
-        let currentIDs = Set(favorites.map(\.id))
-        favoriteAvailabilityByID = favoriteAvailabilityByID.filter { currentIDs.contains($0.key) }
-        for favorite in favorites where previousByID[favorite.id] != favorite {
-            favoriteAvailabilityByID[favorite.id] = isFavoriteAvailable(favorite)
-        }
-        favoritesAvailabilitySnapshot = favorites
-    }
 
     private var macPane: some View {
         FilePaneView(
@@ -2049,11 +2022,9 @@ private struct WorkspaceView: View {
             if favoritesVisible {
                 FavoriteShelfView(
                     favorites: favorites,
-                    isExpanded: $favoritesExpanded,
                     expandedHeight: geometry.size.height / 3.0,
                     isAndroidConnected: mtpService.isConnected,
-                    availabilityByID: favoriteAvailabilityByID,
-                    onRefreshAvailability: refreshFavoriteAvailability,
+                    isAvailable: isFavoriteAvailable,
                     onOpen: onOpenFavorite,
                     onRemove: onRemoveFavorite,
                     onRebind: onRebindFavorite
@@ -2083,14 +2054,6 @@ private struct WorkspaceView: View {
             }
         }
             .background(Color(nsColor: .windowBackgroundColor))
-                .onAppear {
-                    guard !didInitializeFavoriteAvailability else { return }
-                    didInitializeFavoriteAvailability = true
-                    refreshFavoriteAvailability()
-                }
-                .onChange(of: favorites) { _ in
-                    syncFavoriteAvailabilityWithListChanges()
-                }
         }
     }
 }

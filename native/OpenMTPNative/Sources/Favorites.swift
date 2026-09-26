@@ -176,11 +176,9 @@ struct FilePropertiesSheet: View {
 
 struct FavoriteShelfView: View {
     let favorites: [FavoriteLocation]
-    let isExpanded: Binding<Bool>
     let expandedHeight: CGFloat
     let isAndroidConnected: Bool
-    let availabilityByID: [UUID: Bool]
-    let onRefreshAvailability: () -> Void
+    let isAvailable: (FavoriteLocation) -> Bool
     @State private var unavailableFavorite: FavoriteLocation?
     let onOpen: (FavoriteLocation) -> Void
     let onRemove: (FavoriteLocation) -> Void
@@ -192,36 +190,19 @@ struct FavoriteShelfView: View {
                 Label(FavoriteStrings.localized("Favorites"), systemImage: "star.fill")
                     .font(.headline)
                 Spacer()
-                Button {
-                    isExpanded.wrappedValue.toggle()
-                } label: {
-                    Image(systemName: isExpanded.wrappedValue ? "chevron.down" : "chevron.up")
-                }
-                .buttonStyle(.borderless)
-                .help(FavoriteStrings.localized(isExpanded.wrappedValue ? "Collapse Favorites" : "Expand Favorites"))
-                Button(action: onRefreshAvailability) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
-                .help(FavoriteStrings.localized("Refresh availability"))
-                .accessibilityLabel(FavoriteStrings.localized("Refresh availability"))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
 
-            if isExpanded.wrappedValue {
+            Divider()
+            HStack(spacing: 0) {
+                favoriteColumn(title: FavoriteStrings.localized("This Mac"), pane: .mac)
                 Divider()
-                HStack(spacing: 0) {
-                    favoriteColumn(title: FavoriteStrings.localized("This Mac"), pane: .mac)
-                    Divider()
-                    favoriteColumn(title: FavoriteStrings.localized("Android Device"), pane: .android)
-                }
+                favoriteColumn(title: FavoriteStrings.localized("Android Device"), pane: .android)
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isExpanded.wrappedValue ? expandedHeight : 44)
+        .frame(height: expandedHeight)
         .background(.bar)
         .alert(item: $unavailableFavorite) { favorite in
             Alert(
@@ -262,26 +243,21 @@ struct FavoriteShelfView: View {
     }
 
     private func favoriteRow(_ favorite: FavoriteLocation) -> some View {
-        let available = availabilityByID[favorite.id] ?? false
-        return HStack(spacing: 8) {
+        HStack(spacing: 8) {
             Image(systemName: favorite.kind == .directory ? "folder" : "doc")
-                .foregroundStyle(available ? Color.accentColor : Color.secondary)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
                 Text(favorite.name).font(.subheadline).lineLimit(1)
                 Text(favorite.path).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
-            if !available {
-                Text(FavoriteStrings.localized("Unavailable"))
-                    .font(.caption2).foregroundStyle(.orange)
-            }
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            if available {
+            if isAvailable(favorite) {
                 onOpen(favorite)
             } else {
                 unavailableFavorite = favorite
@@ -289,9 +265,12 @@ struct FavoriteShelfView: View {
         }
         .contextMenu {
             Button(FavoriteStrings.localized("Open")) {
-                if available { onOpen(favorite) }
+                if isAvailable(favorite) {
+                    onOpen(favorite)
+                } else {
+                    unavailableFavorite = favorite
+                }
             }
-            .disabled(!available)
             Divider()
             if favorite.pane == .android && isAndroidConnected {
                 Button(FavoriteStrings.localized("Rebind to Current Android Device")) {
@@ -302,6 +281,6 @@ struct FavoriteShelfView: View {
                 onRemove(favorite)
             }
         }
-        .help(available ? favorite.path : FavoriteStrings.localized("Favorite is currently unavailable"))
+        .help(favorite.path)
     }
 }
