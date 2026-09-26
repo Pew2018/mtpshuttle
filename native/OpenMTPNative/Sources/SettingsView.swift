@@ -180,7 +180,7 @@ struct SettingsView: View {
 
     private var settingsContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 26) {
+            LazyVStack(alignment: .leading, spacing: 26) {
                 section(.appearance) {
                     settingsGroup {
                         settingRow("Appearance") {
@@ -291,7 +291,8 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.radioGroup)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(width: 190, alignment: .leading)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
 
                         rowDivider
@@ -306,19 +307,19 @@ struct SettingsView: View {
                                     isExportingFavorites = true
                                 }
                                 .buttonStyle(.bordered)
-                                .frame(minWidth: 190, alignment: .leading)
+                                .frame(width: 190, alignment: .leading)
 
                                 Button("Import Favorites…") {
                                     isImportingFavorites = true
                                 }
                                 .buttonStyle(.bordered)
-                                .frame(minWidth: 190, alignment: .leading)
+                                .frame(width: 190, alignment: .leading)
 
                                 Button("Clear Favorites…", role: .destructive) {
                                     activeConfirmation = .clearFavorites
                                 }
                                 .buttonStyle(.bordered)
-                                .frame(minWidth: 190, alignment: .leading)
+                                .frame(width: 190, alignment: .leading)
                             }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -349,15 +350,15 @@ struct SettingsView: View {
                             VStack(alignment: .trailing, spacing: 8) {
                                 Button("Open Log") { DebugLogger.openLog() }
                                     .buttonStyle(.bordered)
-                                    .frame(minWidth: 190, alignment: .leading)
+                                    .frame(width: 190, alignment: .leading)
                                 Button("Copy Log") { DebugLogger.copyLogToClipboard() }
                                     .buttonStyle(.bordered)
-                                    .frame(minWidth: 190, alignment: .leading)
+                                    .frame(width: 190, alignment: .leading)
                                 Button("Clear Log…", role: .destructive) {
                                     activeConfirmation = .clearLog
                                 }
                                 .buttonStyle(.bordered)
-                                .frame(minWidth: 190, alignment: .leading)
+                                .frame(width: 190, alignment: .leading)
                             }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
@@ -425,6 +426,7 @@ struct SettingsView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(spacing: 0, content: content)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -455,7 +457,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             control()
-                .frame(maxWidth: 360, alignment: .trailing)
+                .frame(width: 360, alignment: .trailing)
         }
         .padding(.vertical, 12)
     }
