@@ -257,3 +257,5 @@
 "This permanently removes all current log entries." = "此操作會永久刪除目前所有日誌內容。";
 "Debug log cleared." = "除錯日誌已清除。";
 "Could not clear the debug log: %@" = "無法清除除錯日誌：%@";
+
+"Show in Finder" = "在 Finder 中顯示";

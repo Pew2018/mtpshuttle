@@ -1,5 +1,6 @@
 import XCTest
 import AppKit
+import AppKit
 @testable import SwiftMTP
 
 final class DirectoryTests: XCTestCase {
@@ -229,4 +230,78 @@ final class DirectoryTests: XCTestCase {
         XCTAssertEqual(planned, ["report.txt", "report (1).txt"])
         XCTAssertEqual(Set(planned ?? []).count, 2)
     }
+
+    func testFinderOpenTargetSelectsFilesAndOpensDirectories() {
+        let fileURL = URL(fileURLWithPath: "/Users/test/Documents/notes.txt")
+        let file = DemoEntry(
+            id: UUID(), name: "notes.txt", subtitle: "Text", sizeBytes: 1,
+            isDirectory: false, localURL: fileURL,
+            storageID: nil, remotePath: nil, objectID: nil
+        )
+        XCTAssertEqual(FinderOpenTarget.target(for: file), .selectFileInContainingFolder(fileURL))
+
+        let folderURL = URL(fileURLWithPath: "/Users/test/Documents/Archive", isDirectory: true)
+        let folder = DemoEntry(
+            id: UUID(), name: "Archive", subtitle: "Folder", sizeBytes: nil,
+            isDirectory: true, localURL: folderURL,
+            storageID: nil, remotePath: nil, objectID: nil
+        )
+        XCTAssertEqual(FinderOpenTarget.target(for: folder), .openDirectory(folderURL))
+    }
+
+    func testFinderOpenTargetSelectsPackageDirectoriesAsSingleItems() {
+        for packageName in ["Example.app", "Document.pages", "Library.photoslibrary", "Code.framework"] {
+            let packageURL = URL(fileURLWithPath: "/Applications/\(packageName)", isDirectory: true)
+            let package = DemoEntry(
+                id: UUID(), name: packageName, subtitle: "Package", sizeBytes: nil,
+                isDirectory: true, localURL: packageURL,
+                storageID: nil, remotePath: nil, objectID: nil
+            )
+            XCTAssertEqual(
+                FinderOpenTarget.target(for: package, isPackage: true),
+                .selectFileInContainingFolder(packageURL),
+                "\(packageName) should be selected in Finder, not opened as a directory"
+            )
+        }
+    }
+
+    func testFinderOpenTargetUsesAppKitPackageRecognition() throws {
+        let packageURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MTPShuttlePackage-\(UUID().uuidString).app", isDirectory: true)
+        let contentsURL = packageURL.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: packageURL) }
+
+        let bundleIdentifier = "com.example.mtpshuttle.test.\(UUID().uuidString)"
+        let info: [String: Any] = [
+            "CFBundleDevelopmentRegion": "en",
+            "CFBundleIdentifier": bundleIdentifier,
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "MTP Shuttle Package Test",
+            "CFBundlePackageType": "APPL",
+            "CFBundleVersion": "1"
+        ]
+        let plist = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+        try plist.write(to: contentsURL.appendingPathComponent("Info.plist"))
+
+        XCTAssertTrue(NSWorkspace.shared.isFilePackage(atPath: packageURL.path))
+        let package = DemoEntry(
+            id: UUID(), name: packageURL.lastPathComponent, subtitle: "Package",
+            isDirectory: true, localURL: packageURL
+        )
+        XCTAssertEqual(
+            FinderOpenTarget.target(for: package),
+            .selectFileInContainingFolder(packageURL)
+        )
+    }
+
+    func testFinderOpenTargetIgnoresItemsWithoutLocalURLs() {
+        let remoteItem = DemoEntry(
+            id: UUID(), name: "photo.jpg", subtitle: "Image", sizeBytes: nil,
+            isDirectory: false, localURL: nil,
+            storageID: 1, remotePath: "/photo.jpg", objectID: 2
+        )
+        XCTAssertNil(FinderOpenTarget.target(for: remoteItem))
+    }
+
 }
