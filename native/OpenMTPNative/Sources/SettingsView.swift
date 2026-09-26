@@ -107,7 +107,7 @@ struct SettingsView: View {
 
     var body: some View {
         settingsContent
-            .frame(minWidth: 800, minHeight: 600)
+            .frame(minWidth: 620, minHeight: 470)
             .background(Color(nsColor: .windowBackgroundColor))
         .confirmationDialog(
             Text(activeConfirmation?.title ?? ""),
@@ -179,8 +179,8 @@ struct SettingsView: View {
     }
 
     private var settingsContent: some View {
-        List {
-                section(.appearance) {
+        Form {
+            section(.appearance) {
                     settingsGroup {
                         settingRow("Appearance") {
                             Picker("Appearance", selection: $appAppearance) {
@@ -190,11 +190,9 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.segmented)
-                            .frame(width: 285)
+                            .frame(width: 230)
                             .accessibilityLabel(Text("Appearance"))
                         }
-
-                        rowDivider
 
                         settingRow(
                             "App Language",
@@ -207,10 +205,8 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
-                            .frame(width: 285, alignment: .trailing)
+                            .frame(width: 230, alignment: .trailing)
                         }
-
-                        rowDivider
 
                         settingRow(
                             "Show only Android devices",
@@ -224,7 +220,7 @@ struct SettingsView: View {
                     }
                 }
 
-                section(.filesAndTransfers) {
+            section(.filesAndTransfers) {
                     settingsGroup {
                         settingRow(
                             "Enable Quick Look with Space",
@@ -236,8 +232,6 @@ struct SettingsView: View {
                                 .accessibilityLabel(Text("Enable Quick Look with Space"))
                         }
 
-                        rowDivider
-
                         settingRow(
                             "Show Transfer Progress Window",
                             detail: "When enabled, the detailed transfer window opens automatically. When disabled, click the progress bar at the bottom left to open it."
@@ -247,8 +241,6 @@ struct SettingsView: View {
                                 .toggleStyle(.switch)
                                 .accessibilityLabel(Text("Show Transfer Progress Window"))
                         }
-
-                        rowDivider
 
                         settingRow(
                             "When Dragging Files from Finder to Android",
@@ -261,12 +253,12 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.segmented)
-                            .frame(width: 285)
+                            .frame(width: 230)
                         }
                     }
                 }
 
-                section(.favorites) {
+            section(.favorites) {
                     settingsGroup {
                         settingRow(
                             "Show Favorites on Launch",
@@ -277,8 +269,6 @@ struct SettingsView: View {
                                 .toggleStyle(.switch)
                                 .accessibilityLabel(Text("Show Favorites on Launch"))
                         }
-
-                        rowDivider
 
                         settingRow(
                             "Double-clicking a favorite file",
@@ -293,8 +283,6 @@ struct SettingsView: View {
                             .frame(width: 190, alignment: .leading)
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-
-                        rowDivider
 
                         settingRow(
                             "Manage Favorites",
@@ -325,7 +313,7 @@ struct SettingsView: View {
                     }
                 }
 
-                section(.diagnostics) {
+            section(.diagnostics) {
                     settingsGroup {
                         settingRow(
                             "Debug Mode",
@@ -339,8 +327,6 @@ struct SettingsView: View {
                                     DebugLogger.info("Debug mode " + (enabled ? "enabled" : "disabled"))
                                 }
                         }
-
-                        rowDivider
 
                         settingRow(
                             "Log Actions",
@@ -362,28 +348,24 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
 
-                        rowDivider
-
                         settingRow("Log Location") {
                             Text(DebugLogger.logURL.path)
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
                                 .lineLimit(2)
-                                .frame(maxWidth: 330, alignment: .leading)
+                                .frame(maxWidth: 230, alignment: .leading)
                         }
                     }
                 }
 
-                section(.about) {
+            section(.about) {
                     settingsGroup {
                         settingRow("App Version") {
                             Text(appVersion)
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
                         }
-
-                        rowDivider
 
                         settingRow(
                             "Project Information",
@@ -397,46 +379,27 @@ struct SettingsView: View {
                     }
                 }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
+        .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var rowDivider: some View {
-        Divider()
-            .padding(.leading, 2)
     }
 
     private func section<Content: View>(
         _ category: SettingsCategory,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(LocalizedStringKey(category.titleKey))
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.primary)
-
+        Section {
             content()
+        } header: {
+            Text(LocalizedStringKey(category.titleKey))
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 26, bottom: 8, trailing: 26))
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
     }
 
     private func settingsGroup<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(spacing: 0, content: content)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 0.7)
-            }
+        Group {
+            content()
+        }
     }
 
     private func settingRow<Control: View>(
@@ -458,7 +421,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             control()
-                .frame(width: 360, alignment: .trailing)
+                .frame(width: 240, alignment: .trailing)
         }
         .padding(.vertical, 12)
     }
