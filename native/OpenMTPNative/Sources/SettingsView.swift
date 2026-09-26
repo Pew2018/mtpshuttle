@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(\.openWindow) private var openWindow
@@ -10,6 +11,12 @@ struct SettingsView: View {
     @AppStorage(AppearanceMode.storageKey) private var appAppearance = AppearanceMode.system.rawValue
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
     @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
+    @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
+    @State private var isImportingFavorites = false
+    @State private var isExportingFavorites = false
+    @State private var isClearFavoritesConfirmationPresented = false
+    @State private var favoritesMessage: String?
+    @State private var favoritesExportDocument = FavoriteLocationsDocument(data: Data("[]".utf8))
     @State private var isClearLogConfirmationPresented = false
     @State private var logClearResult: String?
 
@@ -34,6 +41,13 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+
+                Button("Export Favorites…") {
+                    favoritesExportDocument = FavoriteLocationsDocument(data: Data(favoritesPayload.utf8))
+                    isExportingFavorites = true
+                }
+                Button("Import Favorites…") { isImportingFavorites = true }
+                Button("Clear Favorites…", role: .destructive) { isClearFavoritesConfirmationPresented = true }
             } header: {
                 Label("Favorites", systemImage: "star")
             } footer: {
@@ -159,10 +173,77 @@ struct SettingsView: View {
         } message: {
             Text(logClearResult ?? "")
         }
+        .confirmationDialog("Clear Favorites?", isPresented: $isClearFavoritesConfirmationPresented) {
+            Button("Clear Favorites", role: .destructive) {
+                favoritesPayload = "[]"
+                favoritesMessage = "Favorites cleared."
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes all saved favorites from this Mac.")
+        }
+        .fileImporter(isPresented: $isImportingFavorites, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+            importFavorites(from: result)
+        }
+        .fileExporter(
+            isPresented: $isExportingFavorites,
+            document: favoritesExportDocument,
+            contentType: .json,
+            defaultFilename: "MTP Shuttle Favorites",
+            onCompletion: { result in
+                switch result {
+                case .success:
+                    favoritesMessage = "Favorites exported."
+                case .failure(let error):
+                    favoritesMessage = "Could not export favorites: \\(error.localizedDescription)"
+                }
+            }
+        )
+        .alert("Favorites", isPresented: Binding(
+            get: { favoritesMessage != nil },
+            set: { if !$0 { favoritesMessage = nil } }
+        )) {
+            Button("OK") { favoritesMessage = nil }
+        } message: {
+            Text(favoritesMessage ?? "")
+        }
         .formStyle(.grouped)
         .padding(20)
         .frame(minWidth: 560, minHeight: 660)
         .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+    }
+
+    private func importFavorites(from result: Result<[URL], Error>) {
+        do {
+            guard let url = try result.get().first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            let imported = try JSONDecoder().decode([FavoriteLocation].self, from: Data(contentsOf: url))
+            let existing = FavoriteLocation.decode(favoritesPayload)
+            var combined = existing
+            for favorite in imported where !combined.contains(where: { $0.sameLocation(as: favorite) }) {
+                combined.append(favorite)
+            }
+            favoritesPayload = FavoriteLocation.encode(combined)
+            favoritesMessage = "Favorites imported."
+        } catch {
+            favoritesMessage = "Could not import favorites: \\(error.localizedDescription)"
+        }
+    }
+}
+
+private struct FavoriteLocationsDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 

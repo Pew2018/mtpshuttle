@@ -174,27 +174,9 @@ struct FilePropertiesSheet: View {
     }
 }
 
-enum FavoriteShelfResizePolicy {
-    static let collapsedHeight: CGFloat = 44
-    static let minimumExpandedHeight: CGFloat = 112
-    static let maximumExpandedHeight: CGFloat = 360
-
-    static func expandedHeight(for proposedHeight: CGFloat) -> CGFloat? {
-        guard proposedHeight >= minimumExpandedHeight else { return nil }
-        return min(proposedHeight, maximumExpandedHeight)
-    }
-
-    static func isExpanded(for proposedHeight: CGFloat) -> Bool {
-        proposedHeight >= minimumExpandedHeight
-    }
-}
-
 struct FavoriteShelfView: View {
     let favorites: [FavoriteLocation]
     let isExpanded: Binding<Bool>
-    let expandedHeight: CGFloat
-    let onHeightChange: (CGFloat) -> Void
-    @GestureState private var resizeTranslation: CGFloat = 0
     let isAndroidConnected: Bool
     let isAvailable: (FavoriteLocation) -> Bool
     let onOpen: (FavoriteLocation) -> Void
@@ -203,8 +185,6 @@ struct FavoriteShelfView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            resizeZone
-
             HStack {
                 Label(FavoriteStrings.localized("Favorites"), systemImage: "star.fill")
                     .font(.headline)
@@ -220,7 +200,7 @@ struct FavoriteShelfView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
 
-            if previewIsExpanded {
+            if isExpanded.wrappedValue {
                 Divider()
                 HStack(spacing: 0) {
                     favoriteColumn(title: FavoriteStrings.localized("This Mac"), pane: .mac)
@@ -230,49 +210,8 @@ struct FavoriteShelfView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: previewHeight)
-        .animation(nil, value: previewHeight)
+        .frame(height: isExpanded.wrappedValue ? 180 : 44)
         .background(.bar)
-    }
-
-    private var resizeStartHeight: CGFloat {
-        isExpanded.wrappedValue ? expandedHeight : FavoriteShelfResizePolicy.collapsedHeight
-    }
-
-    private var proposedHeight: CGFloat {
-        resizeStartHeight - resizeTranslation
-    }
-
-    private var previewIsExpanded: Bool {
-        guard resizeTranslation != 0 else { return isExpanded.wrappedValue }
-        return FavoriteShelfResizePolicy.isExpanded(for: proposedHeight)
-    }
-
-    private var previewHeight: CGFloat {
-        guard resizeTranslation != 0 else {
-            return isExpanded.wrappedValue ? expandedHeight : FavoriteShelfResizePolicy.collapsedHeight
-        }
-        return FavoriteShelfResizePolicy.expandedHeight(for: proposedHeight)
-            ?? FavoriteShelfResizePolicy.collapsedHeight
-    }
-
-    private var resizeZone: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(maxWidth: .infinity)
-            .frame(height: 12)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .updating($resizeTranslation) { value, translation, _ in
-                        translation = value.translation.height
-                    }
-                    .onEnded { value in
-                        onHeightChange(resizeStartHeight - value.translation.height)
-                    }
-            )
-            .accessibilityLabel(Text(FavoriteStrings.localized("Resize Favorites")))
-            .accessibilityHint(Text(FavoriteStrings.localized("Drag up or down anywhere along the divider to adjust the favorites shelf height.")))
     }
 
     private func favoriteColumn(title: String, pane: PaneKind) -> some View {

@@ -90,6 +90,7 @@ struct ContentView: View {
             onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
             onExternalDragProvider: makeExternalDragProvider,
+            onFilePromiseProviders: makeFilePromiseProviders,
             mtpService: mtpService,
             localBrowser: localBrowser,
             favorites: favoriteLocations,
@@ -312,7 +313,7 @@ struct ContentView: View {
 
     private var externalConflictMessage: String {
         guard let pendingExternalDrop else { return "" }
-        return "\(pendingExternalDrop.conflictNames.joined(separator: "、")) 已存在于当前 Android 目录。请选择覆盖已有项目、重命名本次拖入项目，或取消操作。"
+        return "\(pendingExternalDrop.conflictNames.joined(separator: "、")) 在本次拖入中重复，或已存在于 Android 目录。覆盖已有项目时，本批次内的重名文件会另存为不冲突的名称；也可重命名冲突项或取消操作。"
     }
 
     private var pendingDropTitle: String {
@@ -665,7 +666,10 @@ struct ContentView: View {
 
     private func beginExternalDrop(_ urls: [URL], targetPath: String, mode: ClipboardMode) {
         let destinationNames = Set(entries(for: .android, path: targetPath).map(\.name))
-        let conflicts = urls.map(\.lastPathComponent).filter { destinationNames.contains($0) }
+        let conflicts = ExternalDropNaming.conflicts(
+            sourceNames: urls.map(\.lastPathComponent),
+            destinationNames: destinationNames
+        )
         if !conflicts.isEmpty {
             pendingExternalDrop = ExternalDropConflictRequest(
                 urls: urls,
@@ -853,6 +857,43 @@ struct ContentView: View {
             return nil
         }
         return provider
+    }
+
+    private func makeFilePromiseProviders(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> [NSFilePromiseProvider] {
+        guard pane == .android else { return [] }
+        let currentEntries = entries(for: .android, path: path)
+        let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
+        let selectedEntries = itemIDs.compactMap { id in currentEntries.first(where: { $0.id == id }) }
+        let encodedPayload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs).encoded
+        let service = mtpService
+        return selectedEntries.compactMap { entry in
+            guard let remotePath = entry.remotePath, let storageID = entry.storageID else { return nil }
+            let fileType = entry.isDirectory ? UTType.directory.identifier : (UTType(filenameExtension: URL(fileURLWithPath: entry.name).pathExtension)?.identifier ?? UTType.data.identifier)
+            return MTPShuttleFilePromiseProvider(fileType: fileType, fileName: entry.name, encodedPayload: encodedPayload) { destinationURL, completion in
+                DebugLogger.info("Android file promise download started: \(entry.name)")
+                let destinationDirectory = destinationURL.deletingLastPathComponent()
+                let stagingDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("MTP-Shuttle-Promise-\(UUID().uuidString)", isDirectory: true)
+                let stagedURL = stagingDirectory.appendingPathComponent(entry.name)
+                Task { @MainActor in
+                    do {
+                        try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+                        try await service.download(sources: [remotePath], destination: stagingDirectory.path, storageID: storageID)
+                        guard FileManager.default.fileExists(atPath: stagedURL.path) else {
+                            throw NSError(domain: "MTPShuttleDrag", code: 2, userInfo: [NSLocalizedDescriptionKey: "The Android item was not created in the staging folder."])
+                        }
+                        try FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+                        try FileManager.default.moveItem(at: stagedURL, to: destinationURL)
+                        try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.info("Android file promise completed: \(entry.name)")
+                        completion(nil)
+                    } catch {
+                        try? FileManager.default.removeItem(at: stagingDirectory)
+                        DebugLogger.error("Android file promise failed: \(entry.name): \(error.localizedDescription)")
+                        completion(error)
+                    }
+                }
+            }
+        }
     }
 
     private func createFolder(_ pane: PaneKind) {
@@ -1047,26 +1088,28 @@ struct ContentView: View {
             }
 
             let destinationEntries = entries(for: .android, path: targetPath)
+            let existingNames = Set(destinationEntries.map(\.name))
+            let sourceNames = urls.map(\.lastPathComponent)
+            guard let targetNames = ExternalDropNaming.plan(
+                sourceNames: sourceNames,
+                destinationNames: existingNames,
+                resolution: resolution
+            ) else {
+                let conflicts = ExternalDropNaming.conflicts(
+                    sourceNames: sourceNames,
+                    destinationNames: existingNames
+                )
+                pendingExternalDrop = ExternalDropConflictRequest(
+                    urls: urls,
+                    targetPath: targetPath,
+                    conflictNames: conflicts,
+                    mode: mode
+                )
+                return
+            }
             let knownBytes = urls.reduce(Int64(0)) { sum, url in
                 sum + localByteCount(at: url)
             }
-            var reserved = Set(destinationEntries.map(\.name))
-            var targetNames: [String] = []
-
-            for url in urls {
-                let originalName = url.lastPathComponent
-                var candidate = originalName
-                if resolution == .rename {
-                    var index = 1
-                    while reserved.contains(candidate) {
-                        candidate = "\(originalName).\(index)"
-                        index += 1
-                    }
-                }
-                targetNames.append(candidate)
-                reserved.insert(candidate)
-            }
-
             tasks.begin("\(mode == .copy ? "Copying" : "Moving") \(urls.count) Finder item(s)", total: knownBytes)
             if alwaysShowTransferProgress { openWindow(id: "tasks") }
             tasks.addItems(urls.map {
@@ -1159,16 +1202,31 @@ struct ContentView: View {
                 }
                 await mtpService.browse(path: targetPath)
                 if mode == .move {
-                    // Never remove Finder originals unless every upload succeeded
-                    // and the destination directory contains all expected names.
-                    guard mtpService.browseError == nil,
-                          Set(targetNames).isSubset(of: Set(mtpService.entries.map(\.name))) else {
+                    let uploadsCompleted = true
+                    var destinationVerified = true
+                    for (index, url) in urls.enumerated() {
+                        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                        if !(await verifyFinderMoveItem(
+                            url,
+                            targetName: targetNames[index],
+                            targetPath: targetPath,
+                            storage: storage
+                        )) {
+                            destinationVerified = false
+                            break
+                        }
+                    }
+                    guard FolderMoveSafety.canDeleteOriginals(
+                        uploadsCompleted: uploadsCompleted,
+                        cancelled: tasks.cancellationRequested,
+                        integrityVerified: destinationVerified
+                    ) else {
                         throw NSError(
                             domain: "MTPShuttleDrag", code: 11,
-                            userInfo: [NSLocalizedDescriptionKey: "Unable to verify all copied items on Android; Finder originals were kept."]
+                            userInfo: [NSLocalizedDescriptionKey: "Unable to verify the complete Android copy; Finder originals were kept."]
                         )
                     }
-                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    await mtpService.browse(path: targetPath)
                     for url in urls {
                         let secured = url.startAccessingSecurityScopedResource()
                         defer { if secured { url.stopAccessingSecurityScopedResource() } }
@@ -1191,6 +1249,118 @@ struct ContentView: View {
         }
     }
 
+    private func androidBrowserPath(storageID: UInt32, remotePath: String) -> String {
+        let components = remotePath.split(separator: "/").joined(separator: "/")
+        return components.isEmpty ? "/\(storageID)/" : "/\(storageID)/\(components)/"
+    }
+
+    private func verifyFinderMoveItem(
+        _ localURL: URL,
+        targetName: String,
+        targetPath: String,
+        storage: MTPBrowsePath
+    ) async -> Bool {
+        await mtpService.browse(path: targetPath)
+        guard mtpService.browseError == nil,
+              !mtpService.isBrowsePartial else {
+            DebugLogger.error("Move verification failed: Android destination could not be read")
+            return false
+        }
+        let matches = mtpService.entries.filter { $0.name == targetName }
+        guard matches.count == 1,
+              let remoteEntry = matches.first else {
+            DebugLogger.error("Move verification failed: expected one Android item named \(targetName)")
+            return false
+        }
+
+        do {
+            let values = try localURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            if values.isDirectory == true {
+                guard remoteEntry.isDirectory else { return false }
+                let localManifest = try FolderTransferManifest.localEntries(at: localURL)
+                let remotePath = storage.fullPath + "/" + targetName
+                let remoteManifest = try await remoteFolderManifest(
+                    remotePath,
+                    storageID: storage.storageID
+                )
+                let verified = FolderTransferManifest.matches(
+                    local: localManifest,
+                    remote: remoteManifest
+                )
+                if !verified {
+                    DebugLogger.error("Move verification failed: folder contents differ for \(targetName)")
+                }
+                return verified
+            }
+
+            guard !remoteEntry.isDirectory,
+                  let localSize = values.fileSize,
+                  let remoteSize = remoteEntry.sizeBytes,
+                  Int64(localSize) == Int64(remoteSize) else {
+                DebugLogger.error("Move verification failed: file size differs or is unavailable for \(targetName)")
+                return false
+            }
+            return true
+        } catch {
+            DebugLogger.error("Move verification failed for \(targetName): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func remoteFolderManifest(
+        _ remotePath: String,
+        storageID: UInt32
+    ) async throws -> [FolderTransferManifestEntry] {
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+        await mtpService.browse(path: androidBrowserPath(storageID: storageID, remotePath: remotePath))
+        guard mtpService.browseError == nil,
+              !mtpService.isBrowsePartial else {
+            throw NSError(
+                domain: "MTPShuttleDrag", code: 12,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to read Android folder contents."]
+            )
+        }
+
+        let children = mtpService.entries
+        var manifest: [FolderTransferManifestEntry] = []
+        for child in children {
+            if child.name.contains("/") { throw CocoaError(.fileReadInvalidFileName) }
+            let relativePath = child.name
+            if child.isDirectory {
+                manifest.append(FolderTransferManifestEntry(
+                    relativePath: relativePath,
+                    isDirectory: true,
+                    sizeBytes: nil
+                ))
+                let childPath = remotePath + "/" + child.name
+                let nested = try await remoteFolderManifest(
+                    childPath,
+                    storageID: storageID
+                ).map {
+                    FolderTransferManifestEntry(
+                        relativePath: relativePath + "/" + $0.relativePath,
+                        isDirectory: $0.isDirectory,
+                        sizeBytes: $0.sizeBytes
+                    )
+                }
+                manifest.append(contentsOf: nested)
+            } else {
+                guard let size = child.sizeBytes else {
+                    throw NSError(
+                        domain: "MTPShuttleDrag", code: 13,
+                        userInfo: [NSLocalizedDescriptionKey: "Android did not report a file size."]
+                    )
+                }
+                manifest.append(FolderTransferManifestEntry(
+                    relativePath: relativePath,
+                    isDirectory: false,
+                    sizeBytes: Int64(size)
+                ))
+            }
+        }
+        return manifest
+    }
+
     private func uploadLocalFolderContents(
         _ folderURL: URL,
         remotePath: String,
@@ -1199,7 +1369,7 @@ struct ContentView: View {
         let children = try FileManager.default.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         )
 
         for child in children {
@@ -1708,7 +1878,6 @@ private struct DemoOperation: Identifiable {
 }
 
 private struct WorkspaceView: View {
-    @State private var favoritesExpandedHeight: CGFloat = 180
     @Binding var fileSystem: DemoFileSystem
     @Binding var leftPane: PaneNavigationState
     @Binding var rightPane: PaneNavigationState
@@ -1732,6 +1901,7 @@ private struct WorkspaceView: View {
     let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
     let onExternalDragProvider: (PaneKind, String, DemoEntry, Set<UUID>) -> NSItemProvider
+    let onFilePromiseProviders: (PaneKind, String, DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
     let favorites: [FavoriteLocation]
@@ -1773,6 +1943,9 @@ private struct WorkspaceView: View {
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
             onDragProvider: { item, selectedIDs in
                 onExternalDragProvider(.mac, leftPane.path, item, selectedIDs)
+            },
+            onFilePromiseProviders: { item, selectedIDs in
+                onFilePromiseProviders(.mac, leftPane.path, item, selectedIDs)
             }
         )
     }
@@ -1810,18 +1983,11 @@ private struct WorkspaceView: View {
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
             onDragProvider: { item, selectedIDs in
                 onExternalDragProvider(.android, rightPane.path, item, selectedIDs)
+            },
+            onFilePromiseProviders: { item, selectedIDs in
+                onFilePromiseProviders(.android, rightPane.path, item, selectedIDs)
             }
         )
-    }
-
-    private func resizeFavoriteShelf(_ proposedHeight: CGFloat) {
-        guard let height = FavoriteShelfResizePolicy.expandedHeight(for: proposedHeight) else {
-            favoritesExpanded = false
-            return
-        }
-
-        favoritesExpandedHeight = height
-        favoritesExpanded = true
     }
 
     var body: some View {
@@ -1849,8 +2015,6 @@ private struct WorkspaceView: View {
                 FavoriteShelfView(
                     favorites: favorites,
                     isExpanded: $favoritesExpanded,
-                    expandedHeight: favoritesExpandedHeight,
-                    onHeightChange: resizeFavoriteShelf,
                     isAndroidConnected: mtpService.isConnected,
                     isAvailable: isFavoriteAvailable,
                     onOpen: onOpenFavorite,

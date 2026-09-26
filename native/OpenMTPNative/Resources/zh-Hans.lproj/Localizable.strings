@@ -254,5 +254,18 @@
 "Show File Properties" = "显示文件属性";
 
 
-"Resize Favorites" = "调整收藏夹大小";
 "Drag up or down to adjust the favorites shelf height." = "上下拖动以调整收藏栏高度。";
+
+"Show in Finder" = "在 Finder 中显示";
+
+"Export Favorites…" = "导出收藏夹…";
+"Import Favorites…" = "导入收藏夹…";
+"Clear Favorites…" = "清空收藏夹…";
+"Clear Favorites?" = "清空收藏夹？";
+"Clear Favorites" = "清空收藏夹";
+"This removes all saved favorites from this Mac." = "这会从本机移除所有已保存的收藏项。";
+"Favorites cleared." = "收藏夹已清空。";
+"Favorites imported." = "收藏夹已导入。";
+"Favorites exported." = "收藏夹已导出。";
+"Could not import favorites: %@" = "无法导入收藏夹：%@";
+"Could not export favorites: %@" = "无法导出收藏夹：%@";
