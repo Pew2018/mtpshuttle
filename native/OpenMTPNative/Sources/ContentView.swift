@@ -1882,7 +1882,6 @@ private struct FolderDropConfirmationView: View {
         .padding(24)
         .frame(width: 460)
         .background(Color(nsColor: .windowBackgroundColor))
-        .environment(\\.locale, MTPShuttleLanguage.locale(for: MTPShuttleLanguage.currentLanguage.rawValue))
     }
 }
 
