@@ -1,4 +1,4 @@
-name: 0.1.1 - Master arm64 ZIP Build
+name: 0.1.1 - MTP Shuttle macOS DMG Build
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: "0.1.1 - Build MTP Shuttle master app (arm64)"
+    name: "0.1.1 - Build MTP Shuttle macOS DMG (arm64)"
     runs-on: macos-14
     defaults:
       run:
@@ -87,27 +87,47 @@ jobs:
           test ! -e "$APP/Contents/Resources/webpack"
           du -sh "$APP"
           find "$APP/Contents" -maxdepth 4 -type f -print | sort
-      - name: Verify artifact has a single app at its root
+      - name: Verify built app before disk image packaging
         run: |
           test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
           test -d "dist/MTP Shuttle.app"
-          test -z "$(find dist -type f -name '*.zip' -print -quit)"
           test -x "dist/MTP Shuttle.app/Contents/MacOS/SwiftMTP"
-      - name: Package and verify downloadable ZIP
+          codesign --verify --deep --strict "dist/MTP Shuttle.app"
+      - name: Create plain DMG with Applications shortcut
         run: |
-          (cd dist && ditto -c -k --keepParent "MTP Shuttle.app" MTP-Shuttle.zip)
-          test "$(unzip -Z -1 dist/MTP-Shuttle.zip | cut -d/ -f1 | sort -u)" = "MTP Shuttle.app"
-          EXTRACTED="$(mktemp -d)"
-          trap 'rm -rf "$EXTRACTED"' EXIT
-          ditto -x -k dist/MTP-Shuttle.zip "$EXTRACTED"
-          test "$(find "$EXTRACTED" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
-          test -x "$EXTRACTED/MTP Shuttle.app/Contents/MacOS/SwiftMTP"
-          test -f "$EXTRACTED/MTP Shuttle.app/Contents/Info.plist"
-          codesign --verify --deep --strict "$EXTRACTED/MTP Shuttle.app"
-      - name: Upload arm64 test ZIP
+          STAGING="$(mktemp -d)"
+          MOUNT="$(mktemp -d)"
+          DMG="dist/MTP-Shuttle.dmg"
+          cleanup() {
+            hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || true
+            rm -rf "$STAGING" "$MOUNT"
+          }
+          trap cleanup EXIT
+
+          ditto "dist/MTP Shuttle.app" "$STAGING/MTP Shuttle.app"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "MTP Shuttle" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+
+          hdiutil verify "$DMG"
+          hdiutil attach -nobrowse -readonly -mountpoint "$MOUNT" "$DMG"
+          VISIBLE_CONTENTS="$(find "$MOUNT" -mindepth 1 -maxdepth 1 ! -name '.*' -exec basename {} \; | sort)"
+          EXPECTED_CONTENTS="$(printf 'Applications\nMTP Shuttle.app')"
+          test "$VISIBLE_CONTENTS" = "$EXPECTED_CONTENTS"
+          test -d "$MOUNT/MTP Shuttle.app"
+          test -L "$MOUNT/Applications"
+          test "$(readlink "$MOUNT/Applications")" = "/Applications"
+          codesign --verify --deep --strict "$MOUNT/MTP Shuttle.app"
+      - name: Verify DMG artifact contents
+        run: |
+          test -f "dist/MTP-Shuttle.dmg"
+          test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "2"
+          test -d "dist/MTP Shuttle.app"
+          hdiutil verify "dist/MTP-Shuttle.dmg"
+      - name: Upload arm64 DMG test artifact
         uses: actions/upload-artifact@v7
         with:
-          path: native/OpenMTPNative/dist/MTP-Shuttle.zip
+          name: MTP-Shuttle-DMG
+          path: native/OpenMTPNative/dist/MTP-Shuttle.dmg
           archive: false
           if-no-files-found: error
           retention-days: 14

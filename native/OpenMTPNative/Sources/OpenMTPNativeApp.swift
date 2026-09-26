@@ -33,8 +33,8 @@ struct OpenMTPNativeApp: App {
                 .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
                 .preferredColorScheme(AppearanceMode.resolve(appAppearance).colorScheme)
         }
-        .defaultSize(width: 560, height: 700)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 630, height: 510)
+        .windowResizability(.contentMinSize)
 
         Window(MTPShuttleText.localized("About MTP Shuttle"), id: "about") {
             AboutView()

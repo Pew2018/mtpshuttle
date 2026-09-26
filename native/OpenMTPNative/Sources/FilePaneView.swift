@@ -452,17 +452,17 @@ struct FilePaneView: View {
             .padding(.vertical, 4)
         }
         .contextMenu {
+            Button("Paste", action: onPaste)
+                .disabled(!canPaste || !canModifyFiles)
+
+            Divider()
+
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
                 selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
-
-            Divider()
-
-            Button("Paste", action: onPaste)
-                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -508,17 +508,17 @@ struct FilePaneView: View {
             .padding(14)
         }
         .contextMenu {
+            Button("Paste", action: onPaste)
+                .disabled(!canPaste || !canModifyFiles)
+
+            Divider()
+
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
                 selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
-
-            Divider()
-
-            Button("Paste", action: onPaste)
-                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -544,17 +544,6 @@ struct FilePaneView: View {
 
         Divider()
 
-        Button("Properties") {
-            onAction(.properties, item)
-        }
-        .disabled(!canModifyFiles)
-
-        Button(FavoriteStrings.localized(isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")) {
-            onToggleFavorite(item)
-        }
-
-        Divider()
-
         Button("Copy") {
             onAction(.copy, item)
         }.disabled(!canModifyFiles)
@@ -565,21 +554,22 @@ struct FilePaneView: View {
 
         Divider()
 
-        if showCrossPaneActions {
-            Button("Copy to \(otherPaneTitle)") {
-                onAction(.copyToOther, item)
-            }.disabled(!canModifyFiles)
-
-            Button("Move to \(otherPaneTitle)") {
-                onAction(.moveToOther, item)
-            }.disabled(!canModifyFiles)
-
-            Divider()
-        }
-
         Button("Delete", role: .destructive) {
             onAction(.delete, item)
         }.disabled(!canModifyFiles)
+
+        Divider()
+
+        Button("Properties") {
+            onAction(.properties, item)
+        }
+        .disabled(!canModifyFiles)
+
+        Divider()
+
+        Button(FavoriteStrings.localized(isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")) {
+            onToggleFavorite(item)
+        }
     }
 
     private func openInFinder(_ item: DemoEntry) {
