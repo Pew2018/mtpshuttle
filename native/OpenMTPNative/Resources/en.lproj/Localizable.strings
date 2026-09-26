@@ -267,3 +267,6 @@
 "Favorites exported." = "Favorites exported.";
 "Could not import favorites: %@" = "Could not import favorites: %@";
 "Could not export favorites: %@" = "Could not export favorites: %@";
+
+"Refresh availability" = "Refresh availability";
+"Automatically open Favorites on launch" = "Automatically open Favorites on launch";

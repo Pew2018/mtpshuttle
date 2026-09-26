@@ -281,3 +281,6 @@
 "Favorites exported." = "收藏夾已匯出。";
 "Could not import favorites: %@" = "無法匯入收藏夾：%@";
 "Could not export favorites: %@" = "無法匯出收藏夾：%@";
+
+"Refresh availability" = "重新整理可用狀態";
+"Automatically open Favorites on launch" = "啟動時自動開啟收藏夾";

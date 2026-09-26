@@ -269,3 +269,6 @@
 "Favorites exported." = "收藏夹已导出。";
 "Could not import favorites: %@" = "无法导入收藏夹：%@";
 "Could not export favorites: %@" = "无法导出收藏夹：%@";
+
+"Refresh availability" = "刷新可用状态";
+"Automatically open Favorites on launch" = "启动时自动打开收藏夹";

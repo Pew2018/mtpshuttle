@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("alwaysShowTransferProgress") private var alwaysShowTransferProgress = false
     @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
     @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
+    @AppStorage("openFavoritesOnLaunch") private var openFavoritesOnLaunch = false
     @State private var isImportingFavorites = false
     @State private var isExportingFavorites = false
     @State private var isClearFavoritesConfirmationPresented = false
@@ -41,6 +42,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+                Toggle("Automatically open Favorites on launch", isOn: $openFavoritesOnLaunch)
 
                 Button("Export Favorites…") {
                     favoritesExportDocument = FavoriteLocationsDocument(data: Data(favoritesPayload.utf8))

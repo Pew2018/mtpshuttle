@@ -179,7 +179,8 @@ struct FavoriteShelfView: View {
     let isExpanded: Binding<Bool>
     let expandedHeight: CGFloat
     let isAndroidConnected: Bool
-    let isAvailable: (FavoriteLocation) -> Bool
+    let availabilityByID: [UUID: Bool]
+    let onRefreshAvailability: () -> Void
     @State private var unavailableFavorite: FavoriteLocation?
     let onOpen: (FavoriteLocation) -> Void
     let onRemove: (FavoriteLocation) -> Void
@@ -198,6 +199,14 @@ struct FavoriteShelfView: View {
                 }
                 .buttonStyle(.borderless)
                 .help(FavoriteStrings.localized(isExpanded.wrappedValue ? "Collapse Favorites" : "Expand Favorites"))
+                Button(action: onRefreshAvailability) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help(FavoriteStrings.localized("Refresh availability"))
+                .accessibilityLabel(FavoriteStrings.localized("Refresh availability"))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
@@ -253,7 +262,7 @@ struct FavoriteShelfView: View {
     }
 
     private func favoriteRow(_ favorite: FavoriteLocation) -> some View {
-        let available = isAvailable(favorite)
+        let available = availabilityByID[favorite.id] ?? false
         return HStack(spacing: 8) {
             Image(systemName: favorite.kind == .directory ? "folder" : "doc")
                 .foregroundStyle(available ? Color.accentColor : Color.secondary)
