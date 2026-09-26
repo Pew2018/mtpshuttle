@@ -21,14 +21,6 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     }
 }
 
-private struct SettingsSectionPositions: PreferenceKey {
-    static var defaultValue: [String: CGFloat] = [:]
-
-    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
 private enum SettingsConfirmation: Equatable {
     case clearFavorites
     case clearLog
@@ -103,7 +95,6 @@ struct SettingsView: View {
     @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
     @AppStorage("openFavoritesOnLaunch") private var openFavoritesOnLaunch = false
 
-    @State private var selectedCategory: SettingsCategory = .appearance
     @State private var isImportingFavorites = false
     @State private var isExportingFavorites = false
     @State private var activeConfirmation: SettingsConfirmation?
@@ -115,18 +106,9 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            HStack(spacing: 0) {
-                sidebar(scrollTo: proxy)
-                Divider()
-                settingsContent
-            }
+        settingsContent
             .frame(minWidth: 850, minHeight: 660)
             .background(Color(nsColor: .windowBackgroundColor))
-            .onPreferenceChange(SettingsSectionPositions.self) { positions in
-                updateSelectedCategory(from: positions)
-            }
-        }
         .confirmationDialog(
             Text(activeConfirmation?.title ?? ""),
             isPresented: Binding(
@@ -194,27 +176,6 @@ struct SettingsView: View {
             }
         )
         .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
-    }
-
-    private func sidebar(scrollTo proxy: ScrollViewProxy) -> some View {
-        List(selection: Binding(
-            get: { selectedCategory },
-            set: { category in
-                guard let category else { return }
-                selectedCategory = category
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    proxy.scrollTo(category.rawValue, anchor: .top)
-                }
-            }
-        )) {
-            ForEach(SettingsCategory.allCases) { category in
-                Text(LocalizedStringKey(category.titleKey))
-                    .tag(category)
-            }
-        }
-        .listStyle(.sidebar)
-        .frame(width: 190)
-        .accessibilityLabel(Text("Settings Categories"))
     }
 
     private var settingsContent: some View {
@@ -439,7 +400,6 @@ struct SettingsView: View {
             .padding(.horizontal, 26)
             .padding(.vertical, 24)
         }
-        .coordinateSpace(name: "settingsScroll")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -458,15 +418,6 @@ struct SettingsView: View {
                 .foregroundStyle(.primary)
 
             content()
-        }
-        .id(category.rawValue)
-        .background {
-            GeometryReader { geometry in
-                Color.clear.preference(
-                    key: SettingsSectionPositions.self,
-                    value: [category.rawValue: geometry.frame(in: .named("settingsScroll")).minY]
-                )
-            }
         }
     }
 
@@ -507,18 +458,6 @@ struct SettingsView: View {
                 .frame(maxWidth: 360, alignment: .trailing)
         }
         .padding(.vertical, 12)
-    }
-
-    private func updateSelectedCategory(from positions: [String: CGFloat]) {
-        let passed = positions
-            .filter { $0.value <= 90 }
-            .max(by: { $0.value < $1.value })
-
-        let candidate = passed ?? positions.min(by: { $0.value < $1.value })
-        if let rawValue = candidate?.key,
-           let category = SettingsCategory(rawValue: rawValue) {
-            selectedCategory = category
-        }
     }
 
     private func importFavorites(from result: Result<[URL], Error>) {

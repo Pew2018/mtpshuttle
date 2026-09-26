@@ -540,14 +540,7 @@ struct FilePaneView: View {
             Divider()
         }
 
-        Button("Properties") {
-            onAction(.properties, item)
-        }
-        .disabled(!canModifyFiles)
-
-        Button(FavoriteStrings.localized(isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")) {
-            onToggleFavorite(item)
-        }
+        Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
         Divider()
 
@@ -559,25 +552,24 @@ struct FilePaneView: View {
             onAction(.cut, item)
         }.disabled(!canModifyFiles)
 
-        if showCrossPaneActions {
-            Divider()
-
-            Button("Copy to \\(otherPaneTitle)") {
-                onAction(.copyToOther, item)
-            }.disabled(!canModifyFiles)
-
-            Button("Move to \\(otherPaneTitle)") {
-                onAction(.moveToOther, item)
-            }.disabled(!canModifyFiles)
-        }
-
         Divider()
-
-        Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
         Button("Delete", role: .destructive) {
             onAction(.delete, item)
         }.disabled(!canModifyFiles)
+
+        Divider()
+
+        Button("Properties") {
+            onAction(.properties, item)
+        }
+        .disabled(!canModifyFiles)
+
+        Divider()
+
+        Button(FavoriteStrings.localized(isFavorite(item) ? "Remove from Favorites" : "Add to Favorites")) {
+            onToggleFavorite(item)
+        }
     }
 
     private func openInFinder(_ item: DemoEntry) {
