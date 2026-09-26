@@ -15,6 +15,12 @@ private struct ExternalModeDropRequest: Identifiable {
     let targetPath: String
 }
 
+private struct FilePropertiesRequest: Identifiable {
+    let id = UUID()
+    let item: DemoEntry
+    let favoriteLocation: FavoriteLocation?
+}
+
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
 
@@ -31,7 +37,13 @@ struct ContentView: View {
     @State private var newFolderPane: PaneKind?
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
-    @State private var propertyItem: DemoEntry?
+    @State private var propertyRequest: FilePropertiesRequest?
+    @State private var pendingFavoriteSelection: FavoriteLocation?
+    @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
+    @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
+    @State private var isFavoritesShelfPresented = false
+    @State private var didApplyFavoritesLaunchPreference = false
+    @AppStorage("openFavoritesOnLaunch") private var openFavoritesOnLaunch = false
     @State private var statusMessage = MTPShuttleText.localized("Ready")
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
@@ -86,14 +98,36 @@ struct ContentView: View {
             onExternalDragProvider: makeExternalDragProvider,
             onFilePromiseProviders: makeFilePromiseProviders,
             mtpService: mtpService,
-            localBrowser: localBrowser
+            localBrowser: localBrowser,
+            favorites: favoriteLocations,
+            favoritesVisible: isFavoritesShelfPresented,
+            isFavorite: isFavorite,
+            onToggleFavorite: toggleFavorite,
+            onOpenFavorite: openFavorite,
+            onRemoveFavorite: removeFavorite,
+            onRebindFavorite: rebindFavorite,
+            isFavoriteAvailable: isFavoriteAvailable
         )
     }
 
     var body: some View {
         AnyView(workspaceView)
         .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
+        .onAppear {
+            guard !didApplyFavoritesLaunchPreference else { return }
+            didApplyFavoritesLaunchPreference = true
+            isFavoritesShelfPresented = openFavoritesOnLaunch
+        }
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    isFavoritesShelfPresented.toggle()
+                } label: {
+                    Image(systemName: isFavoritesShelfPresented ? "star.fill" : "star")
+                }
+                .help(FavoriteStrings.localized("Favorites"))
+                .accessibilityLabel(FavoriteStrings.localized("Favorites"))
+            }
             ToolbarItem(placement: .automatic) {
                 Button {
                     openWindow(id: "settings")
@@ -123,12 +157,18 @@ struct ContentView: View {
                 onCancel: { pendingExternalFolderDrop = nil }
             )
         }
-        .alert(item: $propertyItem) { item in
-            Alert(
-                title: Text(item.name),
-                message: Text(propertyDescription(for: item)),
-                dismissButton: .default(Text("OK"))
+        .sheet(item: $propertyRequest) { request in
+            FilePropertiesSheet(
+                item: request.item,
+                message: propertyDescription(for: request.item, favoriteLocation: request.favoriteLocation),
+                canShowContainingFolder: request.favoriteLocation?.kind == .file,
+                onShowContainingFolder: {
+                    guard let location = request.favoriteLocation, location.kind == .file else { return }
+                    propertyRequest = nil
+                    locateFavoriteFile(location)
+                }
             )
+            .environment(\.locale, MTPShuttleLanguage.locale(for: appLanguage))
         }
         .confirmationDialog(
             transferConflictTitle,
@@ -257,6 +297,12 @@ struct ContentView: View {
                 leftPane.selection.removeAll()
                 activePane = .android
             }
+        }
+        .onChange(of: localBrowser.entries) { _ in
+            selectPendingFavoriteIfLoaded(in: .mac)
+        }
+        .onChange(of: mtpService.entries) { _ in
+            selectPendingFavoriteIfLoaded(in: .android)
         }
     }
 
@@ -410,7 +456,7 @@ struct ContentView: View {
                 NSWorkspace.shared.open(url)
                 return
             }
-            propertyItem = item
+            propertyRequest = FilePropertiesRequest(item: item, favoriteLocation: nil)
             return
         }
 
@@ -494,7 +540,8 @@ struct ContentView: View {
         case .properties:
             let items = pane == .mac ? localBrowser.entries : (rightPane.path == "/" ? mtpService.storageEntries : mtpService.entries)
             let fallback = items.first { ids.contains($0.id) }
-            propertyItem = item ?? fallback
+            let selectedItem = item ?? fallback
+            propertyRequest = selectedItem.map { FilePropertiesRequest(item: $0, favoriteLocation: nil) }
 
         case .copy:
             clipboard = ClipboardPayload(
@@ -1620,10 +1667,137 @@ struct ContentView: View {
         }
     }
 
-    private func propertyDescription(for item: DemoEntry) -> String {
+    private var favoriteLocations: [FavoriteLocation] {
+        FavoriteLocation.decode(favoritesPayload)
+    }
+
+    private func saveFavorites(_ favorites: [FavoriteLocation]) {
+        favoritesPayload = FavoriteLocation.encode(favorites)
+    }
+
+    private func favoriteLocation(for pane: PaneKind, item: DemoEntry) -> FavoriteLocation {
+        FavoriteLocation.from(
+            pane: pane,
+            item: item,
+            currentPath: paneState(for: pane).path,
+            deviceSerial: mtpService.device?.serialNumber,
+            deviceSessionID: mtpService.connectionSessionID,
+            storageName: item.storageID.flatMap { id in mtpService.storages.first { $0.storageID == id }?.name }
+        )
+    }
+
+    private func isFavorite(_ pane: PaneKind, _ item: DemoEntry) -> Bool {
+        let location = favoriteLocation(for: pane, item: item)
+        return favoriteLocations.contains { $0.sameLocation(as: location) }
+    }
+
+    private func toggleFavorite(_ pane: PaneKind, _ item: DemoEntry) {
+        let location = favoriteLocation(for: pane, item: item)
+        saveFavorites(FavoriteLocation.toggled(location, in: favoriteLocations))
+        statusMessage = favoriteLocations.contains { $0.sameLocation(as: location) }
+            ? FavoriteStrings.localized("Added to Favorites")
+            : FavoriteStrings.localized("Removed from Favorites")
+    }
+
+    private func removeFavorite(_ location: FavoriteLocation) {
+        saveFavorites(favoriteLocations.filter { $0.id != location.id })
+    }
+
+    private func isFavoriteAvailable(_ location: FavoriteLocation) -> Bool {
+        switch location.pane {
+        case .mac:
+            return FileManager.default.fileExists(atPath: location.path)
+        case .android:
+            return location.canResolveAndroid(
+                deviceSerial: mtpService.device?.serialNumber,
+                sessionID: mtpService.connectionSessionID,
+                storages: mtpService.storages,
+                isConnected: mtpService.isConnected
+            )
+        }
+    }
+
+    private func rebindFavorite(_ location: FavoriteLocation) {
+        guard location.pane == .android, mtpService.isConnected else { return }
+        guard let storageName = location.storageName else {
+            statusMessage = FavoriteStrings.localized("Cannot identify the Android storage")
+            return
+        }
+        let matchingStorages = mtpService.storages.filter { $0.name == storageName }
+        guard matchingStorages.count == 1, let storage = matchingStorages.first else {
+            statusMessage = FavoriteStrings.localized("Storage is ambiguous; favorite was not changed")
+            return
+        }
+        var updated = location
+        updated.rebind(
+            deviceSerial: mtpService.device?.serialNumber,
+            sessionID: mtpService.connectionSessionID,
+            storageID: storage.storageID
+        )
+        saveFavorites(favoriteLocations.map { $0.id == location.id ? updated : $0 })
+        statusMessage = FavoriteStrings.localized("Android favorite rebound to current device")
+    }
+
+    private func openFavorite(_ location: FavoriteLocation) {
+        guard isFavoriteAvailable(location) else {
+            statusMessage = FavoriteStrings.localized("Favorite is currently unavailable")
+            return
+        }
+        if location.kind == .directory {
+            navigateTo(location.pane, location.path)
+            return
+        }
+
+        if (FavoriteFileOpenBehavior(rawValue: favoriteFileOpenBehavior) ?? .defaultValue) == .revealAndSelect {
+            locateFavoriteFile(location)
+            return
+        }
+
+        let localURL = location.pane == .mac ? URL(fileURLWithPath: location.path) : nil
+        let mtpPath = location.pane == .android ? MTPBrowsePath(browserPath: location.path)?.fullPath : nil
+        let item = DemoEntry(
+            id: location.id,
+            name: location.name,
+            subtitle: "File",
+            sizeBytes: localURL.flatMap { try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize },
+            isDirectory: false,
+            localURL: localURL,
+            storageID: MTPBrowsePath(browserPath: location.path)?.storageID,
+            remotePath: mtpPath,
+            objectID: nil
+        )
+        propertyRequest = FilePropertiesRequest(item: item, favoriteLocation: location)
+    }
+
+    private func locateFavoriteFile(_ location: FavoriteLocation) {
+        guard location.kind == .file, isFavoriteAvailable(location) else { return }
+        pendingFavoriteSelection = location
+        let parent = location.parentPath
+        if paneState(for: location.pane).path == parent {
+            selectPendingFavoriteIfLoaded(in: location.pane)
+        } else {
+            navigateTo(location.pane, parent)
+        }
+    }
+
+    private func selectPendingFavoriteIfLoaded(in pane: PaneKind) {
+        guard let location = pendingFavoriteSelection, location.pane == pane else { return }
+        switch pane {
+        case .mac:
+            guard let entry = localBrowser.entries.first(where: { $0.localURL?.standardizedFileURL.path == location.path }) else { return }
+            leftPane.selection = [entry.id]
+        case .android:
+            guard let browsePath = MTPBrowsePath(browserPath: location.path),
+                  let entry = mtpService.entries.first(where: { $0.remotePath == browsePath.fullPath }) else { return }
+            rightPane.selection = [entry.id]
+        }
+        pendingFavoriteSelection = nil
+    }
+
+    private func propertyDescription(for item: DemoEntry, favoriteLocation: FavoriteLocation?) -> String {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
-        let path = item.localURL?.path ?? item.remotePath ?? item.name
+        let path = favoriteLocation?.path ?? item.localURL?.path ?? item.remotePath ?? item.name
         return "Type: \(type)\nSize: \(size)\nPath: \(path)"
     }
 }
@@ -1738,6 +1912,14 @@ private struct WorkspaceView: View {
     let onFilePromiseProviders: (PaneKind, String, DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
+    let favorites: [FavoriteLocation]
+    let favoritesVisible: Bool
+    let isFavorite: (PaneKind, DemoEntry) -> Bool
+    let onToggleFavorite: (PaneKind, DemoEntry) -> Void
+    let onOpenFavorite: (FavoriteLocation) -> Void
+    let onRemoveFavorite: (FavoriteLocation) -> Void
+    let onRebindFavorite: (FavoriteLocation) -> Void
+    let isFavoriteAvailable: (FavoriteLocation) -> Bool
 
     private var macPane: some View {
         FilePaneView(
@@ -1760,6 +1942,8 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.mac) },
             onPaste: { onPaste(.mac) },
             showCrossPaneActions: !androidOnlyMode && mtpService.isConnected,
+            isFavorite: { isFavorite(.mac, $0) },
+            onToggleFavorite: { onToggleFavorite(.mac, $0) },
             onInternalDrop: { encoded in
                 onInternalDrop(encoded, .mac)
             },
@@ -1798,6 +1982,8 @@ private struct WorkspaceView: View {
             onNewFolder: { onNewFolder(.android) },
             onPaste: { onPaste(.android) },
             showCrossPaneActions: !androidOnlyMode,
+            isFavorite: { isFavorite(.android, $0) },
+            onToggleFavorite: { onToggleFavorite(.android, $0) },
             onInternalDrop: { encoded in
                 onInternalDrop(encoded, .android)
             },
@@ -1812,7 +1998,8 @@ private struct WorkspaceView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Circle().fill(mtpService.isConnected ? Color.green : Color.orange).frame(width: 8, height: 8)
                 Text(mtpService.statusText).font(.caption).foregroundStyle(.secondary)
@@ -1832,6 +2019,18 @@ private struct WorkspaceView: View {
                 }
             }
 
+            if favoritesVisible {
+                FavoriteShelfView(
+                    favorites: favorites,
+                    expandedHeight: geometry.size.height / 3.0,
+                    isAndroidConnected: mtpService.isConnected,
+                    isAvailable: isFavoriteAvailable,
+                    onOpen: onOpenFavorite,
+                    onRemove: onRemoveFavorite,
+                    onRebind: onRebindFavorite
+                )
+            }
+
             Divider()
 
             if let operation {
@@ -1846,6 +2045,7 @@ private struct WorkspaceView: View {
                         .font(.caption)
 
                     Spacer()
+
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
@@ -1853,7 +2053,8 @@ private struct WorkspaceView: View {
                 .background(.bar)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
     }
 }
 

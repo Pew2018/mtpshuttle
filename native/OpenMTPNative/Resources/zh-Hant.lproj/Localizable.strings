@@ -258,4 +258,29 @@
 "Debug log cleared." = "除錯日誌已清除。";
 "Could not clear the debug log: %@" = "無法清除除錯日誌：%@";
 
+
+
+"Double-clicking a favorite file" = "雙擊收藏的檔案時";
+"Choose what happens when you double-click a favorite file." = "選擇雙擊收藏檔案時的操作。";
+"Reveal Containing Folder and Select File" = "進入所屬目錄並選取檔案";
+"Show File Properties" = "顯示檔案屬性";
+
+
+"Drag up or down to adjust the favorites shelf height." = "上下拖曳以調整收藏列高度。";
+
 "Show in Finder" = "在 Finder 中顯示";
+
+"Export Favorites…" = "匯出收藏夾…";
+"Import Favorites…" = "匯入收藏夾…";
+"Clear Favorites…" = "清空收藏夾…";
+"Clear Favorites?" = "清空收藏夾？";
+"Clear Favorites" = "清空收藏夾";
+"This removes all saved favorites from this Mac." = "這會從此 Mac 移除所有已儲存的收藏項目。";
+"Favorites cleared." = "收藏夾已清空。";
+"Favorites imported." = "收藏夾已匯入。";
+"Favorites exported." = "收藏夾已匯出。";
+"Could not import favorites: %@" = "無法匯入收藏夾：%@";
+"Could not export favorites: %@" = "無法匯出收藏夾：%@";
+
+"Refresh availability" = "重新整理可用狀態";
+"Automatically open Favorites on launch" = "啟動時自動開啟收藏夾";

@@ -246,4 +246,29 @@
 "Debug log cleared." = "调试日志已清空。";
 "Could not clear the debug log: %@" = "无法清空调试日志：%@";
 
+
+
+"Double-clicking a favorite file" = "双击收藏的文件时";
+"Choose what happens when you double-click a favorite file." = "选择双击收藏文件时的操作。";
+"Reveal Containing Folder and Select File" = "进入所属目录并选中文件";
+"Show File Properties" = "显示文件属性";
+
+
+"Drag up or down to adjust the favorites shelf height." = "上下拖动以调整收藏栏高度。";
+
 "Show in Finder" = "在 Finder 中显示";
+
+"Export Favorites…" = "导出收藏夹…";
+"Import Favorites…" = "导入收藏夹…";
+"Clear Favorites…" = "清空收藏夹…";
+"Clear Favorites?" = "清空收藏夹？";
+"Clear Favorites" = "清空收藏夹";
+"This removes all saved favorites from this Mac." = "这会从本机移除所有已保存的收藏项。";
+"Favorites cleared." = "收藏夹已清空。";
+"Favorites imported." = "收藏夹已导入。";
+"Favorites exported." = "收藏夹已导出。";
+"Could not import favorites: %@" = "无法导入收藏夹：%@";
+"Could not export favorites: %@" = "无法导出收藏夹：%@";
+
+"Refresh availability" = "刷新可用状态";
+"Automatically open Favorites on launch" = "启动时自动打开收藏夹";
