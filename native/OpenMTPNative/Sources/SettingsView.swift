@@ -107,7 +107,7 @@ struct SettingsView: View {
 
     var body: some View {
         settingsContent
-            .frame(minWidth: 850, minHeight: 660)
+            .frame(minWidth: 800, minHeight: 600)
             .background(Color(nsColor: .windowBackgroundColor))
         .confirmationDialog(
             Text(activeConfirmation?.title ?? ""),
@@ -179,8 +179,7 @@ struct SettingsView: View {
     }
 
     private var settingsContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 26) {
+        List {
                 section(.appearance) {
                     settingsGroup {
                         settingRow("Appearance") {
@@ -252,10 +251,10 @@ struct SettingsView: View {
                         rowDivider
 
                         settingRow(
-                            "Default Drop Action",
-                            detail: "Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation."
+                            "When Dragging Files from Finder to Android",
+                            detail: "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time."
                         ) {
-                            Picker("Default Drop Action", selection: $dragDropMode) {
+                            Picker("When Dragging Files from Finder to Android", selection: $dragDropMode) {
                                 ForEach(DragDropMode.allCases) { mode in
                                     Text(LocalizedStringKey(mode.title)).tag(mode.rawValue)
                                 }
@@ -397,10 +396,9 @@ struct SettingsView: View {
                         }
                     }
                 }
-            }
-            .padding(.horizontal, 26)
-            .padding(.vertical, 24)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -420,6 +418,9 @@ struct SettingsView: View {
 
             content()
         }
+        .listRowInsets(EdgeInsets(top: 8, leading: 26, bottom: 8, trailing: 26))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
     private func settingsGroup<Content: View>(

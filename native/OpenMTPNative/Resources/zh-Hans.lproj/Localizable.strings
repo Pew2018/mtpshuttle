@@ -277,8 +277,8 @@
 "When enabled, the device browser shows only Android devices." = "开启后，文件浏览器仅显示 Android 设备。";
 "Choose the language used in the app." = "选择应用界面使用的语言。";
 "Show Transfer Progress Window" = "显示传输进度窗口";
-"Default Drop Action" = "拖放默认操作";
-"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "适用于从 Finder 拖入 Android 设备和在两个面板之间拖放项目。拖放文件夹时仍可能出现单独确认。";
+"Default Drop Action" = "Finder 拖入 Android 默认操作";
+"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "选择将文件从 Finder 拖入 Android 设备时的默认操作：复制、移动或每次询问。";
 "Show Favorites on Launch" = "启动时显示收藏栏";
 "Automatically show the Favorites shelf when the app starts." = "启动应用时自动显示收藏栏。";
 "Reveal in Folder and Select File" = "在所属目录中显示并选中文件";
@@ -334,3 +334,7 @@
 "Reveal in Folder" = "在所属目录中显示";
 
 "Rebind to Current Android Device" = "重新绑定到当前 Android 设备";
+
+"When Dragging Files from Finder to Android" = "从 Finder 拖入文件至 Android 时";
+"Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "选择将文件从 Finder 拖入 Android 设备时的默认操作：复制、移动或每次询问。";
+"Add to Favorites" = "添加到收藏夹";

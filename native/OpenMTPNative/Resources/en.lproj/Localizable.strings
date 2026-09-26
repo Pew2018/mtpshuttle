@@ -275,8 +275,8 @@
 "When enabled, the device browser shows only Android devices." = "When enabled, the device browser shows only Android devices.";
 "Choose the language used in the app." = "Choose the language used in the app.";
 "Show Transfer Progress Window" = "Show Transfer Progress Window";
-"Default Drop Action" = "Default Drop Action";
-"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation.";
+"Default Drop Action" = "Finder to Android Drop Action";
+"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time.";
 "Show Favorites on Launch" = "Show Favorites on Launch";
 "Automatically show the Favorites shelf when the app starts." = "Automatically show the Favorites shelf when the app starts.";
 "Reveal in Folder and Select File" = "Reveal in Folder and Select File";
@@ -332,3 +332,7 @@
 "Reveal in Folder" = "Reveal in Folder";
 
 "Rebind to Current Android Device" = "Rebind to Current Android Device";
+
+"When Dragging Files from Finder to Android" = "When Dragging Files from Finder to Android";
+"Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time.";
+"Add to Favorites" = "Add to Favorites";
