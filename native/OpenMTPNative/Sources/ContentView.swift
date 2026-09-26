@@ -2019,7 +2019,7 @@ private struct WorkspaceView: View {
                 FavoriteShelfView(
                     favorites: favorites,
                     isExpanded: $favoritesExpanded,
-                    expandedHeight: geometry.size.height * 2.0 / 7.0,
+                    expandedHeight: geometry.size.height / 3.0,
                     isAndroidConnected: mtpService.isConnected,
                     isAvailable: isFavoriteAvailable,
                     onOpen: onOpenFavorite,

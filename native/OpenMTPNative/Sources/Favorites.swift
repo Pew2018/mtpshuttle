@@ -180,6 +180,7 @@ struct FavoriteShelfView: View {
     let expandedHeight: CGFloat
     let isAndroidConnected: Bool
     let isAvailable: (FavoriteLocation) -> Bool
+    @State private var unavailableFavorite: FavoriteLocation?
     let onOpen: (FavoriteLocation) -> Void
     let onRemove: (FavoriteLocation) -> Void
     let onRebind: (FavoriteLocation) -> Void
@@ -213,6 +214,17 @@ struct FavoriteShelfView: View {
         .frame(maxWidth: .infinity)
         .frame(height: isExpanded.wrappedValue ? expandedHeight : 44)
         .background(.bar)
+        .alert(item: $unavailableFavorite) { favorite in
+            Alert(
+                title: Text(FavoriteStrings.localized("Unavailable")),
+                message: Text(FavoriteStrings.localized("Favorite is currently unavailable")),
+                primaryButton: .destructive(
+                    Text(FavoriteStrings.localized("Remove from Favorites")),
+                    action: { onRemove(favorite) }
+                ),
+                secondaryButton: .cancel(Text(FavoriteStrings.localized("Close")))
+            )
+        }
     }
 
     private func favoriteColumn(title: String, pane: PaneKind) -> some View {
@@ -260,7 +272,11 @@ struct FavoriteShelfView: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            if available { onOpen(favorite) }
+            if available {
+                onOpen(favorite)
+            } else {
+                unavailableFavorite = favorite
+            }
         }
         .contextMenu {
             Button(FavoriteStrings.localized("Open")) {
