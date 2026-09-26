@@ -2,6 +2,178 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private final class MTPShuttleFilePromiseDelegate: NSObject, NSFilePromiseProviderDelegate {
+    let fileName: String
+    let writePromise: (URL, @escaping (Error?) -> Void) -> Void
+    private let writeQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "MTPShuttle.FilePromise"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+    init(fileName: String, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
+        self.fileName = fileName
+        self.writePromise = writePromise
+    }
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+        DebugLogger.info("Android file promise name requested: \(fileName)")
+        return fileName
+    }
+    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue { writeQueue }
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
+        DebugLogger.info("Android file promise requested: \(fileName)")
+        writePromise(url, completionHandler)
+    }
+}
+final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
+    // AppKit's init(fileType:delegate:) is a convenience initializer that calls
+    // self.init(). Keep that initializer available on this Swift subclass.
+    private var promiseDelegate: MTPShuttleFilePromiseDelegate?
+    // Used only by another pane in this process; never advertise it to Finder.
+    private(set) var internalPayload: String?
+
+    override init() {
+        super.init()
+    }
+
+    convenience init(fileType: String, fileName: String, encodedPayload: String?, writePromise: @escaping (URL, @escaping (Error?) -> Void) -> Void) {
+        self.init()
+        let promiseDelegate = MTPShuttleFilePromiseDelegate(fileName: fileName, writePromise: writePromise)
+        self.promiseDelegate = promiseDelegate // NSFilePromiseProvider holds its delegate weakly.
+        self.internalPayload = encodedPayload
+        self.fileType = fileType
+        self.delegate = promiseDelegate
+    }
+}
+struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
+    let makeProviders: () -> [NSFilePromiseProvider]
+    let onClick: () -> Void
+    let onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> DragSourceView {
+        DragSourceView(makeProviders: makeProviders, onClick: onClick, onDoubleClick: onDoubleClick)
+    }
+
+    func updateNSView(_ nsView: DragSourceView, context: Context) {
+        nsView.makeProviders = makeProviders
+        nsView.onClick = onClick
+        nsView.onDoubleClick = onDoubleClick
+    }
+
+    final class DragSourceView: NSView, NSDraggingSource {
+        var makeProviders: () -> [NSFilePromiseProvider]
+        var onClick: () -> Void
+        var onDoubleClick: () -> Void
+        private var mouseDownEvent: NSEvent?
+        private var hasDraggingSession = false
+        // AppKit consumes NSDraggingItem instances when the session begins. Keep
+        // the promise writers and their delegates alive until the next drag.
+        private var retainedProviders: [NSFilePromiseProvider] = []
+        private(set) var internalPayload: String?
+        private var lastDragContext: NSDraggingContext?
+        private let dragDistance: CGFloat = 6
+
+        init(makeProviders: @escaping () -> [NSFilePromiseProvider], onClick: @escaping () -> Void, onDoubleClick: @escaping () -> Void) {
+            self.makeProviders = makeProviders
+            self.onClick = onClick
+            self.onDoubleClick = onDoubleClick
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // Leave the SwiftUI row's context menu in charge of right clicks.
+            if NSApp.currentEvent?.type == .rightMouseDown { return nil }
+            return super.hitTest(point)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            mouseDownEvent = event
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let start = mouseDownEvent, !hasDraggingSession else { return }
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) >= dragDistance else { return }
+
+            // Once the pointer moves far enough, it is no longer a click.
+            mouseDownEvent = nil
+            let providers = makeProviders()
+            guard !providers.isEmpty else { return }
+            let items = providers.map { provider -> NSDraggingItem in
+                let item = NSDraggingItem(pasteboardWriter: provider)
+                let symbol = provider.fileType == UTType.directory.identifier ? "folder.fill" : "doc.fill"
+                let icon = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+                    ?? NSWorkspace.shared.icon(forFileType: provider.fileType)
+                let frame = NSRect(
+                    x: max(0, (bounds.width - 32) / 2),
+                    y: max(0, (bounds.height - 32) / 2),
+                    width: 32,
+                    height: 32
+                )
+                item.setDraggingFrame(frame, contents: icon)
+                return item
+            }
+            retainedProviders = providers
+            internalPayload = (providers.first as? MTPShuttleFilePromiseProvider)?.internalPayload
+            hasDraggingSession = true
+            lastDragContext = nil
+            DebugLogger.info("Android file drag started: count=\(providers.count)")
+            let session = beginDraggingSession(with: items, event: start, source: self)
+            DebugLogger.info("Android drag pasteboard types: \(session.draggingPasteboard.types?.map(\.rawValue).joined(separator: "|") ?? "")")
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            guard let start = mouseDownEvent else { return }
+            mouseDownEvent = nil
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) < dragDistance else { return }
+            if event.clickCount >= 2 {
+                onDoubleClick()
+            } else {
+                onClick()
+            }
+        }
+
+        func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+            if lastDragContext != context {
+                lastDragContext = context
+                DebugLogger.info("Android file drag context: \(context == .outsideApplication ? "outside application" : "inside application")")
+            }
+            return .copy
+        }
+
+        func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+            DebugLogger.info("Android file drag ended: operation=\(operation.rawValue)")
+            hasDraggingSession = false
+            mouseDownEvent = nil
+            internalPayload = nil
+            lastDragContext = nil
+            // Finder may request the promised file after this callback.
+            // Retain the providers until the next drag or this row disappears.
+        }
+    }
+}
+
+private struct MTPShuttleLocalPaneDrag: ViewModifier {
+    let enabled: Bool
+    let provider: () -> NSItemProvider
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if enabled {
+            content.onDrag(provider)
+        } else {
+            content
+        }
+    }
+}
+
+
+
 enum MTPShuttleDNDLogger {
     private static let queue = DispatchQueue(label: "com.pew2018.mtpshuttle.dnd-log")
     private static let url = URL(fileURLWithPath: "/tmp/mtp-shuttle-dnd.log")
@@ -56,6 +228,7 @@ struct FilePaneView: View {
     let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
     let onDragProvider: (DemoEntry, Set<UUID>) -> NSItemProvider
+    let onFilePromiseProviders: (DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
 
     @State private var viewMode: FileViewMode = .list
     @State private var isDropTargeted = false
@@ -247,9 +420,18 @@ struct FilePaneView: View {
                     .contextMenu {
                         itemContextMenu(for: item)
                     }
-                    .onDrag {
-                        onDragProvider(item, selection)
+                    .overlay {
+                        if pane == .android {
+                            MTPShuttleFilePromiseDragSource(
+                                makeProviders: { onFilePromiseProviders(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
+                        }
                     }
+                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
+                        onDragProvider(item, selection)
+                    })
                 }
             }
             .padding(.horizontal, 4)
@@ -295,9 +477,18 @@ struct FilePaneView: View {
                     .contextMenu {
                         itemContextMenu(for: item)
                     }
-                    .onDrag {
-                        onDragProvider(item, selection)
+                    .overlay {
+                        if pane == .android {
+                            MTPShuttleFilePromiseDragSource(
+                                makeProviders: { onFilePromiseProviders(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
+                        }
                     }
+                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
+                        onDragProvider(item, selection)
+                    })
                 }
             }
             .padding(14)
@@ -386,7 +577,6 @@ struct FilePaneView: View {
         .padding(24)
     }
 
-
     private var otherPaneTitle: String {
         pane == .mac ? "Android Device" : "This Mac"
     }
@@ -448,7 +638,15 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
                 || types.contains(.string)
         }
 
+        private func localPromisePayload(_ draggingInfo: NSDraggingInfo) -> String? {
+            guard let source = draggingInfo.draggingSource as? MTPShuttleFilePromiseDragSource.DragSourceView,
+                  let encoded = source.internalPayload,
+                  DemoDragPayload.decode(encoded) != nil else { return nil }
+            return encoded
+        }
+
         private func isInternalDrag(_ draggingInfo: NSDraggingInfo) -> Bool {
+            if localPromisePayload(draggingInfo) != nil { return true }
             let pasteboard = draggingInfo.draggingPasteboard
 
             if pasteboard.types?.contains(internalPasteboardType) == true {
@@ -575,7 +773,7 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
             if isInternalDrag(draggingInfo) {
                 MTPShuttleDNDLogger.log("AppKit perform INTERNAL types=\\(pasteboard.types ?? [])")
 
-                guard let encoded = readInternalPayload(from: pasteboard) else {
+                guard let encoded = localPromisePayload(draggingInfo) ?? readInternalPayload(from: pasteboard) else {
                     MTPShuttleDNDLogger.log("AppKit INTERNAL payload read FAILED")
                     return false
                 }
