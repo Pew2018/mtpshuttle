@@ -176,7 +176,7 @@ struct SettingsView: View {
         .confirmationDialog("Clear Favorites?", isPresented: $isClearFavoritesConfirmationPresented) {
             Button("Clear Favorites", role: .destructive) {
                 favoritesPayload = "[]"
-                favoritesMessage = "Favorites cleared."
+                favoritesMessage = FavoriteStrings.localized("Favorites cleared.")
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -193,9 +193,9 @@ struct SettingsView: View {
             onCompletion: { result in
                 switch result {
                 case .success:
-                    favoritesMessage = "Favorites exported."
+                    favoritesMessage = FavoriteStrings.localized("Favorites exported.")
                 case .failure(let error):
-                    favoritesMessage = "Could not export favorites: \\(error.localizedDescription)"
+                    favoritesMessage = String(format: FavoriteStrings.localized("Could not export favorites: %@"), error.localizedDescription)
                 }
             }
         )
@@ -225,9 +225,9 @@ struct SettingsView: View {
                 combined.append(favorite)
             }
             favoritesPayload = FavoriteLocation.encode(combined)
-            favoritesMessage = "Favorites imported."
+            favoritesMessage = FavoriteStrings.localized("Favorites imported.")
         } catch {
-            favoritesMessage = "Could not import favorites: \\(error.localizedDescription)"
+            favoritesMessage = String(format: FavoriteStrings.localized("Could not import favorites: %@"), error.localizedDescription)
         }
     }
 }
