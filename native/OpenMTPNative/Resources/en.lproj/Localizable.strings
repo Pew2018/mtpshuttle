@@ -336,3 +336,6 @@
 "When Dragging Files from Finder to Android" = "When Dragging Files from Finder to Android";
 "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time.";
 "Add to Favorites" = "Add to Favorites";
+
+"Collect additional information to help troubleshoot issues." = "Collect additional information to help troubleshoot issues.";
+"MTP Shuttle Favorites Filename" = "MTP Shuttle Favorites";

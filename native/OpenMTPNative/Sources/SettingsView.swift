@@ -165,7 +165,7 @@ struct SettingsView: View {
             isPresented: $isExportingFavorites,
             document: favoritesExportDocument,
             contentType: .json,
-            defaultFilename: "MTP Shuttle Favorites",
+            defaultFilename: MTPShuttleText.localized("MTP Shuttle Favorites Filename"),
             onCompletion: { result in
                 switch result {
                 case .success:

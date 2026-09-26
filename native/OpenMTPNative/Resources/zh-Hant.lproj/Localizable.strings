@@ -350,3 +350,6 @@
 "When Dragging Files from Finder to Android" = "從 Finder 拖入檔案至 Android 時";
 "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "選擇將檔案從 Finder 拖入 Android 裝置時的預設操作：複製、移動或每次詢問。";
 "Add to Favorites" = "加入收藏夾";
+
+"Collect additional information to help troubleshoot issues." = "收集更多執行資訊，協助排查問題。";
+"MTP Shuttle Favorites Filename" = "MTP Shuttle 收藏夾";
