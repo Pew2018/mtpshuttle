@@ -330,4 +330,7 @@
 "Remove from Favorites" = "从收藏夹移除";
 "No favorites yet" = "暂无收藏项目";
 "Open" = "打开";
+"Show File Info" = "显示文件信息";
+"Reveal in Folder" = "在所属目录中显示";
+
 "Rebind to Current Android Device" = "重新绑定到当前 Android 设备";

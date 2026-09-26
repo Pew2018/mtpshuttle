@@ -452,17 +452,17 @@ struct FilePaneView: View {
             .padding(.vertical, 4)
         }
         .contextMenu {
+            Button("Paste", action: onPaste)
+                .disabled(!canPaste || !canModifyFiles)
+
+            Divider()
+
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
                 selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
-
-            Divider()
-
-            Button("Paste", action: onPaste)
-                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -508,17 +508,17 @@ struct FilePaneView: View {
             .padding(14)
         }
         .contextMenu {
+            Button("Paste", action: onPaste)
+                .disabled(!canPaste || !canModifyFiles)
+
+            Divider()
+
             Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
             Button("Select All") {
                 selection = Set(items.map(\.id))
             }
             .disabled(items.isEmpty)
-
-            Divider()
-
-            Button("Paste", action: onPaste)
-                .disabled(!canPaste || !canModifyFiles)
         }
     }
 
@@ -540,10 +540,6 @@ struct FilePaneView: View {
             Divider()
         }
 
-        Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
-
-        Divider()
-
         Button("Properties") {
             onAction(.properties, item)
         }
@@ -563,19 +559,21 @@ struct FilePaneView: View {
             onAction(.cut, item)
         }.disabled(!canModifyFiles)
 
-        Divider()
-
         if showCrossPaneActions {
-            Button("Copy to \(otherPaneTitle)") {
+            Divider()
+
+            Button("Copy to \\(otherPaneTitle)") {
                 onAction(.copyToOther, item)
             }.disabled(!canModifyFiles)
 
-            Button("Move to \(otherPaneTitle)") {
+            Button("Move to \\(otherPaneTitle)") {
                 onAction(.moveToOther, item)
             }.disabled(!canModifyFiles)
-
-            Divider()
         }
+
+        Divider()
+
+        Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
         Button("Delete", role: .destructive) {
             onAction(.delete, item)

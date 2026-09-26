@@ -197,37 +197,24 @@ struct SettingsView: View {
     }
 
     private func sidebar(scrollTo proxy: ScrollViewProxy) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(SettingsCategory.allCases) { category in
-                Button {
-                    selectedCategory = category
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        proxy.scrollTo(category.rawValue, anchor: .top)
-                    }
-                } label: {
-                    Text(LocalizedStringKey(category.titleKey))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(selectedCategory == category ? Color.accentColor : Color.primary)
-                        .background {
-                            if selectedCategory == category {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(Color.accentColor.opacity(0.13))
-                            }
-                        }
-                        .contentShape(Rectangle())
+        List(selection: Binding(
+            get: { selectedCategory },
+            set: { category in
+                guard let category else { return }
+                selectedCategory = category
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(category.rawValue, anchor: .top)
                 }
-                .buttonStyle(.plain)
             }
-
-            Spacer(minLength: 0)
+        )) {
+            ForEach(SettingsCategory.allCases) { category in
+                Text(LocalizedStringKey(category.titleKey))
+                    .tag(category)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 24)
-        .frame(width: 170)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.65))
+        .listStyle(.sidebar)
+        .frame(width: 190)
+        .accessibilityLabel(Text("Settings Categories"))
     }
 
     private var settingsContent: some View {
@@ -338,12 +325,12 @@ struct SettingsView: View {
                             detail: "Choose what happens when you double-click a favorite file."
                         ) {
                             Picker("Double-clicking a favorite file", selection: $favoriteFileOpenBehavior) {
-                                Text("Show File Properties").tag(FavoriteFileOpenBehavior.showProperties.rawValue)
-                                Text("Reveal in Folder and Select File").tag(FavoriteFileOpenBehavior.revealAndSelect.rawValue)
+                                Text("Show File Info").tag(FavoriteFileOpenBehavior.showProperties.rawValue)
+                                Text("Reveal in Folder").tag(FavoriteFileOpenBehavior.revealAndSelect.rawValue)
                             }
                             .labelsHidden()
-                            .pickerStyle(.segmented)
-                            .frame(width: 320)
+                            .pickerStyle(.radioGroup)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
                         rowDivider
@@ -352,23 +339,27 @@ struct SettingsView: View {
                             "Manage Favorites",
                             detail: "Export, import, or remove all saved favorites."
                         ) {
-                            HStack(spacing: 8) {
+                            VStack(alignment: .trailing, spacing: 8) {
                                 Button("Export Favorites…") {
                                     favoritesExportDocument = FavoriteLocationsDocument(data: Data(favoritesPayload.utf8))
                                     isExportingFavorites = true
                                 }
                                 .buttonStyle(.bordered)
+                                .frame(minWidth: 190, alignment: .leading)
 
                                 Button("Import Favorites…") {
                                     isImportingFavorites = true
                                 }
                                 .buttonStyle(.bordered)
+                                .frame(minWidth: 190, alignment: .leading)
 
                                 Button("Clear Favorites…", role: .destructive) {
                                     activeConfirmation = .clearFavorites
                                 }
                                 .buttonStyle(.bordered)
+                                .frame(minWidth: 190, alignment: .leading)
                             }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
                     }
                 }
@@ -394,16 +385,20 @@ struct SettingsView: View {
                             "Log Actions",
                             detail: "Open the log, copy it to the clipboard, or clear its contents."
                         ) {
-                            HStack(spacing: 8) {
+                            VStack(alignment: .trailing, spacing: 8) {
                                 Button("Open Log") { DebugLogger.openLog() }
                                     .buttonStyle(.bordered)
+                                    .frame(minWidth: 190, alignment: .leading)
                                 Button("Copy Log") { DebugLogger.copyLogToClipboard() }
                                     .buttonStyle(.bordered)
+                                    .frame(minWidth: 190, alignment: .leading)
                                 Button("Clear Log…", role: .destructive) {
                                     activeConfirmation = .clearLog
                                 }
                                 .buttonStyle(.bordered)
+                                .frame(minWidth: 190, alignment: .leading)
                             }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                         }
 
                         rowDivider

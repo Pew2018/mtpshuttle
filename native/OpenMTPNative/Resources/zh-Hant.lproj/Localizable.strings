@@ -342,4 +342,7 @@
 "Remove from Favorites" = "從收藏夾移除";
 "No favorites yet" = "目前沒有收藏項目";
 "Open" = "開啟";
+"Show File Info" = "顯示檔案資訊";
+"Reveal in Folder" = "在所屬資料夾中顯示";
+
 "Rebind to Current Android Device" = "重新綁定至目前 Android 裝置";
