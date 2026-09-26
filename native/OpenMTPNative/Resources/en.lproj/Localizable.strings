@@ -246,8 +246,8 @@
 
 
 
-"Double-clicking a favorite file" = "Double-clicking a favorite file";
-"Choose what happens when you double-click a favorite file." = "Choose what happens when you double-click a favorite file.";
+"Double-clicking a favorite file" = "When Double-Clicking a Favorite";
+"Choose what happens when you double-click a favorite file." = "Choose what happens when you double-click a favorite item.";
 "Reveal Containing Folder and Select File" = "Reveal Containing Folder and Select File";
 "Show File Properties" = "Show File Properties";
 "Drag up or down to adjust the favorites shelf height." = "Drag up or down to adjust the favorites shelf height.";
@@ -322,7 +322,7 @@
 "Removed from Favorites" = "Removed from Favorites";
 "Cannot identify the Android storage" = "Cannot identify the Android storage";
 "Storage is ambiguous; favorite was not changed" = "Storage is ambiguous; favorite was not changed";
-"Android favorite rebound to current device" = "Android favorite rebound to current device";
+"Android favorite linked to current device" = "Linked the Android favorite to the current device";
 "Favorite is currently unavailable" = "Favorite is currently unavailable";
 "Unavailable" = "Unavailable";
 "Remove from Favorites" = "Remove from Favorites";
@@ -331,7 +331,7 @@
 "Show File Info" = "Show File Info";
 "Reveal in Folder" = "Reveal in Folder";
 
-"Rebind to Current Android Device" = "Rebind to Current Android Device";
+"Link to Current Android Device…" = "Link to Current Android Device…";
 
 "When Dragging Files from Finder to Android" = "When Dragging Files from Finder to Android";
 "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time.";
@@ -339,3 +339,6 @@
 
 "Collect additional information to help troubleshoot issues." = "Collect additional information to help troubleshoot issues.";
 "MTP Shuttle Favorites Filename" = "MTP Shuttle Favorites";
+"Link this favorite to the current Android device?" = "Link this favorite to the current Android device?";
+"This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device." = "This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device.";
+"Link Favorite" = "Link Favorite";

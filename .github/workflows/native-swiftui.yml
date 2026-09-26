@@ -1,4 +1,4 @@
-name: 0.1.1 - MTP Shuttle macOS DMG Build
+name: MTP Shuttle macOS DMG Build
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-arm64:
-    name: "0.1.1 - Build MTP Shuttle macOS DMG (arm64)"
+    name: "Build MTP Shuttle macOS DMG (arm64)"
     runs-on: macos-14
     defaults:
       run:
@@ -60,6 +60,11 @@ jobs:
         run: swift test
       - name: Build arm64 app
         run: ./scripts/build-app.sh
+      - name: Read app version
+        id: metadata
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "dist/MTP Shuttle.app/Contents/Info.plist")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Verify application bundle
         run: |
           APP="dist/MTP Shuttle.app"
@@ -97,7 +102,7 @@ jobs:
         run: |
           STAGING="$(mktemp -d)"
           MOUNT="$(mktemp -d)"
-          DMG="dist/MTP-Shuttle.dmg"
+          DMG="dist/MTP-Shuttle-${{ steps.metadata.outputs.version }}-macOS-arm64.dmg"
           cleanup() {
             hdiutil detach "$MOUNT" -quiet >/dev/null 2>&1 || true
             rm -rf "$STAGING" "$MOUNT"
@@ -119,15 +124,15 @@ jobs:
           codesign --verify --deep --strict "$MOUNT/MTP Shuttle.app"
       - name: Verify DMG artifact contents
         run: |
-          test -f "dist/MTP-Shuttle.dmg"
+          test -f "dist/MTP-Shuttle-${{ steps.metadata.outputs.version }}-macOS-arm64.dmg"
           test "$(find dist -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "2"
           test -d "dist/MTP Shuttle.app"
-          hdiutil verify "dist/MTP-Shuttle.dmg"
+          hdiutil verify "dist/MTP-Shuttle-${{ steps.metadata.outputs.version }}-macOS-arm64.dmg"
       - name: Upload arm64 DMG test artifact
         uses: actions/upload-artifact@v7
         with:
-          name: MTP-Shuttle-DMG
-          path: native/OpenMTPNative/dist/MTP-Shuttle.dmg
+          name: MTP-Shuttle-${{ steps.metadata.outputs.version }}-macOS-arm64
+          path: native/OpenMTPNative/dist/MTP-Shuttle-${{ steps.metadata.outputs.version }}-macOS-arm64.dmg
           archive: false
           if-no-files-found: error
           retention-days: 14

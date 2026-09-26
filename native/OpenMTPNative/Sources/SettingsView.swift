@@ -107,7 +107,7 @@ struct SettingsView: View {
 
     var body: some View {
         settingsContent
-            .frame(minWidth: 620, minHeight: 470)
+            .frame(minWidth: 660, minHeight: 470)
             .background(Color(nsColor: .windowBackgroundColor))
         .confirmationDialog(
             Text(activeConfirmation?.title ?? ""),
@@ -272,16 +272,17 @@ struct SettingsView: View {
 
                         settingRow(
                             "Double-clicking a favorite file",
-                            detail: "Choose what happens when you double-click a favorite file."
+                            detail: "Choose what happens when you double-click a favorite file.",
+                            minimumLabelWidth: 240,
+                            controlWidth: 320
                         ) {
                             Picker("Double-clicking a favorite file", selection: $favoriteFileOpenBehavior) {
                                 Text("Show File Info").tag(FavoriteFileOpenBehavior.showProperties.rawValue)
                                 Text("Reveal in Folder").tag(FavoriteFileOpenBehavior.revealAndSelect.rawValue)
                             }
                             .labelsHidden()
-                            .pickerStyle(.radioGroup)
-                            .frame(width: 190, alignment: .leading)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .pickerStyle(.segmented)
+                            .accessibilityLabel(Text("Double-clicking a favorite file"))
                         }
 
                         settingRow(
@@ -405,6 +406,8 @@ struct SettingsView: View {
     private func settingRow<Control: View>(
         _ titleKey: String,
         detail detailKey: String? = nil,
+        minimumLabelWidth: CGFloat? = nil,
+        controlWidth: CGFloat = 240,
         @ViewBuilder control: () -> Control
     ) -> some View {
         HStack(alignment: .center, spacing: 18) {
@@ -418,10 +421,10 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: minimumLabelWidth, maxWidth: .infinity, alignment: .leading)
 
             control()
-                .frame(width: 240, alignment: .trailing)
+                .frame(width: controlWidth, alignment: .trailing)
         }
         .padding(.vertical, 12)
     }

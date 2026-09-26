@@ -189,6 +189,7 @@ struct FavoriteShelfView: View {
     let isAndroidConnected: Bool
     let isAvailable: (FavoriteLocation) -> Bool
     @State private var unavailableFavorite: FavoriteLocation?
+    @State private var favoritePendingRebind: FavoriteLocation?
     let onOpen: (FavoriteLocation) -> Void
     let onRemove: (FavoriteLocation) -> Void
     let onRebind: (FavoriteLocation) -> Void
@@ -223,6 +224,25 @@ struct FavoriteShelfView: View {
                 ),
                 secondaryButton: .cancel(Text(FavoriteStrings.localized("Close")))
             )
+        }
+        .confirmationDialog(
+            Text(FavoriteStrings.localized("Link this favorite to the current Android device?")),
+            isPresented: Binding(
+                get: { favoritePendingRebind != nil },
+                set: { if !$0 { favoritePendingRebind = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(FavoriteStrings.localized("Link Favorite")) {
+                guard let favorite = favoritePendingRebind else { return }
+                favoritePendingRebind = nil
+                onRebind(favorite)
+            }
+            Button(FavoriteStrings.localized("Cancel"), role: .cancel) {
+                favoritePendingRebind = nil
+            }
+        } message: {
+            Text(FavoriteStrings.localized("This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device."))
         }
     }
 
@@ -280,10 +300,10 @@ struct FavoriteShelfView: View {
                     unavailableFavorite = favorite
                 }
             }
-            Divider()
-            if favorite.pane == .android && isAndroidConnected {
-                Button(FavoriteStrings.localized("Rebind to Current Android Device")) {
-                    onRebind(favorite)
+            if favorite.pane == .android && isAndroidConnected && !isAvailable(favorite) {
+                Divider()
+                Button(FavoriteStrings.localized("Link to Current Android Device…")) {
+                    favoritePendingRebind = favorite
                 }
             }
             Button(FavoriteStrings.localized("Remove from Favorites"), systemImage: "star.slash", role: .destructive) {

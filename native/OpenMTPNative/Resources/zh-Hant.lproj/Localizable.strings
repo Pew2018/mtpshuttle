@@ -260,8 +260,8 @@
 
 
 
-"Double-clicking a favorite file" = "雙擊收藏的檔案時";
-"Choose what happens when you double-click a favorite file." = "選擇雙擊收藏檔案時的操作。";
+"Double-clicking a favorite file" = "連按兩下收藏項目時";
+"Choose what happens when you double-click a favorite file." = "選擇連按兩下收藏項目後的操作。";
 "Reveal Containing Folder and Select File" = "進入所屬目錄並選取檔案";
 "Show File Properties" = "顯示檔案屬性";
 "Drag up or down to adjust the favorites shelf height." = "上下拖曳以調整收藏列高度。";
@@ -336,7 +336,7 @@
 "Removed from Favorites" = "已從收藏夾移除";
 "Cannot identify the Android storage" = "無法識別 Android 儲存空間";
 "Storage is ambiguous; favorite was not changed" = "儲存空間不明確，未變更收藏項目";
-"Android favorite rebound to current device" = "已將 Android 收藏項目重新綁定至目前裝置";
+"Android favorite linked to current device" = "已將 Android 收藏項目關聯到目前的裝置";
 "Favorite is currently unavailable" = "此收藏項目目前無法使用";
 "Unavailable" = "無法使用";
 "Remove from Favorites" = "從收藏夾移除";
@@ -345,7 +345,7 @@
 "Show File Info" = "顯示檔案資訊";
 "Reveal in Folder" = "在所屬資料夾中顯示";
 
-"Rebind to Current Android Device" = "重新綁定至目前 Android 裝置";
+"Link to Current Android Device…" = "關聯到目前的 Android 裝置…";
 
 "When Dragging Files from Finder to Android" = "從 Finder 拖入檔案至 Android 時";
 "Choose whether files dragged from Finder to an Android device are copied, moved, or confirmed each time." = "選擇將檔案從 Finder 拖入 Android 裝置時的預設操作：複製、移動或每次詢問。";
@@ -353,3 +353,6 @@
 
 "Collect additional information to help troubleshoot issues." = "收集更多執行資訊，協助排查問題。";
 "MTP Shuttle Favorites Filename" = "MTP Shuttle 收藏夾";
+"Link this favorite to the current Android device?" = "要將此收藏項目關聯到目前的 Android 裝置嗎？";
+"This updates the device and storage location saved for this favorite to match the connected Android device. It does not modify files on the device." = "這會將此收藏項目儲存的裝置和儲存空間更新為目前連接的 Android 裝置，不會修改裝置上的檔案。";
+"Link Favorite" = "關聯收藏項目";
