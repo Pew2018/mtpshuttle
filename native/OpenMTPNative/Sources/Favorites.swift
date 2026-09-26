@@ -155,11 +155,19 @@ struct FilePropertiesSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(item.name).font(.headline)
-            Text(message).font(.body.monospaced()).textSelection(.enabled)
-            HStack {
-                Spacer()
+        VStack(alignment: .leading, spacing: 18) {
+            MTPDialogHeader(
+                symbol: "doc.text",
+                title: FavoriteStrings.localized("File Properties"),
+                subtitle: item.name
+            )
+
+            Text(message)
+                .font(.body.monospaced())
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            MTPDialogActionRow {
                 if canShowContainingFolder {
                     Button(FavoriteStrings.localized("Show in Containing Folder"), action: onShowContainingFolder)
                         .buttonStyle(.borderedProminent)
@@ -168,9 +176,10 @@ struct FilePropertiesSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(22)
-        .frame(minWidth: 380, maxWidth: 560)
+        .padding(24)
+        .frame(minWidth: 400, maxWidth: 580)
         .fixedSize(horizontal: false, vertical: true)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 

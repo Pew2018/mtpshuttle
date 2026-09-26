@@ -250,8 +250,6 @@
 "Choose what happens when you double-click a favorite file." = "Choose what happens when you double-click a favorite file.";
 "Reveal Containing Folder and Select File" = "Reveal Containing Folder and Select File";
 "Show File Properties" = "Show File Properties";
-
-
 "Drag up or down to adjust the favorites shelf height." = "Drag up or down to adjust the favorites shelf height.";
 
 "Show in Finder" = "Show in Finder";
@@ -270,3 +268,64 @@
 
 "Refresh availability" = "Refresh availability";
 "Automatically open Favorites on launch" = "Automatically open Favorites on launch";
+
+/* Settings and dialog polish */
+"Files & Transfers" = "Files & Transfers";
+"Show only Android devices" = "Show only Android devices";
+"When enabled, the device browser shows only Android devices." = "When enabled, the device browser shows only Android devices.";
+"Choose the language used in the app." = "Choose the language used in the app.";
+"Show Transfer Progress Window" = "Show Transfer Progress Window";
+"Default Drop Action" = "Default Drop Action";
+"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation.";
+"Show Favorites on Launch" = "Show Favorites on Launch";
+"Automatically show the Favorites shelf when the app starts." = "Automatically show the Favorites shelf when the app starts.";
+"Reveal in Folder and Select File" = "Reveal in Folder and Select File";
+"Manage Favorites" = "Manage Favorites";
+"Export, import, or remove all saved favorites." = "Export, import, or remove all saved favorites.";
+"Debug Mode" = "Debug Mode";
+"Log Actions" = "Log Actions";
+"Open the log, copy it to the clipboard, or clear its contents." = "Open the log, copy it to the clipboard, or clear its contents.";
+"Open Log" = "Open Log";
+"Copy Log" = "Copy Log";
+"Clear Log…" = "Clear Log…";
+"Log Location" = "Log Location";
+"App Version" = "App Version";
+"Project Information" = "Project Information";
+"MTP Shuttle is an open-source macOS app for transferring files between a Mac and Android device." = "MTP Shuttle is an open-source macOS app for transferring files between a Mac and Android device.";
+"View Project" = "View Project";
+"Original Project" = "Original Project";
+"Transfer Folder" = "Transfer Folder";
+"Transfer Folders" = "Transfer Folders";
+"Transfer %@ to %@?" = "Transfer %@ to %@?";
+"%d folders" = "%d folders";
+"File Properties" = "File Properties";
+"Show in Containing Folder" = "Show in Containing Folder";
+"Close" = "Close";
+"Overwrite Existing Items" = "Overwrite Existing Items";
+"Rename Conflicting Items" = "Rename Conflicting Items";
+"Transfer conflicts found in %@: %@. Choose whether to overwrite or rename." = "Transfer conflicts found in %@: %@. Choose whether to overwrite or rename.";
+"Finder item already exists" = "Finder item already exists";
+"Finder items conflict (%d)" = "Finder items conflict (%d)";
+"Some Finder items conflict in %@: %@. Replacing existing items will rename duplicates in this batch. You can also rename the conflicting items or cancel." = "Some Finder items conflict in %@: %@. Replacing existing items will rename duplicates in this batch. You can also rename the conflicting items or cancel.";
+"Drop one item into %@?" = "Drop one item into %@?";
+"Drop %d items into %@?" = "Drop %d items into %@?";
+"%@ → %@" = "%@ → %@";
+"Finder files → Android Device" = "Finder files → Android Device";
+"Automatic" = "Automatic";
+
+"Move" = "Move";
+
+"Debug Log" = "Debug Log";
+
+"Favorites" = "Favorites";
+"Added to Favorites" = "Added to Favorites";
+"Removed from Favorites" = "Removed from Favorites";
+"Cannot identify the Android storage" = "Cannot identify the Android storage";
+"Storage is ambiguous; favorite was not changed" = "Storage is ambiguous; favorite was not changed";
+"Android favorite rebound to current device" = "Android favorite rebound to current device";
+"Favorite is currently unavailable" = "Favorite is currently unavailable";
+"Unavailable" = "Unavailable";
+"Remove from Favorites" = "Remove from Favorites";
+"No favorites yet" = "No favorites yet";
+"Open" = "Open";
+"Rebind to Current Android Device" = "Rebind to Current Android Device";

@@ -140,7 +140,7 @@ struct ContentView: View {
         .sheet(item: $pendingFolderDrop) { request in
             FolderDropConfirmationView(
                 itemNames: request.itemNames,
-                targetTitle: request.targetPane.title,
+                targetTitle: MTPShuttleText.localized(request.targetPane == .mac ? "This Mac" : "Android Device"),
                 targetPath: request.targetPath,
                 onDecision: finishFolderDrop,
                 onCancel: {
@@ -151,7 +151,7 @@ struct ContentView: View {
         .sheet(item: $pendingExternalFolderDrop) { request in
             FolderDropConfirmationView(
                 itemNames: request.itemNames,
-                targetTitle: PaneKind.android.title,
+                targetTitle: MTPShuttleText.localized("Android Device"),
                 targetPath: request.targetPath,
                 onDecision: finishExternalFolderDrop,
                 onCancel: { pendingExternalFolderDrop = nil }
@@ -178,9 +178,9 @@ struct ContentView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("覆盖已有文件") { resolveConflict(.overwrite) }
-            Button("全部重命名（添加 .1、.2…）") { resolveConflict(.rename) }
-            Button("取消", role: .cancel) { pendingConflict = nil }
+            Button("Overwrite Existing Items") { resolveConflict(.overwrite) }
+            Button("Rename Conflicting Items") { resolveConflict(.rename) }
+            Button("Cancel", role: .cancel) { pendingConflict = nil }
         } message: {
             Text(transferConflictMessage)
         }
@@ -192,25 +192,25 @@ struct ContentView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("覆盖已有项目") { resolveExternalConflict(.overwrite) }
-            Button("重命名冲突项目") { resolveExternalConflict(.rename) }
-            Button("取消", role: .cancel) { pendingExternalDrop = nil }
+            Button("Overwrite Existing Items") { resolveExternalConflict(.overwrite) }
+            Button("Rename Conflicting Items") { resolveExternalConflict(.rename) }
+            Button("Cancel", role: .cancel) { pendingExternalDrop = nil }
         } message: {
             Text(externalConflictMessage)
         }
         .alert(
-            "新建文件夹",
+            "New Folder",
             isPresented: Binding(
                 get: { newFolderPane != nil },
                 set: { if !$0 { newFolderPane = nil } }
             )
         ) {
-            TextField("文件夹名称", text: $newFolderName)
-            Button("取消", role: .cancel) {}
-            Button("创建") { commitNewFolder() }
+            TextField("Folder name", text: $newFolderName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") { commitNewFolder() }
                 .disabled(newFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: {
-            Text("将在当前目录创建文件夹")
+            Text("Create a folder in the current directory")
         }
 
         .confirmationDialog(
@@ -222,10 +222,10 @@ struct ContentView: View {
             titleVisibility: .visible
         ) {
             Button("Copy") { finishExternalModeDrop(mode: .copy) }
-            Button("Move (Cut)") { finishExternalModeDrop(mode: .move) }
+            Button("Move") { finishExternalModeDrop(mode: .move) }
             Button("Cancel", role: .cancel) { pendingExternalModeDrop = nil }
         } message: {
-            Text("Finder → Android Device")
+            Text("Finder files → Android Device")
         }
         .confirmationDialog(
             pendingDropTitle,
@@ -308,32 +308,50 @@ struct ContentView: View {
 
     private var transferConflictTitle: String {
         let count = pendingConflict?.conflictNames.count ?? 0
-        return count == 1 ? "发现同名项目" : "发现 (count) 个同名项目"
+        return count == 1
+            ? MTPShuttleText.localized("One conflicting item found")
+            : MTPShuttleText.format("%d conflicting items found", count)
     }
 
     private var transferConflictMessage: String {
         guard let pendingConflict else { return "" }
-        return "\(pendingConflict.conflictNames.joined(separator: "、")) 已存在于 \(pendingConflict.targetPane.title)。选择覆盖原有项目，或将本次操作中的冲突项目重命名。"
+        let target = MTPShuttleText.localized(pendingConflict.targetPane == .mac ? "This Mac" : "Android Device")
+        return MTPShuttleText.format(
+            "Transfer conflicts found in %@: %@. Choose whether to overwrite or rename.",
+            target,
+            pendingConflict.conflictNames.joined(separator: ", ")
+        )
     }
 
     private var externalConflictTitle: String {
         let count = pendingExternalDrop?.conflictNames.count ?? 0
-        return count == 1 ? "Finder 项目已存在" : "Finder 项目冲突（\(count) 项）"
+        return count == 1
+            ? MTPShuttleText.localized("Finder item already exists")
+            : MTPShuttleText.format("Finder items conflict (%d)", count)
     }
 
     private var externalConflictMessage: String {
         guard let pendingExternalDrop else { return "" }
-        return "\(pendingExternalDrop.conflictNames.joined(separator: "、")) 在本次拖入中重复，或已存在于 Android 目录。覆盖已有项目时，本批次内的重名文件会另存为不冲突的名称；也可重命名冲突项或取消操作。"
+        let names = pendingExternalDrop.conflictNames.joined(separator: ", ")
+        let target = pendingExternalDrop.targetPath
+        return MTPShuttleText.format(
+            "Some Finder items conflict in %@: %@. Replacing existing items will rename duplicates in this batch. You can also rename the conflicting items or cancel.",
+            target,
+            names
+        )
     }
 
     private var pendingDropTitle: String {
         guard let pendingDrop else {
-            return "Drop items"
+            return MTPShuttleText.localized("Drop items")
         }
 
         let count = pendingDrop.payload.itemIDs.count
-        let noun = count == 1 ? "item" : "items"
-        return "Drop \(count) \(noun) into \(pendingDrop.targetPane.title)?"
+        let target = MTPShuttleText.localized(pendingDrop.targetPane == .mac ? "This Mac" : "Android Device")
+        if count == 1 {
+            return MTPShuttleText.format("Drop one item into %@?", target)
+        }
+        return MTPShuttleText.format("Drop %d items into %@?", count, target)
     }
 
     private var pendingDropMessage: String {
@@ -341,7 +359,9 @@ struct ContentView: View {
             return ""
         }
 
-        return "\(pendingDrop.payload.sourcePane.title) → \(pendingDrop.targetPane.title)"
+        let source = MTPShuttleText.localized(pendingDrop.payload.sourcePane == .mac ? "This Mac" : "Android Device")
+        let target = MTPShuttleText.localized(pendingDrop.targetPane == .mac ? "This Mac" : "Android Device")
+        return MTPShuttleText.format("%@ → %@", source, target)
     }
 
     private func copySelection() {
@@ -1812,41 +1832,29 @@ private struct FolderDropConfirmationView: View {
     @State private var suppressFuturePrompts = false
 
     private var folderSummary: String {
-        switch itemNames.count {
-        case 1:
+        if itemNames.count == 1 {
             return "“\(itemNames[0])”"
-        default:
-            return "\(itemNames.count) folders"
         }
+        return MTPShuttleText.format("%d folders", itemNames.count)
     }
 
     private var title: String {
-        itemNames.count == 1
-            ? "Transfer Folder"
-            : "Transfer Folders"
+        MTPShuttleText.localized(itemNames.count == 1 ? "Transfer Folder" : "Transfer Folders")
+    }
+
+    private var message: String {
+        MTPShuttleText.format("Transfer %@ to %@?", folderSummary, targetTitle)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "folder.fill")
-                    .font(.title2)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color(nsColor: .controlAccentColor))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.headline)
-
-                    Text("Transfer \(folderSummary) to \(targetTitle)?")
-                        .font(.body)
-                }
-            }
+        VStack(alignment: .leading, spacing: 18) {
+            MTPDialogHeader(symbol: "folder.fill", title: title, subtitle: message)
 
             Text(targetPath)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+                .textSelection(.enabled)
 
             Toggle(
                 "Don't ask again for folder drags",
@@ -1854,9 +1862,7 @@ private struct FolderDropConfirmationView: View {
             )
             .toggleStyle(.checkbox)
 
-            HStack {
-                Spacer()
-
+            MTPDialogActionRow {
                 Button("Cancel") {
                     onCancel()
                 }
@@ -1873,8 +1879,10 @@ private struct FolderDropConfirmationView: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(22)
-        .frame(width: 430)
+        .padding(24)
+        .frame(width: 460)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .environment(\\.locale, MTPShuttleLanguage.locale(for: MTPShuttleLanguage.currentLanguage.rawValue))
     }
 }
 

@@ -252,8 +252,6 @@
 "Choose what happens when you double-click a favorite file." = "选择双击收藏文件时的操作。";
 "Reveal Containing Folder and Select File" = "进入所属目录并选中文件";
 "Show File Properties" = "显示文件属性";
-
-
 "Drag up or down to adjust the favorites shelf height." = "上下拖动以调整收藏栏高度。";
 
 "Show in Finder" = "在 Finder 中显示";
@@ -272,3 +270,64 @@
 
 "Refresh availability" = "刷新可用状态";
 "Automatically open Favorites on launch" = "启动时自动打开收藏夹";
+
+/* Settings and dialog polish */
+"Files & Transfers" = "文件与传输";
+"Show only Android devices" = "仅显示 Android 设备";
+"When enabled, the device browser shows only Android devices." = "开启后，文件浏览器仅显示 Android 设备。";
+"Choose the language used in the app." = "选择应用界面使用的语言。";
+"Show Transfer Progress Window" = "显示传输进度窗口";
+"Default Drop Action" = "拖放默认操作";
+"Applies to files dragged from Finder into Android and items dragged between panes. Folder drops may still require separate confirmation." = "适用于从 Finder 拖入 Android 设备和在两个面板之间拖放项目。拖放文件夹时仍可能出现单独确认。";
+"Show Favorites on Launch" = "启动时显示收藏栏";
+"Automatically show the Favorites shelf when the app starts." = "启动应用时自动显示收藏栏。";
+"Reveal in Folder and Select File" = "在所属目录中显示并选中文件";
+"Manage Favorites" = "管理收藏夹";
+"Export, import, or remove all saved favorites." = "导出、导入或清空已保存的收藏项目。";
+"Debug Mode" = "调试模式";
+"Log Actions" = "日志操作";
+"Open the log, copy it to the clipboard, or clear its contents." = "打开日志、复制日志或清空日志内容。";
+"Open Log" = "打开日志";
+"Copy Log" = "复制日志";
+"Clear Log…" = "清空日志…";
+"Log Location" = "日志位置";
+"App Version" = "应用版本";
+"Project Information" = "项目信息";
+"MTP Shuttle is an open-source macOS app for transferring files between a Mac and Android device." = "MTP Shuttle 是一款用于在 Mac 与 Android 设备之间传输文件的 macOS 开源应用。";
+"View Project" = "查看项目主页";
+"Original Project" = "上游项目";
+"Transfer Folder" = "传输文件夹";
+"Transfer Folders" = "传输文件夹";
+"Transfer %@ to %@?" = "将 %@ 传输到 %@？";
+"%d folders" = "%d 个文件夹";
+"File Properties" = "文件属性";
+"Show in Containing Folder" = "在所属目录中显示";
+"Close" = "关闭";
+"Overwrite Existing Items" = "覆盖已有项目";
+"Rename Conflicting Items" = "重命名冲突项目";
+"Transfer conflicts found in %@: %@. Choose whether to overwrite or rename." = "在 %@ 中发现传输冲突：%@。请选择覆盖或重命名。";
+"Finder item already exists" = "Finder 项目已存在";
+"Finder items conflict (%d)" = "Finder 项目冲突（%d 项）";
+"Some Finder items conflict in %@: %@. Replacing existing items will rename duplicates in this batch. You can also rename the conflicting items or cancel." = "部分 Finder 项目与 %@ 中的项目冲突：%@。选择覆盖时，本批次中的重名项目会自动重命名；也可以重命名冲突项目或取消。";
+"Drop one item into %@?" = "要将此项目拖入 %@ 吗？";
+"Drop %d items into %@?" = "要将 %d 个项目拖入 %@ 吗？";
+"%@ → %@" = "%@ → %@";
+"Finder files → Android Device" = "Finder 文件 → Android 设备";
+"Automatic" = "自动";
+
+"Move" = "移动";
+
+"Debug Log" = "调试日志";
+
+"Favorites" = "收藏夹";
+"Added to Favorites" = "已添加到收藏夹";
+"Removed from Favorites" = "已从收藏夹移除";
+"Cannot identify the Android storage" = "无法识别 Android 存储空间";
+"Storage is ambiguous; favorite was not changed" = "存储空间不明确，未更改收藏项目";
+"Android favorite rebound to current device" = "已将 Android 收藏项目重新绑定到当前设备";
+"Favorite is currently unavailable" = "此收藏项目当前不可用";
+"Unavailable" = "不可用";
+"Remove from Favorites" = "从收藏夹移除";
+"No favorites yet" = "暂无收藏项目";
+"Open" = "打开";
+"Rebind to Current Android Device" = "重新绑定到当前 Android 设备";
