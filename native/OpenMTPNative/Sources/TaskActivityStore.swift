@@ -503,8 +503,9 @@ struct TaskDetailsView: View {
         formatter.unitsStyle = .short
         formatter.maximumUnitCount = 2
         formatter.zeroFormattingBehavior = .dropAll
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = locale
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale
+        formatter.calendar = calendar
         return formatter.string(from: value) ?? MTPShuttleText.localized("Not available")
     }
 }
