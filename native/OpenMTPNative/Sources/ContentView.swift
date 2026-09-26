@@ -15,6 +15,12 @@ private struct ExternalModeDropRequest: Identifiable {
     let targetPath: String
 }
 
+private struct FilePropertiesRequest: Identifiable {
+    let id = UUID()
+    let item: DemoEntry
+    let favoriteLocation: FavoriteLocation?
+}
+
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
 
@@ -31,8 +37,7 @@ struct ContentView: View {
     @State private var newFolderPane: PaneKind?
     @State private var newFolderName = "New Folder"
     @State private var operation: DemoOperation?
-    @State private var propertyItem: DemoEntry?
-    @State private var propertyFavoriteLocation: FavoriteLocation?
+    @State private var propertyRequest: FilePropertiesRequest?
     @State private var pendingFavoriteSelection: FavoriteLocation?
     @AppStorage("favoriteLocations.v1") private var favoritesPayload = "[]"
     @AppStorage("favoriteFileOpenBehavior") private var favoriteFileOpenBehavior = FavoriteFileOpenBehavior.defaultValue.rawValue
@@ -147,14 +152,14 @@ struct ContentView: View {
                 onCancel: { pendingExternalFolderDrop = nil }
             )
         }
-        .sheet(item: $propertyItem) { item in
+        .sheet(item: $propertyRequest) { request in
             FilePropertiesSheet(
-                item: item,
-                message: propertyDescription(for: item),
-                canShowContainingFolder: propertyFavoriteLocation?.kind == .file,
+                item: request.item,
+                message: propertyDescription(for: request.item, favoriteLocation: request.favoriteLocation),
+                canShowContainingFolder: request.favoriteLocation?.kind == .file,
                 onShowContainingFolder: {
-                    guard let location = propertyFavoriteLocation else { return }
-                    propertyItem = nil
+                    guard let location = request.favoriteLocation, location.kind == .file else { return }
+                    propertyRequest = nil
                     locateFavoriteFile(location)
                 }
             )
@@ -446,8 +451,7 @@ struct ContentView: View {
                 NSWorkspace.shared.open(url)
                 return
             }
-            propertyFavoriteLocation = favoriteLocation(for: pane, item: item)
-            propertyItem = item
+            propertyRequest = FilePropertiesRequest(item: item, favoriteLocation: nil)
             return
         }
 
@@ -532,8 +536,7 @@ struct ContentView: View {
             let items = pane == .mac ? localBrowser.entries : (rightPane.path == "/" ? mtpService.storageEntries : mtpService.entries)
             let fallback = items.first { ids.contains($0.id) }
             let selectedItem = item ?? fallback
-            propertyFavoriteLocation = selectedItem.map { favoriteLocation(for: pane, item: $0) }
-            propertyItem = selectedItem
+            propertyRequest = selectedItem.map { FilePropertiesRequest(item: $0, favoriteLocation: nil) }
 
         case .copy:
             clipboard = ClipboardPayload(
@@ -1747,8 +1750,7 @@ struct ContentView: View {
 
         let localURL = location.pane == .mac ? URL(fileURLWithPath: location.path) : nil
         let mtpPath = location.pane == .android ? MTPBrowsePath(browserPath: location.path)?.fullPath : nil
-        propertyFavoriteLocation = location
-        propertyItem = DemoEntry(
+        let item = DemoEntry(
             id: location.id,
             name: location.name,
             subtitle: "File",
@@ -1759,6 +1761,7 @@ struct ContentView: View {
             remotePath: mtpPath,
             objectID: nil
         )
+        propertyRequest = FilePropertiesRequest(item: item, favoriteLocation: location)
     }
 
     private func locateFavoriteFile(_ location: FavoriteLocation) {
@@ -1786,10 +1789,10 @@ struct ContentView: View {
         pendingFavoriteSelection = nil
     }
 
-    private func propertyDescription(for item: DemoEntry) -> String {
+    private func propertyDescription(for item: DemoEntry, favoriteLocation: FavoriteLocation?) -> String {
         let type = item.isDirectory ? "Folder" : item.subtitle
         let size = item.sizeLabel ?? "—"
-        let path = propertyFavoriteLocation?.path ?? item.localURL?.path ?? item.remotePath ?? item.name
+        let path = favoriteLocation?.path ?? item.localURL?.path ?? item.remotePath ?? item.name
         return "Type: \(type)\nSize: \(size)\nPath: \(path)"
     }
 }
@@ -1991,7 +1994,8 @@ private struct WorkspaceView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Circle().fill(mtpService.isConnected ? Color.green : Color.orange).frame(width: 8, height: 8)
                 Text(mtpService.statusText).font(.caption).foregroundStyle(.secondary)
@@ -2015,6 +2019,7 @@ private struct WorkspaceView: View {
                 FavoriteShelfView(
                     favorites: favorites,
                     isExpanded: $favoritesExpanded,
+                    expandedHeight: geometry.size.height * 2.0 / 7.0,
                     isAndroidConnected: mtpService.isConnected,
                     isAvailable: isFavoriteAvailable,
                     onOpen: onOpenFavorite,
@@ -2045,7 +2050,8 @@ private struct WorkspaceView: View {
                 .background(.bar)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
     }
 }
 

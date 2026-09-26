@@ -177,6 +177,7 @@ struct FilePropertiesSheet: View {
 struct FavoriteShelfView: View {
     let favorites: [FavoriteLocation]
     let isExpanded: Binding<Bool>
+    let expandedHeight: CGFloat
     let isAndroidConnected: Bool
     let isAvailable: (FavoriteLocation) -> Bool
     let onOpen: (FavoriteLocation) -> Void
@@ -210,7 +211,7 @@ struct FavoriteShelfView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isExpanded.wrappedValue ? 180 : 44)
+        .frame(height: isExpanded.wrappedValue ? expandedHeight : 44)
         .background(.bar)
     }
 
