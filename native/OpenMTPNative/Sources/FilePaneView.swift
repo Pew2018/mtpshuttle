@@ -201,6 +201,18 @@ enum MTPShuttleDNDLogger {
     }
 }
 
+enum FinderOpenTarget: Equatable {
+    case selectFileInContainingFolder(URL)
+    case openDirectory(URL)
+
+    static func target(for item: DemoEntry, isPackage packageOverride: Bool? = nil) -> FinderOpenTarget? {
+        guard let localURL = item.localURL else { return nil }
+        let url = localURL.standardizedFileURL
+        let isPackage = packageOverride ?? NSWorkspace.shared.isFilePackage(atPath: url.path)
+        return item.isDirectory && !isPackage ? .openDirectory(url) : .selectFileInContainingFolder(url)
+    }
+}
+
 struct FilePaneView: View {
     let pane: PaneKind
     var subtitle: String? = nil
@@ -519,6 +531,13 @@ struct FilePaneView: View {
 
     @ViewBuilder
     private func itemContextMenu(for item: DemoEntry) -> some View {
+        if pane == .mac, FinderOpenTarget.target(for: item) != nil {
+            Button("Show in Finder", systemImage: "folder") {
+                openInFinder(item)
+            }
+            Divider()
+        }
+
         Button("New Folder", action: onNewFolder).disabled(!canModifyFiles)
 
         Divider()
@@ -555,6 +574,16 @@ struct FilePaneView: View {
         Button("Delete", role: .destructive) {
             onAction(.delete, item)
         }.disabled(!canModifyFiles)
+    }
+
+    private func openInFinder(_ item: DemoEntry) {
+        guard let target = FinderOpenTarget.target(for: item) else { return }
+        switch target {
+        case .selectFileInContainingFolder(let url):
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        case .openDirectory(let url):
+            _ = NSWorkspace.shared.open(url)
+        }
     }
 
     private var emptyState: some View {
