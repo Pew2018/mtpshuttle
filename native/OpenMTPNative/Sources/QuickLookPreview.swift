@@ -1,177 +1,173 @@
-import SwiftUI
 import AppKit
 import QuickLookUI
 
-extension Notification.Name {
-    static let openMTPCopy = Notification.Name("OpenMTP.Copy")
-    static let openMTPCut = Notification.Name("OpenMTP.Cut")
-    static let openMTPPaste = Notification.Name("OpenMTP.Paste")
-}
-
-struct OpenMTPQuickLookHost: NSViewRepresentable {
-    /// QLPreviewPanel is shared and can outlive the SwiftUI owner.
-    private static var presentationGeneration: UInt = 0
-
+/// Owns the window lifecycle instead of relying on QLPreviewPanel's responder-chain controller.
+@MainActor
+enum OpenMTPQuickLookHost {
     static func trace(_ message: String) {
         DebugLogger.verbose("QL trace: \(message)")
     }
 
     static func panelState() -> String {
-        guard QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared() else {
-            return "panel=absent"
-        }
-        return "visible=\(panel.isVisible), key=\(panel.isKeyWindow), controller=\(String(describing: panel.currentController.map { type(of: $0) })), generation=\(presentationGeneration)"
+        QuickLookWindowController.shared.stateDescription
     }
 
     static func isSharedPanelVisible() -> Bool {
-        QLPreviewPanel.shared()?.isVisible == true
+        QuickLookWindowController.shared.isPresented
     }
 
-    static func isSharedPanelKeyWindow() -> Bool {
-        QLPreviewPanel.shared()?.isKeyWindow == true
+    static func present(urls: [URL], onPreviewEnded: @escaping ([URL]) -> Void) {
+        QuickLookWindowController.shared.present(urls: urls, onPreviewEnded: onPreviewEnded)
     }
 
-    static func requestSharedPanelPresentation() {
-        presentationGeneration &+= 1
-        trace("request presentation; \(panelState())")
+    static func update(urls: [URL]) {
+        QuickLookWindowController.shared.update(urls: urls)
     }
 
     static func closeSharedPanel() {
-        // Invalidate deferred presentations before hiding the shared panel.
-        trace("close before; \(panelState())")
-        presentationGeneration &+= 1
-        QLPreviewPanel.shared()?.orderOut(nil)
-        trace("close after; \(panelState())")
+        QuickLookWindowController.shared.close()
     }
+}
 
-    @Binding var isPresented: Bool
-    @Binding var urls: [URL]
-    let onPreviewEnded: ([URL]) -> Void
+private final class OpenMTPPreviewPanel: NSPanel {
+    var onSpace: (() -> Void)?
+    var onStep: ((Int) -> Void)?
 
-    func makeNSView(context: Context) -> PreviewHostView {
-        let view = PreviewHostView()
-        view.onPreviewEnded = onPreviewEnded
-        return view
-    }
-
-    func updateNSView(_ nsView: PreviewHostView, context: Context) {
-        nsView.onPreviewEnded = onPreviewEnded
-        nsView.setPreviewState(isPresented: isPresented, urls: urls)
-    }
-
-    final class PreviewHostView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
-        private var previewURLs: [URL] = []
-        private var isPreviewRequested = false
-        private var isControllingPreviewPanel = false
-        var onPreviewEnded: (([URL]) -> Void)?
-
-        override var acceptsFirstResponder: Bool { true }
-
-        func setPreviewState(isPresented: Bool, urls: [URL]) {
-            let urlsChanged = previewURLs != urls
-            let presentationChanged = isPreviewRequested != isPresented
-            previewURLs = urls
-            isPreviewRequested = isPresented
-            OpenMTPQuickLookHost.trace("set state: requested=\(isPresented), urls=\(urls.count), urlsChanged=\(urlsChanged), presentationChanged=\(presentationChanged), controlling=\(isControllingPreviewPanel); \(OpenMTPQuickLookHost.panelState())")
-
-            guard isPresented, !urls.isEmpty else {
-                if presentationChanged || OpenMTPQuickLookHost.isSharedPanelVisible() {
-                    OpenMTPQuickLookHost.closeSharedPanel()
+    override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+            switch event.keyCode {
+            case 49:
+                if !event.isARepeat {
+                    onSpace?()
                 }
                 return
-            }
-
-            let panelIsVisible = OpenMTPQuickLookHost.isSharedPanelVisible()
-            if isControllingPreviewPanel, panelIsVisible {
-                guard urlsChanged, let panel = QLPreviewPanel.shared() else { return }
-                OpenMTPQuickLookHost.trace("reload selection, no presentation; \(OpenMTPQuickLookHost.panelState())")
-                panel.reloadData()
-                panel.currentPreviewItemIndex = 0
+            case 123:
+                onStep?(-1)
                 return
-            }
-
-            guard urlsChanged || presentationChanged || !panelIsVisible else { return }
-            let requestedURLs = urls
-            let generation = OpenMTPQuickLookHost.presentationGeneration
-            OpenMTPQuickLookHost.trace("schedule show: generation=\(generation); \(OpenMTPQuickLookHost.panelState())")
-            DispatchQueue.main.async { [weak self] in
-                OpenMTPQuickLookHost.trace("execute show: scheduled=\(generation), requested=\(self?.isPreviewRequested.description ?? "nil"), urlsMatch=\(self?.previewURLs == requestedURLs), controlling=\(self?.isControllingPreviewPanel.description ?? "nil"); \(OpenMTPQuickLookHost.panelState())")
-                guard let self,
-                      OpenMTPQuickLookHost.presentationGeneration == generation,
-                      self.isPreviewRequested,
-                      self.previewURLs == requestedURLs,
-                      !self.isControllingPreviewPanel else {
-                    return
-                }
-                self.showPreviewPanel()
-            }
-        }
-
-        private func showPreviewPanel() {
-            guard let window,
-                  let panel = QLPreviewPanel.shared()
-            else {
+            case 124:
+                onStep?(1)
                 return
-            }
-
-            OpenMTPQuickLookHost.trace("show before: firstResponder=\(String(describing: window.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
-            window.makeFirstResponder(self)
-            panel.makeKeyAndOrderFront(nil)
-            OpenMTPQuickLookHost.trace("show after; \(OpenMTPQuickLookHost.panelState())")
-        }
-
-        override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
-            true
-        }
-
-        override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-            OpenMTPQuickLookHost.trace("begin control; \(OpenMTPQuickLookHost.panelState())")
-            isControllingPreviewPanel = true
-            panel.dataSource = self
-            panel.delegate = self
-            panel.reloadData()
-        }
-
-        override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
-            OpenMTPQuickLookHost.trace("end control; \(OpenMTPQuickLookHost.panelState())")
-            let endedURLs = previewURLs
-            let generation = OpenMTPQuickLookHost.presentationGeneration
-            panel.dataSource = nil
-            panel.delegate = nil
-            isControllingPreviewPanel = false
-
-            // Losing control when the main window becomes active is normal while
-            // the panel remains visible. Only report an end after an actual close.
-            DispatchQueue.main.async { [weak self, weak panel] in
-                OpenMTPQuickLookHost.trace("check end callback: scheduled=\(generation), requested=\(self?.isPreviewRequested.description ?? "nil"); \(OpenMTPQuickLookHost.panelState())")
-                guard let self,
-                      let panel,
-                      !panel.isVisible,
-                      OpenMTPQuickLookHost.presentationGeneration == generation,
-                      self.isPreviewRequested else {
-                    return
-                }
-                self.isPreviewRequested = false
-                self.previewURLs = []
-                self.onPreviewEnded?(endedURLs)
+            default:
+                break
             }
         }
+        super.keyDown(with: event)
+    }
+}
 
-        func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
-            previewURLs.count
+@MainActor
+private final class QuickLookWindowController: NSObject, NSWindowDelegate {
+    static let shared = QuickLookWindowController()
+
+    private var panel: OpenMTPPreviewPanel?
+    private var previewView: QLPreviewView?
+    private var urls: [URL] = []
+    private var index = 0
+    private var onPreviewEnded: (([URL]) -> Void)?
+    private(set) var isPresented = false
+
+    var stateDescription: String {
+        "presented=\(isPresented), visible=\(panel?.isVisible == true), key=\(panel?.isKeyWindow == true), items=\(urls.count), index=\(index)"
+    }
+
+    func present(urls: [URL], onPreviewEnded: @escaping ([URL]) -> Void) {
+        guard !urls.isEmpty else { return }
+        if isPresented {
+            update(urls: urls)
+            return
         }
 
-        func previewPanel(
-            _ panel: QLPreviewPanel!,
-            previewItemAt index: Int
-        ) -> QLPreviewItem! {
-            guard previewURLs.indices.contains(index) else {
-                return nil
-            }
+        let frame = NSRect(x: 0, y: 0, width: 840, height: 600)
+        let window = OpenMTPPreviewPanel(
+            contentRect: frame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 400, height: 300)
+        window.level = .floating
+        window.collectionBehavior.insert(.fullScreenAuxiliary)
+        window.delegate = self
+        window.center()
 
-            return OpenMTPQuickLookItem(url: previewURLs[index])
+        let preview = QLPreviewView(frame: NSRect(origin: .zero, size: frame.size), style: .normal)!
+        preview.autoresizingMask = [.width, .height]
+        preview.shouldCloseWithWindow = true
+        window.contentView = preview
+        window.onSpace = { [weak self] in self?.close() }
+        window.onStep = { [weak self] direction in self?.step(direction) }
+
+        self.panel = window
+        self.previewView = preview
+        self.urls = urls
+        self.index = 0
+        self.onPreviewEnded = onPreviewEnded
+        self.isPresented = true
+        displayCurrentItem()
+        OpenMTPQuickLookHost.trace("present; \(stateDescription)")
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func update(urls: [URL]) {
+        guard isPresented else { return }
+        guard !urls.isEmpty else {
+            close()
+            return
         }
+        if self.urls == urls { return }
+        self.urls = urls
+        index = 0
+        displayCurrentItem()
+        OpenMTPQuickLookHost.trace("selection updated; \(stateDescription)")
+    }
 
+    func close() {
+        guard isPresented else { return }
+        OpenMTPQuickLookHost.trace("close requested; \(stateDescription)")
+        panel?.close()
+        // AppKit normally calls windowWillClose synchronously. Complete the cleanup
+        // if it does not, so a queued update cannot restore the old preview.
+        if isPresented {
+            finishClosing()
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        finishClosing()
+    }
+
+    private func finishClosing() {
+        guard isPresented else { return }
+        isPresented = false
+        let endedURLs = urls
+        urls = []
+        index = 0
+        previewView?.close()
+        previewView = nil
+        panel?.delegate = nil
+        panel?.onSpace = nil
+        panel?.onStep = nil
+        panel = nil
+        let callback = onPreviewEnded
+        onPreviewEnded = nil
+        OpenMTPQuickLookHost.trace("closed; \(stateDescription)")
+        callback?(endedURLs)
+    }
+
+    private func step(_ direction: Int) {
+        guard isPresented, urls.count > 1 else { return }
+        index = (index + direction + urls.count) % urls.count
+        displayCurrentItem()
+    }
+
+    private func displayCurrentItem() {
+        guard urls.indices.contains(index) else { return }
+        let url = urls[index]
+        previewView?.previewItem = OpenMTPQuickLookItem(url: url)
+        panel?.title = urls.count == 1
+            ? url.lastPathComponent
+            : "\(url.lastPathComponent) (\(index + 1)/\(urls.count))"
     }
 }
 
