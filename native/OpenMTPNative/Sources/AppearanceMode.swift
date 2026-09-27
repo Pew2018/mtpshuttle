@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum AppearanceMode: String, CaseIterable, Identifiable {
@@ -33,5 +34,22 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
     static func resolve(_ rawValue: String) -> AppearanceMode {
         AppearanceMode(rawValue: rawValue) ?? .system
+    }
+
+    static func apply(_ rawValue: String, to application: NSApplication = .shared) {
+        let appearance: NSAppearance?
+        switch resolve(rawValue) {
+        case .system:
+            appearance = nil
+        case .light:
+            appearance = NSAppearance(named: .aqua)
+        case .dark:
+            appearance = NSAppearance(named: .darkAqua)
+        }
+
+        application.appearance = appearance
+        for window in application.windows {
+            window.appearance = appearance
+        }
     }
 }
