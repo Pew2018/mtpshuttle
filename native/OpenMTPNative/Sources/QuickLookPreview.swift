@@ -185,86 +185,51 @@ private final class OpenMTPQuickLookItem: NSObject, QLPreviewItem {
         super.init()
     }
 }
-struct QuickLookKeyboardShortcutMonitor: NSViewRepresentable {
-    let isEnabled: () -> Bool
-    let onShortcut: () -> Void
-
-    func makeNSView(context: Context) -> QuickLookShortcutView {
-        let view = QuickLookShortcutView()
-        view.isEnabled = isEnabled
-        view.onShortcut = onShortcut
-        return view
-    }
-
-    func updateNSView(_ view: QuickLookShortcutView, context: Context) {
-        view.isEnabled = isEnabled
-        view.onShortcut = onShortcut
-    }
-
-    static func dismantleNSView(_ view: QuickLookShortcutView, coordinator: ()) {
-        view.stopMonitoring()
-    }
-}
-
 @MainActor
-final class QuickLookShortcutView: NSView {
-    var isEnabled: () -> Bool = { false }
-    var onShortcut: () -> Void = {}
+final class QuickLookKeyboardShortcutRouter {
+    static let shared = QuickLookKeyboardShortcutRouter()
+
     private var eventMonitor: Any?
-    private static var lastHandledSpaceEventTimestamp: TimeInterval?
+    private var isEnabled: () -> Bool = { false }
+    private var onShortcut: () -> Void = {}
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        stopMonitoring()
-        OpenMTPQuickLookHost.trace("shortcut view moved: window=\(window?.windowNumber.description ?? "nil")")
-        guard window != nil else { return }
+    private init() {}
 
-        OpenMTPQuickLookHost.trace("shortcut monitor installing")
+    func install() {
+        guard eventMonitor == nil else { return }
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 49 {
-                let hostWindow = self?.window
-                OpenMTPQuickLookHost.trace("raw space: event=\(event.eventNumber), repeat=\(event.isARepeat), modifiers=\(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue), eventWindow=\(event.windowNumber), hostWindow=\(hostWindow?.windowNumber.description ?? "nil"), enabled=\(self?.isEnabled() == true), firstResponder=\(String(describing: hostWindow?.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
-            }
-            guard let self,
-                  let window = self.window,
-                  event.keyCode == 49,
-                  event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                  self.isEnabled() else {
-                return event
-            }
+            guard let self, event.keyCode == 49 else { return event }
 
-            let isMainWindowEvent = event.window === window
-            let isQuickLookWindowEvent = OpenMTPQuickLookHost.isSharedPanelKeyWindow()
-                && event.window === QLPreviewPanel.shared()
-            guard isMainWindowEvent || isQuickLookWindowEvent,
-                  !(isMainWindowEvent && window.firstResponder is NSTextView) else {
-                return event
-            }
-
-            // Multiple SwiftUI representable instances can observe the same NSEvent.
-            // Treat its timestamp as an idempotency key so one physical key press
-            // cannot close the panel and then immediately reopen it.
-            guard Self.lastHandledSpaceEventTimestamp != event.timestamp else {
-                DebugLogger.verbose("Duplicate Quick Look Space event ignored: timestamp=\(event.timestamp)")
-                return nil
-            }
-            Self.lastHandledSpaceEventTimestamp = event.timestamp
-            OpenMTPQuickLookHost.trace("space: eventNumber=\(event.eventNumber), timestamp=\(event.timestamp), repeat=\(event.isARepeat), main=\(isMainWindowEvent), panel=\(isQuickLookWindowEvent), firstResponder=\(String(describing: window.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
-            DebugLogger.verbose(
-                "Quick Look Space event handled: timestamp=\(event.timestamp), visible=\(OpenMTPQuickLookHost.isSharedPanelVisible())"
+            let enabled = self.isEnabled()
+            OpenMTPQuickLookHost.trace(
+                "app-level space: event=\\(event.eventNumber), repeat=\\(event.isARepeat), modifiers=\\(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue), enabled=\\(enabled), window=\\(event.window?.windowNumber.description ?? "nil"); \\(OpenMTPQuickLookHost.panelState())"
             )
+            guard enabled,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
+                return event
+            }
+
+            let panel = QLPreviewPanel.sharedPreviewPanelExists() ? QLPreviewPanel.shared() : nil
+            let keyWindow = NSApp.keyWindow
+            let isQuickLookEvent = panel != nil && event.window === panel
+            let isMainWindowEvent = event.window === keyWindow
+                && keyWindow?.title == "MTP Shuttle"
+            guard isQuickLookEvent || isMainWindowEvent else { return event }
+            if isMainWindowEvent, keyWindow?.firstResponder is NSTextView { return event }
 
             self.onShortcut()
             return nil
         }
     }
 
-    func stopMonitoring() {
-        if let eventMonitor {
-            OpenMTPQuickLookHost.trace("shortcut monitor removed")
-            NSEvent.removeMonitor(eventMonitor)
-            self.eventMonitor = nil
-        }
+    func configure(isEnabled: @escaping () -> Bool, onShortcut: @escaping () -> Void) {
+        self.isEnabled = isEnabled
+        self.onShortcut = onShortcut
+        OpenMTPQuickLookHost.trace("app-level shortcut router configured")
+    }
+
+    func clear() {
+        isEnabled = { false }
+        onShortcut = {}
     }
 }
-
