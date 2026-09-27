@@ -36,6 +36,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
         AppearanceMode(rawValue: rawValue) ?? .system
     }
 
+    @MainActor
     static func apply(_ rawValue: String, to application: NSApplication = .shared) {
         let appearance: NSAppearance?
         switch resolve(rawValue) {
