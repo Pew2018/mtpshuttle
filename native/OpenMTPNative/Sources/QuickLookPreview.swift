@@ -20,15 +20,17 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
         QLPreviewPanel.shared()?.isKeyWindow == true
     }
 
-    static func closeSharedPanel() {
-        // Invalidate any deferred presentation requested by a previous selection.
+    static func requestSharedPanelPresentation() {
         presentationGeneration &+= 1
-        guard let panel = QLPreviewPanel.shared() else { return }
-        panel.orderOut(nil)
-        panel.dataSource = nil
-        panel.delegate = nil
     }
 
+    static func closeSharedPanel() {
+        // Invalidate deferred presentations before hiding the shared panel.
+        presentationGeneration &+= 1
+        QLPreviewPanel.shared()?.orderOut(nil)
+    }
+
+    @Binding var isPresented: Bool
     @Binding var urls: [URL]
     let onPreviewEnded: ([URL]) -> Void
 
@@ -40,40 +42,50 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
 
     func updateNSView(_ nsView: PreviewHostView, context: Context) {
         nsView.onPreviewEnded = onPreviewEnded
-        nsView.setPreviewURLs(urls)
+        nsView.setPreviewState(isPresented: isPresented, urls: urls)
     }
 
     final class PreviewHostView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
         private var previewURLs: [URL] = []
+        private var isPreviewRequested = false
         private var isControllingPreviewPanel = false
         var onPreviewEnded: (([URL]) -> Void)?
 
         override var acceptsFirstResponder: Bool { true }
 
-        func setPreviewURLs(_ urls: [URL]) {
-            let changed = previewURLs != urls
+        func setPreviewState(isPresented: Bool, urls: [URL]) {
+            let urlsChanged = previewURLs != urls
+            let presentationChanged = isPreviewRequested != isPresented
             previewURLs = urls
-            guard changed else { return }
-            if isControllingPreviewPanel {
-                guard let panel = QLPreviewPanel.shared() else { return }
-                if urls.isEmpty {
-                    panel.orderOut(nil)
-                } else {
-                    panel.reloadData()
-                    panel.currentPreviewItemIndex = 0
+            isPreviewRequested = isPresented
+
+            guard isPresented, !urls.isEmpty else {
+                if presentationChanged || OpenMTPQuickLookHost.isSharedPanelVisible() {
+                    OpenMTPQuickLookHost.closeSharedPanel()
                 }
-            } else if !urls.isEmpty {
-                let requestedURLs = urls
-                let generation = OpenMTPQuickLookHost.presentationGeneration
-                DispatchQueue.main.async { [weak self] in
-                    guard let self,
-                          OpenMTPQuickLookHost.presentationGeneration == generation,
-                          self.previewURLs == requestedURLs,
-                          !self.isControllingPreviewPanel else {
-                        return
-                    }
-                    self.showPreviewPanel()
+                return
+            }
+
+            let panelIsVisible = OpenMTPQuickLookHost.isSharedPanelVisible()
+            if isControllingPreviewPanel, panelIsVisible {
+                guard urlsChanged, let panel = QLPreviewPanel.shared() else { return }
+                panel.reloadData()
+                panel.currentPreviewItemIndex = 0
+                return
+            }
+
+            guard urlsChanged || presentationChanged || !panelIsVisible else { return }
+            let requestedURLs = urls
+            let generation = OpenMTPQuickLookHost.presentationGeneration
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      OpenMTPQuickLookHost.presentationGeneration == generation,
+                      self.isPreviewRequested,
+                      self.previewURLs == requestedURLs,
+                      !self.isControllingPreviewPanel else {
+                    return
                 }
+                self.showPreviewPanel()
             }
         }
 
@@ -101,15 +113,22 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
 
         override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
             let endedURLs = previewURLs
+            let generation = OpenMTPQuickLookHost.presentationGeneration
             panel.dataSource = nil
             panel.delegate = nil
             isControllingPreviewPanel = false
 
-            // Clicking another row gives the app window focus and can end
-            // control even while the Quick Look panel is still visible.
-            // Keep the URLs so the next selection can take control again.
+            // Losing control when the main window becomes active is normal while
+            // the panel remains visible. Only report an end after an actual close.
             DispatchQueue.main.async { [weak self, weak panel] in
-                guard let self, let panel, !panel.isVisible else { return }
+                guard let self,
+                      let panel,
+                      !panel.isVisible,
+                      OpenMTPQuickLookHost.presentationGeneration == generation,
+                      self.isPreviewRequested else {
+                    return
+                }
+                self.isPreviewRequested = false
                 self.previewURLs = []
                 self.onPreviewEnded?(endedURLs)
             }
