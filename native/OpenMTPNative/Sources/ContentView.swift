@@ -262,19 +262,19 @@ struct ContentView: View {
             )
             .frame(width: 1, height: 1)
         }
-        .background {
-            QuickLookKeyboardShortcutMonitor(
-                isEnabled: {
-                    hasQuickLookSelection || isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible()
-                },
-                onShortcut: { toggleQuickLook() }
-            )
-            .frame(width: 1, height: 1)
-        }
-        .focusedSceneValue(
+                .focusedSceneValue(
             \.openMTPEditActions,
             editActions
         )
+        .onAppear {
+            QuickLookKeyboardShortcutRouter.shared.configure(
+                isEnabled: { hasQuickLookSelection || isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible() },
+                onShortcut: { toggleQuickLook() }
+            )
+        }
+        .onDisappear {
+            QuickLookKeyboardShortcutRouter.shared.clear()
+        }
         .task {
             DebugLogger.startSession()
             await localBrowser.load(path: leftPane.path)
