@@ -602,9 +602,12 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
-                        onDragProvider(item, selection)
-                    })
+                    .modifier(MTPShuttleLocalPaneDrag(
+                        enabled: pane == .mac,
+                        fileName: item.name,
+                        isDirectory: item.isDirectory,
+                        provider: { onDragProvider(item, selection) }
+                    ))
                 }
             }
             .padding(14)
