@@ -5,6 +5,7 @@ import (
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
 	"log"
+	"os"
 	"sync/atomic"
 )
 
