@@ -16,6 +16,10 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
         QLPreviewPanel.shared()?.isVisible == true
     }
 
+    static func isSharedPanelKeyWindow() -> Bool {
+        QLPreviewPanel.shared()?.isKeyWindow == true
+    }
+
     static func closeSharedPanel() {
         // Invalidate any deferred presentation requested by a previous selection.
         presentationGeneration &+= 1
@@ -126,24 +130,6 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             return OpenMTPQuickLookItem(url: previewURLs[index])
         }
 
-        func previewPanel(
-            _ panel: QLPreviewPanel!,
-            handle event: NSEvent!
-        ) -> Bool {
-            guard event.type == .keyDown,
-                  event.keyCode == 49
-            else {
-                return false
-            }
-
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard modifiers.isEmpty else {
-                return false
-            }
-
-            panel.orderOut(nil)
-            return true
-        }
     }
 }
 
@@ -192,13 +178,20 @@ final class QuickLookShortcutView: NSView {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self,
                   let window = self.window,
-                  event.window === window,
                   event.keyCode == 49,
                   event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                  !(window.firstResponder is NSTextView),
                   self.isEnabled() else {
                 return event
             }
+
+            let isMainWindowEvent = event.window === window
+            let isQuickLookWindowEvent = OpenMTPQuickLookHost.isSharedPanelKeyWindow()
+                && event.window === QLPreviewPanel.shared()
+            guard isMainWindowEvent || isQuickLookWindowEvent,
+                  !(isMainWindowEvent && window.firstResponder is NSTextView) else {
+                return event
+            }
+
             self.onShortcut()
             return nil
         }
