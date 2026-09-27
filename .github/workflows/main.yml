@@ -1,29 +1,30 @@
-name: CI
+name: Legacy Electron CI (manual only)
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: macOS-11.00
+    runs-on: macos-13
     steps:
-      - name: Setup build environment
-        uses: actions/setup-node@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '16.x'
-      - run: npm install -g cross-env
-      - name: Cloning Git repository
-        uses: actions/checkout@v1
-      - name: Attempt to build OpenMTP
+      - name: Install cross-env
+        run: npm install -g cross-env
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build legacy Electron application
         run: |
           yarn
           yarn build
-      - name: Attempt to generate unsigned macOS app
+      - name: Package unsigned macOS application
         run: |
           export CSC_IDENTITY_AUTO_DISCOVERY=false
-          yarn package-mac-without-notarize 2>&1 || true
-      - name: Check if macOS app was generated
+          yarn package-mac-without-notarize
+      - name: Verify macOS application exists
         run: test -e dist/mac/OpenMTP.app
