@@ -39,3 +39,27 @@ func TestCancellableCallbacksStopWhenOperationIsCancelled(t *testing.T) {
 		t.Fatalf("cancelled download preprocessing returned %v, want OperationCancelled", err)
 	}
 }
+
+func TestSnapshotProgressInfoCopiesNestedTransferState(t *testing.T) {
+	original := &mtpx.ProgressInfo{
+		FileInfo:       &mtpx.FileInfo{Name: "before"},
+		ActiveFileSize: &mtpx.TransferSizeInfo{Sent: 1},
+		BulkFileSize:   &mtpx.TransferSizeInfo{Sent: 2},
+	}
+	snapshot := snapshotProgressInfo(original)
+	if snapshot == original ||
+		snapshot.FileInfo == original.FileInfo ||
+		snapshot.ActiveFileSize == original.ActiveFileSize ||
+		snapshot.BulkFileSize == original.BulkFileSize {
+		t.Fatal("snapshot retained pointers to mutable transfer state")
+	}
+
+	original.FileInfo.Name = "after"
+	original.ActiveFileSize.Sent = 10
+	original.BulkFileSize.Sent = 20
+	if snapshot.FileInfo.Name != "before" ||
+		snapshot.ActiveFileSize.Sent != 1 ||
+		snapshot.BulkFileSize.Sent != 2 {
+		t.Fatal("snapshot changed when the transfer library updated its progress")
+	}
+}
