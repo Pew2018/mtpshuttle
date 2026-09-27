@@ -294,6 +294,7 @@ struct ContentView: View {
                 rightPane.selection.removeAll()
                 activePane = .mac
             }
+            OpenMTPQuickLookHost.trace("selection eligibility: enabled=\(quickLookPreviewEnabled), activePane=\(activePane), eligible=\(hasQuickLookSelection), matchedFiles=\(localBrowser.entries.filter { selection.contains($0.id) && !$0.isDirectory && $0.localURL != nil }.count)")
             if isQuickLookPresented {
                 updateQuickLookSelection()
             }
