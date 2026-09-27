@@ -92,8 +92,14 @@ func SendMakeDirectory(onDonePtr *SendCbResult) {
 func SendFileExists(onDonePtr *SendCbResult, fc []mtpx.FileExistsContainer, inputFiles []string) {
 	var fdSlice []FileExistsData
 	for i, f := range fc {
+		fullPath := ""
+		if i < len(inputFiles) {
+			fullPath = inputFiles[i]
+		} else if f.FileInfo != nil {
+			fullPath = f.FileInfo.FullPath
+		}
 		fd := FileExistsData{
-			Fullpath: inputFiles[i],
+			Fullpath: fullPath,
 			Exists:   f.Exists,
 		}
 
@@ -136,6 +142,9 @@ func SendWalk(onDonePtr *SendCbResult, files []*mtpx.FileInfo) {
 	var outputFiles []FileInfo
 
 	for _, f := range files {
+		if f == nil {
+			continue
+		}
 		outputFile := FileInfo{
 			Size:       f.Size,
 			IsDir:      f.IsDir,
@@ -162,6 +171,9 @@ func SendWalk(onDonePtr *SendCbResult, files []*mtpx.FileInfo) {
 }
 
 func SendUploadFilesPreprocess(onDonePtr *SendCbResult, fi *os.FileInfo, fullPath string) {
+	if fi == nil || *fi == nil {
+		return
+	}
 	o := UploadFilesPreprocessResult{
 		Data: TransferPreprocessData{
 			FullPath: fullPath,
@@ -177,6 +189,9 @@ func SendUploadFilesPreprocess(onDonePtr *SendCbResult, fi *os.FileInfo, fullPat
 }
 
 func SendDownloadFilesPreprocess(onDonePtr *SendCbResult, fi *mtpx.FileInfo) {
+	if fi == nil {
+		return
+	}
 	o := DownloadFilesPreprocessResult{
 		Data: TransferPreprocessData{
 			FullPath: fi.FullPath,
@@ -192,6 +207,9 @@ func SendDownloadFilesPreprocess(onDonePtr *SendCbResult, fi *mtpx.FileInfo) {
 }
 
 func SendTransferFilesProgress(onDonePtr *SendCbResult, p *mtpx.ProgressInfo) {
+	if p == nil || p.FileInfo == nil || p.ActiveFileSize == nil || p.BulkFileSize == nil {
+		return
+	}
 	o := UploadFilesProgressResult{
 		Data: TransferProgressInfo{
 			FullPath:          p.FileInfo.FullPath,
