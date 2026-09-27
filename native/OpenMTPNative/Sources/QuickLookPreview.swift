@@ -202,7 +202,7 @@ final class QuickLookKeyboardShortcutRouter {
 
             let enabled = self.isEnabled()
             OpenMTPQuickLookHost.trace(
-                "app-level space: event=\\(event.eventNumber), repeat=\\(event.isARepeat), modifiers=\\(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue), enabled=\\(enabled), window=\\(event.window?.windowNumber.description ?? "nil"); \\(OpenMTPQuickLookHost.panelState())"
+                "app-level space: event=\(event.eventNumber), repeat=\(event.isARepeat), modifiers=\(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue), enabled=\(enabled), window=\(event.window?.windowNumber.description ?? "nil"); \(OpenMTPQuickLookHost.panelState())"
             )
             guard enabled,
                   event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
