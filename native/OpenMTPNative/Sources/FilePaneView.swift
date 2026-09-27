@@ -84,7 +84,7 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             super.init(frame: .zero)
         }
 
-        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        required init?(coder: NSCoder) { return nil }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             // Leave the SwiftUI row's context menu in charge of right clicks.
