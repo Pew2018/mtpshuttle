@@ -10,11 +10,15 @@ extension Notification.Name {
 
 struct OpenMTPQuickLookHost: NSViewRepresentable {
     /// QLPreviewPanel is shared and can outlive the SwiftUI owner.
+    private static var presentationGeneration: UInt = 0
+
     static func isSharedPanelVisible() -> Bool {
         QLPreviewPanel.shared()?.isVisible == true
     }
 
     static func closeSharedPanel() {
+        // Invalidate any deferred presentation requested by a previous selection.
+        presentationGeneration &+= 1
         guard let panel = QLPreviewPanel.shared() else { return }
         panel.orderOut(nil)
         panel.dataSource = nil
@@ -38,41 +42,9 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
     final class PreviewHostView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
         private var previewURLs: [URL] = []
         private var isControllingPreviewPanel = false
-        private var spaceKeyMonitor: Any?
         var onPreviewEnded: (([URL]) -> Void)?
 
         override var acceptsFirstResponder: Bool { true }
-
-        override init(frame frameRect: NSRect) {
-            super.init(frame: frameRect)
-            installSpaceKeyMonitor()
-        }
-
-        required init?(coder: NSCoder) {
-            super.init(coder: coder)
-            installSpaceKeyMonitor()
-        }
-
-        deinit {
-            if let spaceKeyMonitor {
-                NSEvent.removeMonitor(spaceKeyMonitor)
-            }
-        }
-
-        private func installSpaceKeyMonitor() {
-            spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard self != nil,
-                      event.keyCode == 49,
-                      event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                      let panel = QLPreviewPanel.shared(),
-                      panel.isVisible else {
-                    return event
-                }
-
-                panel.orderOut(nil)
-                return nil
-            }
-        }
 
         func setPreviewURLs(_ urls: [URL]) {
             let changed = previewURLs != urls
@@ -87,7 +59,17 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
                     panel.currentPreviewItemIndex = 0
                 }
             } else if !urls.isEmpty {
-                DispatchQueue.main.async { [weak self] in self?.showPreviewPanel() }
+                let requestedURLs = urls
+                let generation = OpenMTPQuickLookHost.presentationGeneration
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          OpenMTPQuickLookHost.presentationGeneration == generation,
+                          self.previewURLs == requestedURLs,
+                          !self.isControllingPreviewPanel else {
+                        return
+                    }
+                    self.showPreviewPanel()
+                }
             }
         }
 
