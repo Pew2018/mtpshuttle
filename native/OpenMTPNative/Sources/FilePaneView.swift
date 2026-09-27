@@ -627,11 +627,16 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     func makeNSView(context: Context) -> DropReceiverView {
         let view = DropReceiverView()
-        view.registerForDraggedTypes([
-            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
-            .string,
-            .fileURL
-        ])
+        // Android drags are NSFilePromiseProvider sessions. AppKit only routes
+        // those sessions to views registered for NSFilePromiseReceiver's types.
+        // Keep the in-app payload and Finder URL types alongside file promises.
+        view.registerForDraggedTypes(
+            NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) } + [
+                NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
+                .string,
+                .fileURL
+            ]
+        )
         context.coordinator.parent = self
         view.coordinator = context.coordinator
         view.autoresizingMask = [.width, .height]
