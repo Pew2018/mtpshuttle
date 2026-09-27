@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/ganeshrvel/go-mtpfs/mtp"
 	"github.com/ganeshrvel/go-mtpx"
-	"log"
 	"os"
 	"sync/atomic"
 )
@@ -88,7 +87,7 @@ func _fetchDeviceInfo() (*mtp.DeviceInfo, error) {
 	v := verifyMtpSessionMode{skipDeviceChangeCheck: true}
 
 	if !v.skipDeviceChangeCheck {
-		return fmt.Errorf("'skipDeviceChangeCheck' must be true in _fetchDeviceInfo")
+		return nil, fmt.Errorf("'skipDeviceChangeCheck' must be true in _fetchDeviceInfo")
 	}
 
 	if err := verifyMtpSession(v); err != nil {
