@@ -14,10 +14,12 @@ struct MTPBrowsePath: Equatable {
     }
 
     var walkJSON: String {
-        let data = try! JSONSerialization.data(withJSONObject: [
+        guard let data = try? JSONSerialization.data(withJSONObject: [
             "storageId": storageID, "fullPath": fullPath,
             "recursive": false, "skipDisallowedFiles": false, "skipHiddenFiles": false
-        ])
+        ]) else {
+            return "{}"
+        }
         return String(decoding: data, as: UTF8.self)
     }
 }
@@ -140,11 +142,13 @@ enum MTPDirectory {
 
     static func identity(storageID: UInt32, objectID: UInt32, path: String? = nil) -> UUID {
         if objectID != 0 {
-            return UUID(uuidString: String(format: "%08x-0000-0000-0000-%012llx", storageID, UInt64(objectID)))!
+            let value = String(format: "%08x-0000-0000-0000-%012llx", storageID, UInt64(objectID))
+            return UUID(uuidString: value) ?? UUID()
         }
         let seed = "\(storageID):\(path ?? "")"
         let hash = UInt64(seed.utf8.reduce(0) { ($0 &* 131) &+ UInt64($1) })
-        return UUID(uuidString: String(format: "%08x-0000-0000-0000-%012llx", storageID, hash & 0x0000ffffffffffff))!
+        let value = String(format: "%08x-0000-0000-0000-%012llx", storageID, hash & 0x0000ffffffffffff)
+        return UUID(uuidString: value) ?? UUID()
     }
 
     static func breadcrumbs(path: String, storages: [MTPStorageSummary]) -> [BreadcrumbComponent] {

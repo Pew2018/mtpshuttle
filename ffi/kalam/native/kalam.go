@@ -378,7 +378,8 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 						send_to_js.SendTransferFilesProgress(sendToJsOnProgressPtr, v.pInfo)
 
 					default:
-						log.Panicln("unimplemented UploadFiles.pInterface type")
+						log.Printf("unknown UploadFiles progress payload %T; stopping progress reporter", progress)
+						return
 					}
 				}
 
@@ -479,7 +480,8 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 						send_to_js.SendTransferFilesProgress(sendToJsOnProgressPtr, v.pInfo)
 
 					default:
-						log.Panicln("unimplemented DownloadFiles.pInterface type")
+						log.Printf("unknown DownloadFiles progress payload %T; stopping progress reporter", progress)
+						return
 					}
 				}
 
