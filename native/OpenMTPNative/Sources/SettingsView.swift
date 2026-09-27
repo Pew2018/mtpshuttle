@@ -109,6 +109,12 @@ struct SettingsView: View {
         settingsContent
             .frame(minWidth: 660, minHeight: 470)
             .background(Color(nsColor: .windowBackgroundColor))
+            .onAppear {
+                AppearanceMode.apply(appAppearance)
+            }
+            .onChange(of: appAppearance) { newValue in
+                AppearanceMode.apply(newValue)
+            }
         .confirmationDialog(
             Text(activeConfirmation?.title ?? ""),
             isPresented: Binding(
