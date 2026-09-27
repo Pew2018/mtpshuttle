@@ -35,6 +35,7 @@ jobs:
           brew install libusb
           cd ../../ffi/kalam/native
           export PKG_CONFIG_PATH="$(brew --prefix libusb)/lib/pkgconfig"
+          go test .
           CGO_ENABLED=1 GOARCH=arm64 GOOS=darwin go build -trimpath -buildmode=c-shared -o ../../../build/mac/bin/arm64/kalam.dylib ./*.go
           LIBUSB_LINK="$(otool -L ../../../build/mac/bin/arm64/kalam.dylib | awk '/libusb-1.0.0.dylib/ {print $1; exit}')"
           install_name_tool -change "$LIBUSB_LINK" @loader_path/libusb.dylib ../../../build/mac/bin/arm64/kalam.dylib

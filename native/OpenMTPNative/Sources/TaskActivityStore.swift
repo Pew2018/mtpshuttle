@@ -264,99 +264,121 @@ struct TaskDetailsView: View {
     @State private var isHistoryExpanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let task = tasks.current {
-                currentTaskView(task)
-            } else {
-                emptyState
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let task = tasks.current {
+                    currentTaskView(task)
+                } else {
+                    emptyState
+                }
 
-            if !tasks.history.isEmpty {
-                DisclosureGroup(isExpanded: $isHistoryExpanded) {
-                    ScrollView {
+                if !tasks.history.isEmpty {
+                    DisclosureGroup(isExpanded: $isHistoryExpanded) {
                         LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(tasks.history) { task in
                                 historyTaskView(task)
                             }
                         }
+                        .padding(.top, 10)
+                    } label: {
+                        Label(MTPShuttleText.localized("Recent Activity"), systemImage: "clock.arrow.circlepath")
+                            .font(.subheadline.weight(.semibold))
                     }
-                    .frame(maxHeight: 150)
-                    .padding(.top, 8)
-                } label: {
-                    Label(MTPShuttleText.localized("Recent Activity"), systemImage: "clock.arrow.circlepath")
-                        .font(.subheadline.weight(.semibold))
+                    .padding(.top, 2)
                 }
-                .padding(.top, 2)
             }
+            .padding(22)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(20)
-        .frame(minWidth: 540, minHeight: 320, alignment: .topLeading)
+        .frame(minWidth: 540, minHeight: 360)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "arrow.left.arrow.right.circle")
-                .font(.system(size: 28))
-                .foregroundStyle(.tertiary)
-            Text(MTPShuttleText.localized("No active transfer"))
-                .font(.body)
+        VStack(spacing: 12) {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 24, weight: .medium))
                 .foregroundStyle(.secondary)
+                .frame(width: 58, height: 58)
+                .background(.quaternary, in: Circle())
+
+            Text(MTPShuttleText.localized("No active transfer"))
+                .font(.title3.weight(.semibold))
+
+            Text(MTPShuttleText.localized("Your recent transfers will appear here."))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, minHeight: 160)
+        .frame(maxWidth: .infinity, minHeight: 220)
+        .padding(24)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func currentTaskView(_ task: TaskRecord) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 14) {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 46, height: 46)
+                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
                         .font(.title3.weight(.semibold))
                         .lineLimit(2)
-                    Text(displayStatus(task.state))
+                    Text(task.step)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
 
                 Spacer(minLength: 8)
 
-                Button(role: .destructive) {
-                    tasks.cancel()
-                } label: {
-                    Label("Cancel Operation", systemImage: "xmark.circle")
-                }
-                .buttonStyle(.bordered)
-                .disabled(tasks.cancellationRequested)
+                Text(displayStatus(task.state))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusTint(task.state))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(statusTint(task.state).opacity(0.12), in: Capsule())
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                progressBar(task.fraction)
-                    .accessibilityLabel(Text("Overall transfer progress"))
-
-                HStack(spacing: 12) {
-                    Text("\(byteText(task.sent)) / \(byteText(task.total))")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(MTPShuttleText.localized("Overall transfer progress"))
+                        .font(.subheadline.weight(.medium))
                     Spacer()
                     if let fraction = task.fraction {
                         Text("\(Int((fraction * 100).rounded()))%")
-                            .font(.caption.monospacedDigit().weight(.medium))
+                            .font(.subheadline.monospacedDigit().weight(.semibold))
                     }
                 }
 
-                HStack(spacing: 16) {
-                    Label(
-                        MTPShuttleText.localized("Speed") + ": " + speedText(task.speedBytesPerSecond),
-                        systemImage: "speedometer"
-                    )
-                    Spacer(minLength: 8)
-                    Label(
-                        MTPShuttleText.localized("Estimated remaining") + ": " + etaText(task.etaSeconds),
-                        systemImage: "clock"
-                    )
+                progressBar(task.fraction)
+                    .controlSize(.regular)
+                    .accessibilityLabel(Text("Overall transfer progress"))
+
+                HStack {
+                    Text("\(byteText(task.sent)) / \(byteText(task.total))")
+                    Spacer()
+                    Text(MTPShuttleText.format("%d items", task.items.count))
                 }
-                .font(.caption)
+                .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+            }
+
+            HStack(spacing: 10) {
+                metricCard(
+                    title: MTPShuttleText.localized("Speed"),
+                    value: speedText(task.speedBytesPerSecond),
+                    symbol: "speedometer"
+                )
+                metricCard(
+                    title: MTPShuttleText.localized("Estimated remaining"),
+                    value: etaText(task.etaSeconds),
+                    symbol: "clock"
+                )
             }
 
             if let item = progressItem(for: task) {
@@ -370,30 +392,68 @@ struct TaskDetailsView: View {
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
                 }
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.red)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
+            HStack {
+                Spacer()
+                Button(role: .destructive) {
+                    tasks.cancel()
+                } label: {
+                    Label("Cancel Operation", systemImage: "xmark")
+                }
+                .buttonStyle(.bordered)
+                .disabled(tasks.cancellationRequested)
             }
         }
-        .padding(18)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func metricCard(title: String, value: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Text(value)
+                .font(.subheadline.monospacedDigit().weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func currentFileView(_ item: TaskItemRecord, showsProgress: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(MTPShuttleText.localized("Current file"), systemImage: "doc")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc")
+                    .foregroundStyle(Color.accentColor)
+                Text(MTPShuttleText.localized("Current file"))
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(displayStatus(item.state))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(statusTint(item.state))
             }
 
             Text(item.name)
                 .font(.body.weight(.medium))
                 .lineLimit(1)
+                .textSelection(.enabled)
 
             Text(item.path)
                 .font(.caption.monospaced())
@@ -404,8 +464,7 @@ struct TaskDetailsView: View {
             if showsProgress {
                 progressBar(item.fraction)
                     .accessibilityLabel(Text("Current file progress"))
-
-                HStack(spacing: 12) {
+                HStack {
                     Text("\(byteText(item.sent)) / \(byteText(item.total))")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -424,9 +483,9 @@ struct TaskDetailsView: View {
                     .textSelection(.enabled)
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 
     @ViewBuilder
@@ -445,29 +504,44 @@ struct TaskDetailsView: View {
     }
 
     private func historyTaskView(_ task: TaskRecord) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
+        HStack(spacing: 12) {
+            Image(systemName: task.state == "已完成" ? "checkmark.circle.fill" : "arrow.left.arrow.right.circle")
+                .font(.title3)
+                .foregroundStyle(statusTint(task.state))
+
+            VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                Spacer()
-                Text(displayStatus(task.state))
+                Text(MTPShuttleText.format("%d items", task.items.count))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let failureReason = task.failureReason {
+                    Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
             }
-            Text(MTPShuttleText.format("%d items", task.items.count))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if let failureReason = task.failureReason {
-                Text(MTPShuttleText.localized("Failure reason") + ": " + failureReason)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .textSelection(.enabled)
-            }
+
+            Spacer(minLength: 8)
+
+            Text(displayStatus(task.state))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(statusTint(task.state))
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func statusTint(_ status: String) -> Color {
+        switch status {
+        case "已完成": return .green
+        case "失败": return .red
+        case "已取消", "取消中": return .orange
+        default: return Color.accentColor
+        }
     }
 
     private func displayStatus(_ status: String) -> String {

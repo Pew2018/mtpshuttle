@@ -31,6 +31,8 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
     private var promiseDelegate: MTPShuttleFilePromiseDelegate?
     // Used only by another pane in this process; never advertise it to Finder.
     private(set) var internalPayload: String?
+    private(set) var dragDisplayName = ""
+    private(set) var dragIsDirectory = false
 
     override init() {
         super.init()
@@ -41,6 +43,8 @@ final class MTPShuttleFilePromiseProvider: NSFilePromiseProvider {
         let promiseDelegate = MTPShuttleFilePromiseDelegate(fileName: fileName, writePromise: writePromise)
         self.promiseDelegate = promiseDelegate // NSFilePromiseProvider holds its delegate weakly.
         self.internalPayload = encodedPayload
+        self.dragDisplayName = fileName
+        self.dragIsDirectory = fileType == UTType.directory.identifier
         self.fileType = fileType
         self.delegate = promiseDelegate
     }
@@ -104,16 +108,14 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             guard !providers.isEmpty else { return }
             let items = providers.map { provider -> NSDraggingItem in
                 let item = NSDraggingItem(pasteboardWriter: provider)
-                let symbol = provider.fileType == UTType.directory.identifier ? "folder.fill" : "doc.fill"
-                let icon = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-                    ?? NSWorkspace.shared.icon(forFileType: provider.fileType)
+                let preview = dragPreview(for: provider)
                 let frame = NSRect(
-                    x: max(0, (bounds.width - 32) / 2),
-                    y: max(0, (bounds.height - 32) / 2),
-                    width: 32,
-                    height: 32
+                    x: (bounds.width - preview.size.width) / 2,
+                    y: (bounds.height - preview.size.height) / 2,
+                    width: preview.size.width,
+                    height: preview.size.height
                 )
-                item.setDraggingFrame(frame, contents: icon)
+                item.setDraggingFrame(frame, contents: preview)
                 return item
             }
             retainedProviders = providers
@@ -123,6 +125,68 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
             DebugLogger.info("Android file drag started: count=\(providers.count)")
             let session = beginDraggingSession(with: items, event: start, source: self)
             DebugLogger.info("Android drag pasteboard types: \(session.draggingPasteboard.types?.map(\.rawValue).joined(separator: "|") ?? "")")
+        }
+
+        private func dragPreview(for provider: NSFilePromiseProvider) -> NSImage {
+            let fileProvider = provider as? MTPShuttleFilePromiseProvider
+            let previewSize = NSSize(width: 260, height: 58)
+            let title = fileProvider?.dragDisplayName ?? "File"
+            let subtitle = fileProvider?.dragIsDirectory == true ? "Folder" : "File"
+
+            return NSImage(size: previewSize, flipped: false) { rect in
+                let card = NSBezierPath(roundedRect: rect, xRadius: 11, yRadius: 11)
+                NSColor.controlAccentColor.withAlphaComponent(0.96).setFill()
+                card.fill()
+
+                let iconRect = NSRect(x: 16, y: 16, width: 25, height: 25)
+                NSColor.white.setFill()
+                if fileProvider?.dragIsDirectory == true {
+                    let folder = NSBezierPath()
+                    folder.move(to: NSPoint(x: iconRect.minX, y: iconRect.minY + 3))
+                    folder.line(to: NSPoint(x: iconRect.minX, y: iconRect.maxY - 3))
+                    folder.line(to: NSPoint(x: iconRect.minX + 9, y: iconRect.maxY - 3))
+                    folder.line(to: NSPoint(x: iconRect.minX + 12, y: iconRect.maxY))
+                    folder.line(to: NSPoint(x: iconRect.maxX, y: iconRect.maxY))
+                    folder.line(to: NSPoint(x: iconRect.maxX, y: iconRect.minY + 3))
+                    folder.close()
+                    folder.fill()
+                } else {
+                    let document = NSBezierPath()
+                    document.move(to: NSPoint(x: iconRect.minX + 3, y: iconRect.minY))
+                    document.line(to: NSPoint(x: iconRect.minX + 3, y: iconRect.maxY))
+                    document.line(to: NSPoint(x: iconRect.maxX - 7, y: iconRect.maxY))
+                    document.line(to: NSPoint(x: iconRect.maxX, y: iconRect.maxY - 7))
+                    document.line(to: NSPoint(x: iconRect.maxX, y: iconRect.minY))
+                    document.close()
+                    document.lineWidth = 1.8
+                    document.stroke()
+                    let fold = NSBezierPath()
+                    fold.move(to: NSPoint(x: iconRect.maxX - 7, y: iconRect.maxY))
+                    fold.line(to: NSPoint(x: iconRect.maxX - 7, y: iconRect.maxY - 7))
+                    fold.line(to: NSPoint(x: iconRect.maxX, y: iconRect.maxY - 7))
+                    fold.lineWidth = 1.5
+                    fold.stroke()
+                }
+
+                let paragraph = NSMutableParagraphStyle()
+                paragraph.lineBreakMode = .byTruncatingTail
+                (title as NSString).draw(
+                    in: NSRect(x: 53, y: 29, width: 194, height: 18),
+                    withAttributes: [
+                        .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                        .foregroundColor: NSColor.white,
+                        .paragraphStyle: paragraph
+                    ]
+                )
+                (subtitle as NSString).draw(
+                    at: NSPoint(x: 53, y: 11),
+                    withAttributes: [
+                        .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                        .foregroundColor: NSColor.white.withAlphaComponent(0.82)
+                    ]
+                )
+                return true
+            }
         }
 
         override func mouseUp(with event: NSEvent) {
@@ -160,15 +224,50 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
 
 private struct MTPShuttleLocalPaneDrag: ViewModifier {
     let enabled: Bool
+    let fileName: String
+    let isDirectory: Bool
     let provider: () -> NSItemProvider
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if enabled {
-            content.onDrag(provider)
+            content.onDrag(provider, preview: {
+                MTPShuttlePaneDragPreview(fileName: fileName, isDirectory: isDirectory)
+            })
         } else {
             content
         }
+    }
+}
+
+private struct MTPShuttlePaneDragPreview: View {
+    let fileName: String
+    let isDirectory: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isDirectory ? "folder.fill" : "doc.fill")
+                .font(.system(size: 25, weight: .medium))
+                .frame(width: 25, height: 25)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fileName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Text(isDirectory ? "Folder" : "File")
+                    .font(.system(size: 11, weight: .medium))
+                    .opacity(0.82)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .frame(width: 260, height: 58, alignment: .leading)
+        .background(
+            Color(nsColor: .controlAccentColor).opacity(0.96),
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
     }
 }
 
@@ -443,9 +542,12 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
-                        onDragProvider(item, selection)
-                    })
+                    .modifier(MTPShuttleLocalPaneDrag(
+                        enabled: pane == .mac,
+                        fileName: item.name,
+                        isDirectory: item.isDirectory,
+                        provider: { onDragProvider(item, selection) }
+                    ))
                 }
             }
             .padding(.horizontal, 4)
@@ -500,9 +602,12 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
-                        onDragProvider(item, selection)
-                    })
+                    .modifier(MTPShuttleLocalPaneDrag(
+                        enabled: pane == .mac,
+                        fileName: item.name,
+                        isDirectory: item.isDirectory,
+                        provider: { onDragProvider(item, selection) }
+                    ))
                 }
             }
             .padding(14)
@@ -627,11 +732,16 @@ private struct OpenMTPExternalDropReceiver: NSViewRepresentable {
 
     func makeNSView(context: Context) -> DropReceiverView {
         let view = DropReceiverView()
-        view.registerForDraggedTypes([
-            NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
-            .string,
-            .fileURL
-        ])
+        // Android drags are NSFilePromiseProvider sessions. AppKit only routes
+        // those sessions to views registered for NSFilePromiseReceiver's types.
+        // Keep the in-app payload and Finder URL types alongside file promises.
+        view.registerForDraggedTypes(
+            NSFilePromiseReceiver.readableDraggedTypes.map { NSPasteboard.PasteboardType($0) } + [
+                NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier),
+                .string,
+                .fileURL
+            ]
+        )
         context.coordinator.parent = self
         view.coordinator = context.coordinator
         view.autoresizingMask = [.width, .height]

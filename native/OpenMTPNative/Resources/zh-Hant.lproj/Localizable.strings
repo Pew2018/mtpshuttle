@@ -364,3 +364,5 @@
 "Recent Activity" = "最近活動";
 "Overall transfer progress" = "傳輸總進度";
 "Current file progress" = "目前檔案進度";
+"Verifying transferred data" = "正在驗證傳輸後的資料";
+"The Android copy did not match the Mac originals. The Mac originals were kept." = "Android 副本與 Mac 原始檔案不一致，Mac 原始檔案已保留。";
