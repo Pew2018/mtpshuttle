@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -324,6 +325,7 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 		return
 	}
 
+	var progressMu sync.RWMutex
 	var pInterface interface{}
 
 	ch := make(chan bool)
@@ -335,8 +337,11 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 
 				return
 			default:
-				if pInterface != nil {
-					switch v := pInterface.(type) {
+				progressMu.RLock()
+				progress := pInterface
+				progressMu.RUnlock()
+				if progress != nil {
+					switch v := progress.(type) {
 					case UploadPreprocessContainer:
 						send_to_js.SendUploadFilesPreprocess(sendToJsOnPreprocessPtr, v.fi, v.fullPath)
 
@@ -360,10 +365,12 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 				return err
 			}
 
+			progressMu.Lock()
 			pInterface = UploadPreprocessContainer{
 				fi:       fi,
 				fullPath: fullPath,
 			}
+			progressMu.Unlock()
 
 			return nil
 		},
@@ -373,9 +380,11 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 				return err
 			}
 
+			progressMu.Lock()
 			pInterface = ProgressContainer{
 				pInfo: p,
 			}
+			progressMu.Unlock()
 
 			return nil
 		})
@@ -415,6 +424,7 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 		return
 	}
 
+	var progressMu sync.RWMutex
 	var pInterface interface{}
 
 	ch := make(chan bool)
@@ -426,8 +436,11 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 
 				return
 			default:
-				if pInterface != nil {
-					switch v := pInterface.(type) {
+				progressMu.RLock()
+				progress := pInterface
+				progressMu.RUnlock()
+				if progress != nil {
+					switch v := progress.(type) {
 					case DownloadPreprocessContainer:
 						send_to_js.SendDownloadFilesPreprocess(sendToJsOnPreprocessPtr, v.fi)
 
@@ -451,9 +464,11 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
+			progressMu.Lock()
 			pInterface = DownloadPreprocessContainer{
 				fi: fi,
 			}
+			progressMu.Unlock()
 
 			return nil
 		},
@@ -463,9 +478,11 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
+			progressMu.Lock()
 			pInterface = ProgressContainer{
 				pInfo: p,
 			}
+			progressMu.Unlock()
 
 			return nil
 		})
