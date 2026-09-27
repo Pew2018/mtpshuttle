@@ -169,6 +169,7 @@ final class QuickLookShortcutView: NSView {
     var isEnabled: () -> Bool = { false }
     var onShortcut: () -> Void = {}
     private var eventMonitor: Any?
+    private static var lastHandledSpaceEventTimestamp: TimeInterval?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -191,6 +192,18 @@ final class QuickLookShortcutView: NSView {
                   !(isMainWindowEvent && window.firstResponder is NSTextView) else {
                 return event
             }
+
+            // Multiple SwiftUI representable instances can observe the same NSEvent.
+            // Treat its timestamp as an idempotency key so one physical key press
+            // cannot close the panel and then immediately reopen it.
+            guard Self.lastHandledSpaceEventTimestamp != event.timestamp else {
+                DebugLogger.verbose("Duplicate Quick Look Space event ignored: timestamp=\(event.timestamp)")
+                return nil
+            }
+            Self.lastHandledSpaceEventTimestamp = event.timestamp
+            DebugLogger.verbose(
+                "Quick Look Space event handled: timestamp=\(event.timestamp), visible=\(OpenMTPQuickLookHost.isSharedPanelVisible())"
+            )
 
             self.onShortcut()
             return nil
