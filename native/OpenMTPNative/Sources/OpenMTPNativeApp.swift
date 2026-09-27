@@ -90,7 +90,7 @@ private struct SwiftMTPCommands: Commands {
 
             Divider()
 
-            Button(MTPShuttleText.localized("Copy"))
+            Button(MTPShuttleText.localized("Copy")) {
                 editActions?.copy()
             }
             .disabled(!(editActions?.canCopy ?? false))
