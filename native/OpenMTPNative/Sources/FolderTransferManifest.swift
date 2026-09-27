@@ -5,7 +5,19 @@ struct FolderTransferManifestEntry: Equatable {
     let relativePath: String
     let isDirectory: Bool
     let sizeBytes: Int64?
-    let contentHash: String? = nil
+    let contentHash: String?
+
+    init(
+        relativePath: String,
+        isDirectory: Bool,
+        sizeBytes: Int64?,
+        contentHash: String? = nil
+    ) {
+        self.relativePath = relativePath
+        self.isDirectory = isDirectory
+        self.sizeBytes = sizeBytes
+        self.contentHash = contentHash
+    }
 }
 
 enum FolderTransferManifest {
