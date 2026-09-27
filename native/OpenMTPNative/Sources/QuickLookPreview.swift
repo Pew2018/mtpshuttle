@@ -120,8 +120,6 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
         let endedURLs = urls
         urls = []
         index = 0
-        pdfView?.document = nil
-        textView?.string = ""
         let callback = onPreviewEnded
         onPreviewEnded = nil
         OpenMTPQuickLookHost.trace("closed; \(stateDescription)")
