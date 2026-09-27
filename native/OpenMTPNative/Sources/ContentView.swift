@@ -1337,22 +1337,36 @@ struct ContentView: View {
 
         do {
             let values = try localURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            let remotePath = storage.fullPath + "/" + targetName
             if values.isDirectory == true {
                 guard remoteEntry.isDirectory else { return false }
                 let localManifest = try FolderTransferManifest.localEntries(at: localURL)
-                let remotePath = storage.fullPath + "/" + targetName
                 let remoteManifest = try await remoteFolderManifest(
                     remotePath,
                     storageID: storage.storageID
                 )
-                let verified = FolderTransferManifest.matches(
-                    local: localManifest,
-                    remote: remoteManifest
-                )
-                if !verified {
-                    DebugLogger.error("Move verification failed: folder contents differ for \(targetName)")
+                guard FolderTransferManifest.matches(local: localManifest, remote: remoteManifest) else {
+                    DebugLogger.error("Move verification failed: folder structure or file sizes differ for \(targetName)")
+                    return false
                 }
-                return verified
+
+                // MTP does not expose content hashes. Read every remote file back
+                // and compare SHA-256 before allowing Finder originals to be deleted.
+                for entry in localManifest where !entry.isDirectory {
+                    if tasks.cancellationRequested { return false }
+                    let localFile = localURL.appendingPathComponent(entry.relativePath)
+                    let remoteFile = remotePath + "/" + entry.relativePath
+                    guard await verifyRemoteFileContent(
+                        localFile,
+                        targetName: URL(fileURLWithPath: entry.relativePath).lastPathComponent,
+                        remotePath: remoteFile,
+                        storageID: storage.storageID
+                    ) else {
+                        DebugLogger.error("Move verification failed: file content differs for \(entry.relativePath)")
+                        return false
+                    }
+                }
+                return true
             }
 
             guard !remoteEntry.isDirectory,
@@ -1362,9 +1376,42 @@ struct ContentView: View {
                 DebugLogger.error("Move verification failed: file size differs or is unavailable for \(targetName)")
                 return false
             }
-            return true
+            return await verifyRemoteFileContent(
+                localURL,
+                targetName: targetName,
+                remotePath: remotePath,
+                storageID: storage.storageID
+            )
         } catch {
             DebugLogger.error("Move verification failed for \(targetName): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func verifyRemoteFileContent(
+        _ localURL: URL,
+        targetName: String,
+        remotePath: String,
+        storageID: UInt32
+    ) async -> Bool {
+        if tasks.cancellationRequested { return false }
+        let staging = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MTP-Shuttle-finder-verify-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: staging) }
+            try await mtpService.download(
+                sources: [remotePath],
+                destination: staging.path,
+                storageID: storageID
+            )
+            if tasks.cancellationRequested { return false }
+            let downloaded = staging.appendingPathComponent(targetName)
+            return try await Task.detached(priority: .utility) {
+                try FolderTransferManifest.matchesContent(source: localURL, destination: downloaded)
+            }.value
+        } catch {
+            DebugLogger.error("Read-back content verification failed for \(targetName): \(error.localizedDescription)")
             return false
         }
     }
