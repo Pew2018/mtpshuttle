@@ -1,5 +1,16 @@
 import SwiftUI
 
+struct QuickLookActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    var quickLookAction: (() -> Void)? {
+        get { self[QuickLookActionKey.self] }
+        set { self[QuickLookActionKey.self] = newValue }
+    }
+}
+
 @main
 struct OpenMTPNativeApp: App {
     @AppStorage(MTPShuttleLanguage.storageKey) private var appLanguage = MTPShuttleLanguage.system.rawValue
@@ -56,6 +67,7 @@ struct OpenMTPNativeApp: App {
 private struct SwiftMTPCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.openMTPEditActions) private var editActions
+    @FocusedValue(\.quickLookAction) private var quickLookAction
 
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
@@ -70,7 +82,15 @@ private struct SwiftMTPCommands: Commands {
         CommandGroup(after: .newItem) {
             Divider()
 
-            Button(MTPShuttleText.localized("Copy")) {
+            Button("Quick Look") {
+                quickLookAction?()
+            }
+            .disabled(quickLookAction == nil)
+            .keyboardShortcut(.space, modifiers: [])
+
+            Divider()
+
+            Button(MTPShuttleText.localized("Copy"))
                 editActions?.copy()
             }
             .disabled(!(editActions?.canCopy ?? false))
