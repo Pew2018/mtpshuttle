@@ -6,6 +6,10 @@ final class OpenMTPAppDelegate: NSObject, NSApplicationDelegate {
     private let frameKey = "SwiftMTP.mainWindowFrame"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppearanceMode.apply(
+            UserDefaults.standard.string(forKey: AppearanceMode.storageKey) ?? AppearanceMode.system.rawValue,
+            to: NSApp
+        )
         NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didMoveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didEndLiveResizeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(windowClosed(_:)), name: NSWindow.willCloseNotification, object: nil)
