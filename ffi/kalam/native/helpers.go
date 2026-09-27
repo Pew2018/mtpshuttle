@@ -88,7 +88,7 @@ func _fetchDeviceInfo() (*mtp.DeviceInfo, error) {
 	v := verifyMtpSessionMode{skipDeviceChangeCheck: true}
 
 	if !v.skipDeviceChangeCheck {
-		log.Panicln("'skipDeviceChangeCheck' should be 'true' in _fetchDeviceInfo.verifyMtpSessionMode")
+		return fmt.Errorf("'skipDeviceChangeCheck' must be true in _fetchDeviceInfo")
 	}
 
 	if err := verifyMtpSession(v); err != nil {
