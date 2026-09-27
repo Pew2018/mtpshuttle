@@ -365,9 +365,10 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 				return err
 			}
 
+			fiCopy := *fi
 			progressMu.Lock()
 			pInterface = UploadPreprocessContainer{
-				fi:       fi,
+				fi:       &fiCopy,
 				fullPath: fullPath,
 			}
 			progressMu.Unlock()
@@ -380,9 +381,10 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 				return err
 			}
 
+			pCopy := *p
 			progressMu.Lock()
 			pInterface = ProgressContainer{
-				pInfo: p,
+				pInfo: &pCopy,
 			}
 			progressMu.Unlock()
 
@@ -464,9 +466,10 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
+			fiCopy := *fi
 			progressMu.Lock()
 			pInterface = DownloadPreprocessContainer{
-				fi: fi,
+				fi: &fiCopy,
 			}
 			progressMu.Unlock()
 
@@ -478,9 +481,10 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
+			pCopy := *p
 			progressMu.Lock()
 			pInterface = ProgressContainer{
-				pInfo: p,
+				pInfo: &pCopy,
 			}
 			progressMu.Unlock()
 
