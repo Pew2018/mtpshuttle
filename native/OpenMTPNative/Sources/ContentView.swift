@@ -469,12 +469,14 @@ struct ContentView: View {
     }
 
     private func toggleQuickLook() {
+        OpenMTPQuickLookHost.trace("toggle: presented=\(isQuickLookPresented), selected=\(leftPane.selection.count), urls=\(quickLookURLs.count); \(OpenMTPQuickLookHost.panelState())")
         // Closing is driven by the explicit presentation state, not by whether
         // Quick Look currently has window focus or control of its shared panel.
         if isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible() {
             isQuickLookPresented = false
             quickLookURLs = []
             OpenMTPQuickLookHost.closeSharedPanel()
+            OpenMTPQuickLookHost.trace("toggle decided close; \(OpenMTPQuickLookHost.panelState())")
             return
         }
 
@@ -486,11 +488,13 @@ struct ContentView: View {
         updateQuickLookSelection()
         guard !quickLookURLs.isEmpty else { return }
 
+        OpenMTPQuickLookHost.trace("present requested: urls=\(quickLookURLs.count); \(OpenMTPQuickLookHost.panelState())")
         OpenMTPQuickLookHost.requestSharedPanelPresentation()
         isQuickLookPresented = true
     }
 
     private func updateQuickLookSelection() {
+        OpenMTPQuickLookHost.trace("selection update: presented=\(isQuickLookPresented), selected=\(leftPane.selection.count); \(OpenMTPQuickLookHost.panelState())")
         quickLookURLs = localBrowser.entries.filter {
             leftPane.selection.contains($0.id) && !$0.isDirectory
         }.compactMap(\.localURL)
@@ -500,6 +504,7 @@ struct ContentView: View {
     }
 
     private func handleQuickLookEnded(_ urls: [URL]) {
+        OpenMTPQuickLookHost.trace("end received: ended=\(urls.count), current=\(quickLookURLs.count), presented=\(isQuickLookPresented); \(OpenMTPQuickLookHost.panelState())")
         // Ignore an end callback for an older selection or presentation.
         guard quickLookURLs == urls else { return }
         isQuickLookPresented = false
