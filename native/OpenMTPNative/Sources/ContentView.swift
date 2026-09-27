@@ -254,15 +254,7 @@ struct ContentView: View {
         } message: {
             Text(pendingDropMessage)
         }
-        .background {
-            OpenMTPQuickLookHost(
-                isPresented: $isQuickLookPresented,
-                urls: $quickLookURLs,
-                onPreviewEnded: handleQuickLookEnded
-            )
-            .frame(width: 1, height: 1)
-        }
-                .focusedSceneValue(\.quickLookAction, { toggleQuickLook() })
+        .focusedSceneValue(\.quickLookAction, { toggleQuickLook() })
         .focusedSceneValue(
             \.openMTPEditActions,
             editActions
@@ -463,8 +455,6 @@ struct ContentView: View {
 
     private func toggleQuickLook() {
         OpenMTPQuickLookHost.trace("toggle: presented=\(isQuickLookPresented), selected=\(leftPane.selection.count), urls=\(quickLookURLs.count); \(OpenMTPQuickLookHost.panelState())")
-        // Closing is driven by the explicit presentation state, not by whether
-        // Quick Look currently has window focus or control of its shared panel.
         if isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible() {
             isQuickLookPresented = false
             quickLookURLs = []
@@ -482,8 +472,8 @@ struct ContentView: View {
         guard !quickLookURLs.isEmpty else { return }
 
         OpenMTPQuickLookHost.trace("present requested: urls=\(quickLookURLs.count); \(OpenMTPQuickLookHost.panelState())")
-        OpenMTPQuickLookHost.requestSharedPanelPresentation()
         isQuickLookPresented = true
+        OpenMTPQuickLookHost.present(urls: quickLookURLs, onPreviewEnded: handleQuickLookEnded)
     }
 
     private func updateQuickLookSelection() {
@@ -493,6 +483,9 @@ struct ContentView: View {
         }.compactMap(\.localURL)
         if quickLookURLs.isEmpty {
             isQuickLookPresented = false
+            OpenMTPQuickLookHost.closeSharedPanel()
+        } else if isQuickLookPresented {
+            OpenMTPQuickLookHost.update(urls: quickLookURLs)
         }
     }
 
