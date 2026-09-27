@@ -302,6 +302,35 @@ func WalkWithProgress(walkInputJson *C.char, onEntryPtr, onDonePtr *C.on_cb_resu
 	send_to_js.SendWalk(onDone, files)
 }
 
+func snapshotMtpFileInfo(source *mtpx.FileInfo) *mtpx.FileInfo {
+	if source == nil {
+		return nil
+	}
+	snapshot := *source
+	if source.Info != nil {
+		info := *source.Info
+		snapshot.Info = &info
+	}
+	return &snapshot
+}
+
+func snapshotProgressInfo(source *mtpx.ProgressInfo) *mtpx.ProgressInfo {
+	if source == nil {
+		return nil
+	}
+	snapshot := *source
+	snapshot.FileInfo = snapshotMtpFileInfo(source.FileInfo)
+	if source.ActiveFileSize != nil {
+		activeSize := *source.ActiveFileSize
+		snapshot.ActiveFileSize = &activeSize
+	}
+	if source.BulkFileSize != nil {
+		bulkSize := *source.BulkFileSize
+		snapshot.BulkFileSize = &bulkSize
+	}
+	return &snapshot
+}
+
 //export UploadFiles
 func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, onDonePtr *C.on_cb_result_t) {
 	atomic.StoreUint32(&operationCancelled, 0)
@@ -381,10 +410,10 @@ func UploadFiles(uploadFilesInputJson *C.char, onPreprocessPtr, onProgressPtr, o
 				return err
 			}
 
-			pCopy := *p
+			pCopy := snapshotProgressInfo(p)
 			progressMu.Lock()
 			pInterface = ProgressContainer{
-				pInfo: &pCopy,
+				pInfo: pCopy,
 			}
 			progressMu.Unlock()
 
@@ -466,10 +495,10 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
-			fiCopy := *fi
+			fiCopy := snapshotMtpFileInfo(fi)
 			progressMu.Lock()
 			pInterface = DownloadPreprocessContainer{
-				fi: &fiCopy,
+				fi: fiCopy,
 			}
 			progressMu.Unlock()
 
@@ -481,10 +510,10 @@ func DownloadFiles(downloadFilesInputJson *C.char, onPreprocessPtr, onProgressPt
 				return err
 			}
 
-			pCopy := *p
+			pCopy := snapshotProgressInfo(p)
 			progressMu.Lock()
 			pInterface = ProgressContainer{
-				pInfo: &pCopy,
+				pInfo: pCopy,
 			}
 			progressMu.Unlock()
 
