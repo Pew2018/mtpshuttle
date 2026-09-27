@@ -216,9 +216,15 @@ final class QuickLookShortcutView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         stopMonitoring()
+        OpenMTPQuickLookHost.trace("shortcut view moved: window=\(window?.windowNumber.description ?? "nil")")
         guard window != nil else { return }
 
+        OpenMTPQuickLookHost.trace("shortcut monitor installing")
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 49 {
+                let hostWindow = self?.window
+                OpenMTPQuickLookHost.trace("raw space: event=\(event.eventNumber), repeat=\(event.isARepeat), modifiers=\(event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue), eventWindow=\(event.windowNumber), hostWindow=\(hostWindow?.windowNumber.description ?? "nil"), enabled=\(self?.isEnabled() == true), firstResponder=\(String(describing: hostWindow?.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
+            }
             guard let self,
                   let window = self.window,
                   event.keyCode == 49,
@@ -255,6 +261,7 @@ final class QuickLookShortcutView: NSView {
 
     func stopMonitoring() {
         if let eventMonitor {
+            OpenMTPQuickLookHost.trace("shortcut monitor removed")
             NSEvent.removeMonitor(eventMonitor)
             self.eventMonitor = nil
         }
