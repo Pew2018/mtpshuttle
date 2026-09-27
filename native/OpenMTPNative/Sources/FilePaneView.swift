@@ -224,15 +224,50 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
 
 private struct MTPShuttleLocalPaneDrag: ViewModifier {
     let enabled: Bool
+    let fileName: String
+    let isDirectory: Bool
     let provider: () -> NSItemProvider
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if enabled {
-            content.onDrag(provider)
+            content.onDrag(provider, preview: {
+                MTPShuttlePaneDragPreview(fileName: fileName, isDirectory: isDirectory)
+            })
         } else {
             content
         }
+    }
+}
+
+private struct MTPShuttlePaneDragPreview: View {
+    let fileName: String
+    let isDirectory: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isDirectory ? "folder.fill" : "doc.fill")
+                .font(.system(size: 25, weight: .medium))
+                .frame(width: 25, height: 25)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fileName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Text(isDirectory ? "Folder" : "File")
+                    .font(.system(size: 11, weight: .medium))
+                    .opacity(0.82)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .frame(width: 260, height: 58, alignment: .leading)
+        .background(
+            Color(nsColor: .controlAccentColor).opacity(0.96),
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
     }
 }
 
@@ -507,9 +542,12 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(enabled: pane == .mac) {
-                        onDragProvider(item, selection)
-                    })
+                    .modifier(MTPShuttleLocalPaneDrag(
+                        enabled: pane == .mac,
+                        fileName: item.name,
+                        isDirectory: item.isDirectory,
+                        provider: { onDragProvider(item, selection) }
+                    ))
                 }
             }
             .padding(.horizontal, 4)
