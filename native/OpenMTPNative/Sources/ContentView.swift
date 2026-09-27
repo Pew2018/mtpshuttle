@@ -262,7 +262,9 @@ struct ContentView: View {
         }
         .background {
             QuickLookKeyboardShortcutMonitor(
-                isEnabled: { hasQuickLookSelection },
+                isEnabled: {
+                    hasQuickLookSelection || OpenMTPQuickLookHost.isSharedPanelVisible()
+                },
                 onShortcut: { toggleQuickLook() }
             )
             .frame(width: 1, height: 1)
@@ -465,14 +467,15 @@ struct ContentView: View {
     }
 
     private func toggleQuickLook() {
-        guard quickLookPreviewEnabled, activePane == .mac else { return }
-
+        // Closing an open preview must work even after focus moved away from the Mac pane.
         if OpenMTPQuickLookHost.isSharedPanelVisible() {
             OpenMTPQuickLookHost.closeSharedPanel()
             quickLookURLs = []
-        } else {
-            presentQuickLook()
+            return
         }
+
+        guard quickLookPreviewEnabled, activePane == .mac else { return }
+        presentQuickLook()
     }
 
     private func presentQuickLook() {
