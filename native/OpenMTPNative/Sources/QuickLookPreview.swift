@@ -12,6 +12,17 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
     /// QLPreviewPanel is shared and can outlive the SwiftUI owner.
     private static var presentationGeneration: UInt = 0
 
+    static func trace(_ message: String) {
+        DebugLogger.verbose("QL trace: \(message)")
+    }
+
+    static func panelState() -> String {
+        guard QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared() else {
+            return "panel=absent"
+        }
+        return "visible=\(panel.isVisible), key=\(panel.isKeyWindow), controller=\(String(describing: panel.currentController.map { type(of: $0) })), generation=\(presentationGeneration)"
+    }
+
     static func isSharedPanelVisible() -> Bool {
         QLPreviewPanel.shared()?.isVisible == true
     }
@@ -22,12 +33,15 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
 
     static func requestSharedPanelPresentation() {
         presentationGeneration &+= 1
+        trace("request presentation; \(panelState())")
     }
 
     static func closeSharedPanel() {
         // Invalidate deferred presentations before hiding the shared panel.
+        trace("close before; \(panelState())")
         presentationGeneration &+= 1
         QLPreviewPanel.shared()?.orderOut(nil)
+        trace("close after; \(panelState())")
     }
 
     @Binding var isPresented: Bool
@@ -58,6 +72,7 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             let presentationChanged = isPreviewRequested != isPresented
             previewURLs = urls
             isPreviewRequested = isPresented
+            OpenMTPQuickLookHost.trace("set state: requested=\(isPresented), urls=\(urls.count), urlsChanged=\(urlsChanged), presentationChanged=\(presentationChanged), controlling=\(isControllingPreviewPanel); \(OpenMTPQuickLookHost.panelState())")
 
             guard isPresented, !urls.isEmpty else {
                 if presentationChanged || OpenMTPQuickLookHost.isSharedPanelVisible() {
@@ -69,6 +84,7 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             let panelIsVisible = OpenMTPQuickLookHost.isSharedPanelVisible()
             if isControllingPreviewPanel, panelIsVisible {
                 guard urlsChanged, let panel = QLPreviewPanel.shared() else { return }
+                OpenMTPQuickLookHost.trace("reload selection, no presentation; \(OpenMTPQuickLookHost.panelState())")
                 panel.reloadData()
                 panel.currentPreviewItemIndex = 0
                 return
@@ -77,7 +93,9 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             guard urlsChanged || presentationChanged || !panelIsVisible else { return }
             let requestedURLs = urls
             let generation = OpenMTPQuickLookHost.presentationGeneration
+            OpenMTPQuickLookHost.trace("schedule show: generation=\(generation); \(OpenMTPQuickLookHost.panelState())")
             DispatchQueue.main.async { [weak self] in
+                OpenMTPQuickLookHost.trace("execute show: scheduled=\(generation), requested=\(self?.isPreviewRequested.description ?? "nil"), urlsMatch=\(self?.previewURLs == requestedURLs), controlling=\(self?.isControllingPreviewPanel.description ?? "nil"); \(OpenMTPQuickLookHost.panelState())")
                 guard let self,
                       OpenMTPQuickLookHost.presentationGeneration == generation,
                       self.isPreviewRequested,
@@ -96,8 +114,10 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
                 return
             }
 
+            OpenMTPQuickLookHost.trace("show before: firstResponder=\(String(describing: window.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
             window.makeFirstResponder(self)
             panel.makeKeyAndOrderFront(nil)
+            OpenMTPQuickLookHost.trace("show after; \(OpenMTPQuickLookHost.panelState())")
         }
 
         override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
@@ -105,6 +125,7 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
         }
 
         override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+            OpenMTPQuickLookHost.trace("begin control; \(OpenMTPQuickLookHost.panelState())")
             isControllingPreviewPanel = true
             panel.dataSource = self
             panel.delegate = self
@@ -112,6 +133,7 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
         }
 
         override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+            OpenMTPQuickLookHost.trace("end control; \(OpenMTPQuickLookHost.panelState())")
             let endedURLs = previewURLs
             let generation = OpenMTPQuickLookHost.presentationGeneration
             panel.dataSource = nil
@@ -121,6 +143,7 @@ struct OpenMTPQuickLookHost: NSViewRepresentable {
             // Losing control when the main window becomes active is normal while
             // the panel remains visible. Only report an end after an actual close.
             DispatchQueue.main.async { [weak self, weak panel] in
+                OpenMTPQuickLookHost.trace("check end callback: scheduled=\(generation), requested=\(self?.isPreviewRequested.description ?? "nil"); \(OpenMTPQuickLookHost.panelState())")
                 guard let self,
                       let panel,
                       !panel.isVisible,
@@ -220,6 +243,7 @@ final class QuickLookShortcutView: NSView {
                 return nil
             }
             Self.lastHandledSpaceEventTimestamp = event.timestamp
+            OpenMTPQuickLookHost.trace("space: eventNumber=\(event.eventNumber), timestamp=\(event.timestamp), repeat=\(event.isARepeat), main=\(isMainWindowEvent), panel=\(isQuickLookWindowEvent), firstResponder=\(String(describing: window.firstResponder.map { type(of: $0) })); \(OpenMTPQuickLookHost.panelState())")
             DebugLogger.verbose(
                 "Quick Look Space event handled: timestamp=\(event.timestamp), visible=\(OpenMTPQuickLookHost.isSharedPanelVisible())"
             )
