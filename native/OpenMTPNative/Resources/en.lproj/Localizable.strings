@@ -350,3 +350,5 @@
 "Recent Activity" = "Recent Activity";
 "Overall transfer progress" = "Overall transfer progress";
 "Current file progress" = "Current file progress";
+"Verifying transferred data" = "Verifying transferred data";
+"The Android copy did not match the Mac originals. The Mac originals were kept." = "The Android copy did not match the Mac originals. The Mac originals were kept.";

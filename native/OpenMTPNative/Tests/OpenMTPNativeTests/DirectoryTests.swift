@@ -4,6 +4,44 @@ import AppKit
 @testable import SwiftMTP
 
 final class DirectoryTests: XCTestCase {
+    func testMoveContentVerificationRejectsSameSizeDifferentData() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = root.appendingPathComponent("source.txt")
+        let destination = root.appendingPathComponent("destination.txt")
+        try Data("alpha".utf8).write(to: source)
+        try Data("bravo".utf8).write(to: destination)
+
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: source.path)[.size] as? Int,
+            try FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? Int
+        )
+        XCTAssertFalse(try FolderTransferManifest.matchesContent(source: source, destination: destination))
+
+        try Data("alpha".utf8).write(to: destination)
+        XCTAssertTrue(try FolderTransferManifest.matchesContent(source: source, destination: destination))
+    }
+
+    func testMoveContentVerificationChecksFolderContents() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("destination", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let sourceFile = source.appendingPathComponent("nested.txt")
+        let destinationFile = destination.appendingPathComponent("nested.txt")
+        try Data("source".utf8).write(to: sourceFile)
+        try Data("target".utf8).write(to: destinationFile)
+        XCTAssertFalse(try FolderTransferManifest.matchesContent(source: source, destination: destination))
+
+        try Data("source".utf8).write(to: destinationFile)
+        XCTAssertTrue(try FolderTransferManifest.matchesContent(source: source, destination: destination))
+    }
+
     func testWalkRequestUsesStorageIDAndVolumeRelativePath() throws {
         let location = try XCTUnwrap(MTPBrowsePath(browserPath: "/65537/DCIM/相机/"))
         XCTAssertEqual(location.storageID, 65537)

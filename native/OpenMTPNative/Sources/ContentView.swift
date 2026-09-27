@@ -1495,6 +1495,34 @@ struct ContentView: View {
         return total
     }
 
+    private func verifyUploadedMoveItem(
+        source: URL,
+        targetName: String,
+        remotePath: String,
+        storageID: UInt32
+    ) async throws -> Bool {
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+
+        let staging = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MTP-Shuttle-verify-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: staging) }
+
+        try await mtpService.download(
+            sources: [remotePath],
+            destination: staging.path,
+            storageID: storageID
+        )
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+
+        let downloadedCopy = staging.appendingPathComponent(targetName)
+        let matches = try await Task.detached(priority: .utility) {
+            try FolderTransferManifest.matchesContent(source: source, destination: downloadedCopy)
+        }.value
+        if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+        return matches
+    }
+
     private func performTransfer(sources: [DemoEntry], sourcePane: PaneKind, sourcePath: String,
                                  targetPane: PaneKind, targetPath: String, mode: ClipboardMode,
                                  resolution: TransferConflictResolution?) async throws {
@@ -1590,6 +1618,30 @@ struct ContentView: View {
             }
 
             if mode == .move {
+                for (index, item) in sources.enumerated() {
+                    if tasks.cancellationRequested { throw MTPServiceError.cancelled }
+                    guard let url = item.localURL else {
+                        throw KalamBridgeError.invalidResponse("Missing local source URL for move verification")
+                    }
+                    tasks.step(MTPShuttleText.localized("Verifying transferred data"))
+                    let parentPath = storage.fullPath.hasSuffix("/")
+                        ? String(storage.fullPath.dropLast())
+                        : storage.fullPath
+                    let remotePath = parentPath + "/" + targetNames[index]
+                    let verified = try await verifyUploadedMoveItem(
+                        source: url,
+                        targetName: targetNames[index],
+                        remotePath: remotePath,
+                        storageID: storage.storageID
+                    )
+                    guard verified else {
+                        throw NSError(
+                            domain: "MTPShuttleTransfer",
+                            code: 13,
+                            userInfo: [NSLocalizedDescriptionKey: MTPShuttleText.localized("The Android copy did not match the Mac originals. The Mac originals were kept.")]
+                        )
+                    }
+                }
                 if tasks.cancellationRequested { throw MTPServiceError.cancelled }
                 for item in sources {
                     if let url = item.localURL { try FileManager.default.removeItem(at: url) }

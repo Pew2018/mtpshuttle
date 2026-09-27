@@ -11,8 +11,40 @@ import (
 var operationCancelled uint32
 
 func checkOperationCancelled() error {
-	if atomic.LoadUint32(&operationCancelled) != 0 { return fmt.Errorf("OperationCancelled") }
+	if atomic.LoadUint32(&operationCancelled) != 0 {
+		return fmt.Errorf("OperationCancelled")
+	}
 	return nil
+}
+
+func cancellableProgressCallback(next mtpx.ProgressCb) mtpx.ProgressCb {
+	return func(info *mtpx.ProgressInfo, err error) error {
+		if cancelErr := checkOperationCancelled(); cancelErr != nil {
+			return cancelErr
+		}
+		if next == nil { return err }
+		return next(info, err)
+	}
+}
+
+func cancellableLocalPreprocessCallback(next mtpx.LocalPreprocessCb) mtpx.LocalPreprocessCb {
+	return func(info *os.FileInfo, path string, err error) error {
+		if cancelErr := checkOperationCancelled(); cancelErr != nil {
+			return cancelErr
+		}
+		if next == nil { return err }
+		return next(info, path, err)
+	}
+}
+
+func cancellableMtpPreprocessCallback(next mtpx.MtpPreprocessCb) mtpx.MtpPreprocessCb {
+	return func(info *mtpx.FileInfo, err error) error {
+		if cancelErr := checkOperationCancelled(); cancelErr != nil {
+			return cancelErr
+		}
+		if next == nil { return err }
+		return next(info, err)
+	}
 }
 
 func verifyMtpSession(c verifyMtpSessionMode) error {
@@ -163,11 +195,18 @@ func _walk(storageId uint32, fullPath string, recursive, skipDisallowedFiles, sk
 }
 
 func _uploadFiles(storageId uint32, sources []string, destination string, preprocessFiles bool, preprocessCb mtpx.LocalPreprocessCb, progressCb mtpx.ProgressCb) (err error) {
+	if err := checkOperationCancelled(); err != nil {
+		return err
+	}
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
 		return err
 	}
 
-	_, _, _, err = mtpx.UploadFiles(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb)
+	_, _, _, err = mtpx.UploadFiles(
+		container.dev, storageId, sources, destination, preprocessFiles,
+		cancellableLocalPreprocessCallback(preprocessCb),
+		cancellableProgressCallback(progressCb),
+	)
 	if err != nil {
 		return err
 	}
@@ -176,11 +215,18 @@ func _uploadFiles(storageId uint32, sources []string, destination string, prepro
 }
 
 func _downloadFiles(storageId uint32, sources []string, destination string, preprocessFiles bool, preprocessCb mtpx.MtpPreprocessCb, progressCb mtpx.ProgressCb) (err error) {
+	if err := checkOperationCancelled(); err != nil {
+		return err
+	}
 	if err := verifyMtpSession(verifyMtpSessionMode{}); err != nil {
 		return err
 	}
 
-	_, _, err = mtpx.DownloadFiles(container.dev, storageId, sources, destination, preprocessFiles, preprocessCb, progressCb)
+	_, _, err = mtpx.DownloadFiles(
+		container.dev, storageId, sources, destination, preprocessFiles,
+		cancellableMtpPreprocessCallback(preprocessCb),
+		cancellableProgressCallback(progressCb),
+	)
 	if err != nil {
 		return err
 	}

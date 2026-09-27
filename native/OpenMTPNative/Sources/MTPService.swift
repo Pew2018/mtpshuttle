@@ -275,6 +275,9 @@ final class MTPService: ObservableObject {
             }
             TaskActivityStore.shared.finishSegment()
         } catch {
+            if TaskActivityStore.shared.cancellationRequested {
+                throw MTPServiceError.cancelled
+            }
             _ = handleConnectionFailure(error)
             throw error
         }
@@ -295,6 +298,9 @@ final class MTPService: ObservableObject {
             }
             TaskActivityStore.shared.finishSegment()
         } catch {
+            if TaskActivityStore.shared.cancellationRequested {
+                throw MTPServiceError.cancelled
+            }
             _ = handleConnectionFailure(error)
             throw error
         }
