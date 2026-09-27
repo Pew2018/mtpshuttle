@@ -263,7 +263,7 @@ struct ContentView: View {
         .background {
             QuickLookKeyboardShortcutMonitor(
                 isEnabled: { hasQuickLookSelection },
-                onShortcut: { presentQuickLook() }
+                onShortcut: { toggleQuickLook() }
             )
             .frame(width: 1, height: 1)
         }
@@ -462,6 +462,17 @@ struct ContentView: View {
             && localBrowser.entries.contains {
                 leftPane.selection.contains($0.id) && !$0.isDirectory && $0.localURL != nil
             }
+    }
+
+    private func toggleQuickLook() {
+        guard quickLookPreviewEnabled, activePane == .mac else { return }
+
+        if OpenMTPQuickLookHost.isSharedPanelVisible() {
+            OpenMTPQuickLookHost.closeSharedPanel()
+            quickLookURLs = []
+        } else {
+            presentQuickLook()
+        }
     }
 
     private func presentQuickLook() {
