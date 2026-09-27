@@ -47,6 +47,7 @@ struct ContentView: View {
     @State private var statusMessage = MTPShuttleText.localized("Ready")
     @State private var activePane: PaneKind = .mac
     @State private var quickLookURLs: [URL] = []
+    @State private var isQuickLookPresented = false
     @StateObject private var localBrowser = LocalBrowserService()
     @StateObject private var mtpService = MTPService()
     @ObservedObject private var tasks = TaskActivityStore.shared
@@ -255,6 +256,7 @@ struct ContentView: View {
         }
         .background {
             OpenMTPQuickLookHost(
+                isPresented: $isQuickLookPresented,
                 urls: $quickLookURLs,
                 onPreviewEnded: handleQuickLookEnded
             )
@@ -263,7 +265,7 @@ struct ContentView: View {
         .background {
             QuickLookKeyboardShortcutMonitor(
                 isEnabled: {
-                    hasQuickLookSelection || OpenMTPQuickLookHost.isSharedPanelVisible()
+                    hasQuickLookSelection || isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible()
                 },
                 onShortcut: { toggleQuickLook() }
             )
@@ -292,7 +294,7 @@ struct ContentView: View {
                 rightPane.selection.removeAll()
                 activePane = .mac
             }
-            if !quickLookURLs.isEmpty {
+            if isQuickLookPresented {
                 updateQuickLookSelection()
             }
         }
@@ -467,30 +469,40 @@ struct ContentView: View {
     }
 
     private func toggleQuickLook() {
-        // Closing an open preview must work even after focus moved away from the Mac pane.
-        if OpenMTPQuickLookHost.isSharedPanelVisible() {
-            OpenMTPQuickLookHost.closeSharedPanel()
+        // Closing is driven by the explicit presentation state, not by whether
+        // Quick Look currently has window focus or control of its shared panel.
+        if isQuickLookPresented || OpenMTPQuickLookHost.isSharedPanelVisible() {
+            isQuickLookPresented = false
             quickLookURLs = []
+            OpenMTPQuickLookHost.closeSharedPanel()
             return
         }
 
-        guard quickLookPreviewEnabled, activePane == .mac else { return }
         presentQuickLook()
     }
 
     private func presentQuickLook() {
         guard quickLookPreviewEnabled, activePane == .mac else { return }
         updateQuickLookSelection()
+        guard !quickLookURLs.isEmpty else { return }
+
+        OpenMTPQuickLookHost.requestSharedPanelPresentation()
+        isQuickLookPresented = true
     }
 
     private func updateQuickLookSelection() {
         quickLookURLs = localBrowser.entries.filter {
             leftPane.selection.contains($0.id) && !$0.isDirectory
         }.compactMap(\.localURL)
+        if quickLookURLs.isEmpty {
+            isQuickLookPresented = false
+        }
     }
 
     private func handleQuickLookEnded(_ urls: [URL]) {
-        // These are real local files, not temporary demo exports.
+        // Ignore an end callback for an older selection or presentation.
+        guard quickLookURLs == urls else { return }
+        isQuickLookPresented = false
         quickLookURLs = []
     }
 
