@@ -65,6 +65,8 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
     private var textScrollView: NSScrollView?
     private var textView: NSTextView?
     private var imageView: NSImageView?
+    private var previewUnavailableLabel: NSTextField?
+    private var textPreviewRequestID = UUID()
     private var urls: [URL] = []
     private var index = 0
     private var onPreviewEnded: (([URL]) -> Void)?
@@ -168,6 +170,8 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
 
     private func displayCurrentItem() {
         guard urls.indices.contains(index), let container else { return }
+        let requestID = UUID()
+        textPreviewRequestID = requestID
         let url = urls[index]
         panel?.title = urls.count == 1
             ? url.lastPathComponent
@@ -176,20 +180,34 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
         hidePreviewViews()
         let ext = url.pathExtension.lowercased()
 
+        if textExtensions.contains(ext) {
+            let scroll = ensureTextView(in: container)
+            textView?.string = "Loading preview…"
+            scroll.isHidden = false
+            Task { [weak self] in
+                let text = await Task.detached(priority: .utility) {
+                    Self.readableText(at: url)
+                }.value
+                guard let self,
+                      self.isPresented,
+                      self.textPreviewRequestID == requestID else { return }
+                if let text {
+                    self.textView?.string = text
+                    OpenMTPQuickLookHost.trace("display text: \(url.lastPathComponent)")
+                } else {
+                    scroll.isHidden = true
+                    self.displayQuickLook(url, in: container)
+                }
+            }
+            return
+        }
+
         if ext == "pdf", let document = PDFDocument(url: url) {
             let view = ensurePDFView(in: container)
             view.document = document
             view.autoScales = true
             view.isHidden = false
             OpenMTPQuickLookHost.trace("display PDF: \(url.lastPathComponent)")
-            return
-        }
-
-        if textExtensions.contains(ext), let text = readableText(at: url) {
-            let scroll = ensureTextView(in: container)
-            textView?.string = text
-            scroll.isHidden = false
-            OpenMTPQuickLookHost.trace("display text: \(url.lastPathComponent)")
             return
         }
 
@@ -201,7 +219,17 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let view = ensureQuickLookView(in: container)
+        displayQuickLook(url, in: container)
+    }
+
+    private func displayQuickLook(_ url: URL, in container: NSView) {
+        guard let view = ensureQuickLookView(in: container) else {
+            let label = ensurePreviewUnavailableLabel(in: container)
+            label.stringValue = "This item can’t be previewed right now."
+            label.isHidden = false
+            OpenMTPQuickLookHost.trace("Quick Look view unavailable: \(url.lastPathComponent)")
+            return
+        }
         view.previewItem = OpenMTPQuickLookItem(url: url)
         view.isHidden = false
         OpenMTPQuickLookHost.trace("display Quick Look: \(url.lastPathComponent)")
@@ -212,6 +240,7 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
         textScrollView?.isHidden = true
         imageView?.isHidden = true
         quickLookView?.isHidden = true
+        previewUnavailableLabel?.isHidden = true
     }
 
     private func attach(_ view: NSView, to container: NSView) {
@@ -259,16 +288,31 @@ private final class QuickLookWindowController: NSObject, NSWindowDelegate {
         return view
     }
 
-    private func ensureQuickLookView(in container: NSView) -> QLPreviewView {
+    private func ensureQuickLookView(in container: NSView) -> QLPreviewView? {
         if let quickLookView { return quickLookView }
-        let view = QLPreviewView(frame: container.bounds, style: .normal)!
+        guard let view = QLPreviewView(frame: container.bounds, style: .normal) else {
+            return nil
+        }
         view.shouldCloseWithWindow = false
         attach(view, to: container)
         quickLookView = view
         return view
     }
 
-    private func readableText(at url: URL) -> String? {
+    private func ensurePreviewUnavailableLabel(in container: NSView) -> NSTextField {
+        if let previewUnavailableLabel { return previewUnavailableLabel }
+        let label = NSTextField(wrappingLabelWithString: "")
+        label.alignment = .center
+        label.textColor = .secondaryLabelColor
+        label.maximumNumberOfLines = 2
+        label.frame = container.bounds.insetBy(dx: 24, dy: 24)
+        label.autoresizingMask = [.width, .height]
+        container.addSubview(label)
+        previewUnavailableLabel = label
+        return label
+    }
+
+    nonisolated private static func readableText(at url: URL) -> String? {
         guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
               size <= 4 * 1_024 * 1_024 else { return nil }
         if let utf8 = try? String(contentsOf: url, encoding: .utf8) { return utf8 }
