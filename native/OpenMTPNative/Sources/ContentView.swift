@@ -2192,9 +2192,14 @@ private struct OperationProgressView: View {
             Button(action: onCancel) { Image(systemName: "xmark.circle") }
                 .buttonStyle(.borderless).help("取消当前操作")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(.bar)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .liquidGlassBackground(
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous),
+            fallback: .bar
+        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 }
 
