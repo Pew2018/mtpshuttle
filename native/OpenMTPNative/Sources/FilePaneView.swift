@@ -586,6 +586,8 @@ struct FilePaneView: View {
                     .accessibilityLabel("View")
                     .help("Change view")
                 }
+                .padding(4)
+                .liquidGlassBackground(in: Capsule(), fallback: .regularMaterial)
             }
 
             pathBreadcrumb
@@ -633,9 +635,9 @@ struct FilePaneView: View {
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(
-            Color(nsColor: .controlBackgroundColor),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .liquidGlassBackground(
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous),
+            fallback: Color(nsColor: .controlBackgroundColor)
         )
     }
 
