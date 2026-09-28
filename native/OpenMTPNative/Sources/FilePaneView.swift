@@ -222,20 +222,146 @@ struct MTPShuttleFilePromiseDragSource: NSViewRepresentable {
     }
 }
 
-private struct MTPShuttleLocalPaneDrag: ViewModifier {
-    let enabled: Bool
+struct MTPShuttleLocalDragItem {
+    let pasteboardItem: NSPasteboardItem
     let fileName: String
     let isDirectory: Bool
-    let provider: () -> NSItemProvider
+}
 
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if enabled {
-            content.onDrag(provider, preview: {
-                MTPShuttlePaneDragPreview(fileName: fileName, isDirectory: isDirectory)
-            })
-        } else {
-            content
+struct MTPShuttleLocalFileDragSource: NSViewRepresentable {
+    let makeItems: () -> [MTPShuttleLocalDragItem]
+    let onClick: () -> Void
+    let onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> DragSourceView {
+        DragSourceView(makeItems: makeItems, onClick: onClick, onDoubleClick: onDoubleClick)
+    }
+
+    func updateNSView(_ nsView: DragSourceView, context: Context) {
+        nsView.makeItems = makeItems
+        nsView.onClick = onClick
+        nsView.onDoubleClick = onDoubleClick
+    }
+
+    final class DragSourceView: NSView, NSDraggingSource {
+        var makeItems: () -> [MTPShuttleLocalDragItem]
+        var onClick: () -> Void
+        var onDoubleClick: () -> Void
+        private var mouseDownEvent: NSEvent?
+        private var hasDraggingSession = false
+        private var lastDragContext: NSDraggingContext?
+        private let dragDistance: CGFloat = 6
+        private(set) var internalPayload: String?
+
+        init(makeItems: @escaping () -> [MTPShuttleLocalDragItem], onClick: @escaping () -> Void, onDoubleClick: @escaping () -> Void) {
+            self.makeItems = makeItems
+            self.onClick = onClick
+            self.onDoubleClick = onDoubleClick
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { return nil }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            if NSApp.currentEvent?.type == .rightMouseDown { return nil }
+            return super.hitTest(point)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            mouseDownEvent = event
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            guard let start = mouseDownEvent else { return }
+            mouseDownEvent = nil
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) < dragDistance else { return }
+            if event.clickCount >= 2 {
+                onDoubleClick()
+            } else {
+                onClick()
+            }
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let start = mouseDownEvent, !hasDraggingSession else { return }
+            let deltaX = event.locationInWindow.x - start.locationInWindow.x
+            let deltaY = event.locationInWindow.y - start.locationInWindow.y
+            guard hypot(deltaX, deltaY) >= dragDistance else { return }
+            mouseDownEvent = nil
+
+            let localItems = makeItems()
+            let payloadType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
+            internalPayload = localItems.first?.pasteboardItem.data(forType: payloadType)
+                .flatMap { String(data: $0, encoding: .utf8) }
+            let items = localItems.map { item -> NSDraggingItem in
+                let draggingItem = NSDraggingItem(pasteboardWriter: item.pasteboardItem)
+                let preview = dragPreview(for: item)
+                let frame = NSRect(
+                    x: (bounds.width - preview.size.width) / 2,
+                    y: (bounds.height - preview.size.height) / 2,
+                    width: preview.size.width,
+                    height: preview.size.height
+                )
+                draggingItem.setDraggingFrame(frame, contents: preview)
+                return draggingItem
+            }
+            guard !items.isEmpty else { return }
+            hasDraggingSession = true
+            lastDragContext = nil
+            DebugLogger.info("Mac file drag started: count=\(items.count)")
+            _ = beginDraggingSession(with: items, event: start, source: self)
+        }
+
+        private func dragPreview(for item: MTPShuttleLocalDragItem) -> NSImage {
+            let size = NSSize(width: 260, height: 58)
+            return NSImage(size: size, flipped: false) { rect in
+                let card = NSBezierPath(roundedRect: rect, xRadius: 11, yRadius: 11)
+                NSColor.controlAccentColor.withAlphaComponent(0.96).setFill()
+                card.fill()
+
+                let iconRect = NSRect(x: 16, y: 16, width: 25, height: 25)
+                let icon = NSImage(systemSymbolName: item.isDirectory ? "folder.fill" : "doc.fill",
+                                   accessibilityDescription: nil)?
+                    .withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.white]))
+                icon?.draw(in: iconRect)
+
+                let titleStyle = NSMutableParagraphStyle()
+                titleStyle.lineBreakMode = .byTruncatingTail
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                    .foregroundColor: NSColor.white,
+                    .paragraphStyle: titleStyle
+                ]
+                (item.fileName as NSString).draw(
+                    in: NSRect(x: 53, y: 29, width: 190, height: 18),
+                    withAttributes: titleAttributes
+                )
+                let subtitle = item.isDirectory ? "Folder" : "File"
+                let subtitleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                    .foregroundColor: NSColor.white.withAlphaComponent(0.82)
+                ]
+                (subtitle as NSString).draw(at: NSPoint(x: 53, y: 12), withAttributes: subtitleAttributes)
+                return true
+            }
+        }
+
+        func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+            if lastDragContext != context {
+                lastDragContext = context
+                DebugLogger.info("Mac file drag context: \(context == .outsideApplication ? "outside application" : "inside application")")
+            }
+            return .copy
+        }
+
+        func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+            DebugLogger.info("Mac file drag ended: operation=\(operation.rawValue)")
+            hasDraggingSession = false
+            mouseDownEvent = nil
+            internalPayload = nil
+            lastDragContext = nil
         }
     }
 }
@@ -340,7 +466,7 @@ struct FilePaneView: View {
     let onToggleFavorite: (DemoEntry) -> Void
     let onInternalDrop: (String) -> Void
     let onExternalFileDrop: ([URL]) -> Void
-    let onDragProvider: (DemoEntry, Set<UUID>) -> NSItemProvider
+    let onLocalDragItems: (DemoEntry, Set<UUID>) -> [MTPShuttleLocalDragItem]
     let onFilePromiseProviders: (DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
 
     @State private var viewMode: FileViewMode = .list
@@ -542,12 +668,15 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(
-                        enabled: pane == .mac,
-                        fileName: item.name,
-                        isDirectory: item.isDirectory,
-                        provider: { onDragProvider(item, selection) }
-                    ))
+                    .overlay {
+                        if pane == .mac {
+                            MTPShuttleLocalFileDragSource(
+                                makeItems: { onLocalDragItems(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 4)
@@ -602,12 +731,15 @@ struct FilePaneView: View {
                             )
                         }
                     }
-                    .modifier(MTPShuttleLocalPaneDrag(
-                        enabled: pane == .mac,
-                        fileName: item.name,
-                        isDirectory: item.isDirectory,
-                        provider: { onDragProvider(item, selection) }
-                    ))
+                    .overlay {
+                        if pane == .mac {
+                            MTPShuttleLocalFileDragSource(
+                                makeItems: { onLocalDragItems(item, selection) },
+                                onClick: { updateSelection(for: item.id) },
+                                onDoubleClick: { onOpen(item) }
+                            )
+                        }
+                    }
                 }
             }
             .padding(14)
