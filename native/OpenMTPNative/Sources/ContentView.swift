@@ -2106,7 +2106,13 @@ private struct WorkspaceView: View {
                 Spacer()
                 if case .connecting = mtpService.state { ProgressView().controlSize(.small) }
             }
-            .padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .liquidGlassBackground(in: Capsule(), fallback: .bar)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+
             if androidOnlyMode {
                 androidPane
             } else {
@@ -2149,8 +2155,10 @@ private struct WorkspaceView: View {
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(.bar)
+                .padding(.vertical, 8)
+                .liquidGlassBackground(in: Capsule(), fallback: .bar)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
             }
         }
             .background(Color(nsColor: .windowBackgroundColor))
