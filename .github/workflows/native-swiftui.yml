@@ -50,6 +50,8 @@ jobs:
           uname -m
           sw_vers
           xcodebuild -version
+          XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / { print $2; exit }')"
+          case "$XCODE_VERSION" in 26.*) ;; *) echo "Expected Xcode 26.x, found $XCODE_VERSION"; exit 1 ;; esac
           swift --version
       - name: Verify Kalam inputs
         run: |
