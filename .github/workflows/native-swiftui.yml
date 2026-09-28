@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-arm64:
     name: "Build MTP Shuttle macOS DMG (arm64)"
-    runs-on: macos-14
+    runs-on: macos-26
     defaults:
       run:
         working-directory: native/OpenMTPNative
