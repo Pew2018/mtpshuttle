@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 
@@ -61,5 +63,39 @@ func TestSnapshotProgressInfoCopiesNestedTransferState(t *testing.T) {
 		snapshot.ActiveFileSize.Sent != 1 ||
 		snapshot.BulkFileSize.Sent != 2 {
 		t.Fatal("snapshot changed when the transfer library updated its progress")
+	}
+}
+
+func TestVerifyDownloadedFilesRequiresCompleteMatchingEntries(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "folder")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "photo.jpg")
+	if err := os.WriteFile(file, []byte("complete"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := []downloadIntegrityEntry{
+		{localPath: dir, isDir: true},
+		{localPath: file, size: int64(len("complete"))},
+	}
+	if err := verifyDownloadedFiles(entries); err != nil {
+		t.Fatalf("complete download rejected: %v", err)
+	}
+
+	if err := os.WriteFile(file, []byte("short"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyDownloadedFiles(entries); err == nil {
+		t.Fatal("short download was accepted")
+	}
+
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyDownloadedFiles(entries); err == nil {
+		t.Fatal("missing download was accepted")
 	}
 }
