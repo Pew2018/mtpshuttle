@@ -2108,6 +2108,7 @@ private struct WorkspaceView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
+            .fixedSize(horizontal: true, vertical: false)
             .liquidGlassBackground(in: Capsule(), fallback: .bar)
             .padding(.horizontal, 12)
             .padding(.top, 8)
@@ -2156,6 +2157,7 @@ private struct WorkspaceView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                .fixedSize(horizontal: true, vertical: false)
                 .liquidGlassBackground(in: Capsule(), fallback: .bar)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
