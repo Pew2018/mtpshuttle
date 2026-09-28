@@ -52,6 +52,9 @@ jobs:
           xcodebuild -version
           XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / { print $2; exit }')"
           case "$XCODE_VERSION" in 26.*) ;; *) echo "Expected Xcode 26.x, found $XCODE_VERSION"; exit 1 ;; esac
+          MACOS_SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+          case "$MACOS_SDK_VERSION" in 26.*) ;; *) echo "Expected macOS 26 SDK, found $MACOS_SDK_VERSION"; exit 1 ;; esac
+          xcrun --sdk macosx --show-sdk-path
           swift --version
       - name: Verify Kalam inputs
         run: |
