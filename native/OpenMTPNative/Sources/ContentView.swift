@@ -96,7 +96,7 @@ struct ContentView: View {
             onPaste: paste,
             onInternalDrop: handleInternalDrop,
             onExternalFileDrop: handleExternalFileDrop,
-            onExternalDragProvider: makeExternalDragProvider,
+            onLocalDragItems: makeLocalDragItems,
             onFilePromiseProviders: makeFilePromiseProviders,
             mtpService: mtpService,
             localBrowser: localBrowser,
@@ -848,70 +848,30 @@ struct ContentView: View {
         )
     }
 
-    private func makeExternalDragProvider(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> NSItemProvider {
+    private func makeLocalDragItems(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> [MTPShuttleLocalDragItem] {
+        guard pane == .mac else { return [] }
+        let currentEntries = entries(for: .mac, path: path)
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
-        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs)
-        let encodedPayload = payload.encoded
-        // AppKit needs a concrete NSString representation for reliable
-        // in-app drag-and-drop. The fileURL representation below remains
-        // available for Android-to-Finder exports.
-        let provider = encodedPayload.map { NSItemProvider(object: $0 as NSString) } ?? NSItemProvider()
+        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs).encoded
+        guard let payloadData = payload.data(using: .utf8) else { return [] }
+        let pasteboardType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
 
-        if let encoded = encodedPayload {
-            // Keep the custom payload for transfers between the two app panes.
-            provider.registerDataRepresentation(forTypeIdentifier: OpenMTPDragType.payload.identifier,
-                                                visibility: .all) { completion in
-                completion(encoded.data(using: .utf8), nil)
-                return nil
-            }
+        return itemIDs.compactMap { id in
+            guard let entry = currentEntries.first(where: { $0.id == id }),
+                  let url = entry.localURL else { return nil }
+            let pasteboardItem = NSPasteboardItem()
+            // Publish concrete pasteboard data up front. NSItemProvider's lazy
+            // file-URL representation can make AppKit resolve promised data
+            // synchronously while the application is terminating.
+            pasteboardItem.setData(payloadData, forType: pasteboardType)
+            pasteboardItem.setString(payload, forType: .string)
+            pasteboardItem.setString(url.absoluteURL.absoluteString, forType: .fileURL)
+            return MTPShuttleLocalDragItem(
+                pasteboardItem: pasteboardItem,
+                fileName: entry.name,
+                isDirectory: entry.isDirectory
+            )
         }
-
-        guard pane == .android else {
-            if let url = item.localURL {
-                provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
-                                                    visibility: .all) { completion in
-                    completion(url, false, nil)
-                    return nil
-                }
-            }
-            return provider
-        }
-
-        // Finder needs a real file representation. The internal JSON/base64
-        // payload must never be advertised as the dragged file itself.
-        provider.registerFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier,
-                                            visibility: .all) { completion in
-            guard let entry = self.entries(for: .android, path: path).first(where: { $0.id == item.id }),
-                  let remotePath = entry.remotePath,
-                  let storageID = entry.storageID else {
-                completion(nil, false, NSError(domain: "MTPShuttleDrag", code: 1,
-                                               userInfo: [NSLocalizedDescriptionKey: "Unable to prepare the Android file for Finder."]))
-                return nil
-            }
-
-            let stagingDirectory = FileManager.default.temporaryDirectory
-                .appendingPathComponent("MTP-Shuttle-Drag-\(UUID().uuidString)", isDirectory: true)
-            let destination = stagingDirectory.path
-            Task { @MainActor in
-                do {
-                    try FileManager.default.createDirectory(at: stagingDirectory,
-                                                             withIntermediateDirectories: true)
-                    try await self.mtpService.download(sources: [remotePath],
-                                                       destination: destination,
-                                                       storageID: storageID)
-                    let exportedURL = stagingDirectory.appendingPathComponent(entry.name)
-                    guard FileManager.default.fileExists(atPath: exportedURL.path) else {
-                        throw NSError(domain: "MTPShuttleDrag", code: 2,
-                                      userInfo: [NSLocalizedDescriptionKey: "The Android file was not created in the staging folder."])
-                    }
-                    completion(exportedURL, true, nil)
-                } catch {
-                    completion(nil, false, error)
-                }
-            }
-            return nil
-        }
-        return provider
     }
 
     private func makeFilePromiseProviders(pane: PaneKind, path: String, item: DemoEntry, selectedIDs: Set<UUID>) -> [NSFilePromiseProvider] {
@@ -2048,7 +2008,7 @@ private struct WorkspaceView: View {
     let onPaste: (PaneKind) -> Void
     let onInternalDrop: (String, PaneKind) -> Void
     let onExternalFileDrop: ([URL], PaneKind) -> Void
-    let onExternalDragProvider: (PaneKind, String, DemoEntry, Set<UUID>) -> NSItemProvider
+    let onLocalDragItems: (PaneKind, String, DemoEntry, Set<UUID>) -> [MTPShuttleLocalDragItem]
     let onFilePromiseProviders: (PaneKind, String, DemoEntry, Set<UUID>) -> [NSFilePromiseProvider]
     @ObservedObject var mtpService: MTPService
     @ObservedObject var localBrowser: LocalBrowserService
@@ -2088,8 +2048,8 @@ private struct WorkspaceView: View {
                 onInternalDrop(encoded, .mac)
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .mac) },
-            onDragProvider: { item, selectedIDs in
-                onExternalDragProvider(.mac, leftPane.path, item, selectedIDs)
+            onLocalDragItems: { item, selectedIDs in
+                onLocalDragItems(.mac, leftPane.path, item, selectedIDs)
             },
             onFilePromiseProviders: { item, selectedIDs in
                 onFilePromiseProviders(.mac, leftPane.path, item, selectedIDs)
@@ -2128,8 +2088,8 @@ private struct WorkspaceView: View {
                 onInternalDrop(encoded, .android)
             },
             onExternalFileDrop: { urls in onExternalFileDrop(urls, .android) },
-            onDragProvider: { item, selectedIDs in
-                onExternalDragProvider(.android, rightPane.path, item, selectedIDs)
+            onLocalDragItems: { item, selectedIDs in
+                onLocalDragItems(.android, rightPane.path, item, selectedIDs)
             },
             onFilePromiseProviders: { item, selectedIDs in
                 onFilePromiseProviders(.android, rightPane.path, item, selectedIDs)
