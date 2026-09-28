@@ -593,7 +593,6 @@ struct FilePaneView: View {
             pathBreadcrumb
         }
         .padding(12)
-        .background(.bar)
     }
 
     private var pathBreadcrumb: some View {
