@@ -852,8 +852,8 @@ struct ContentView: View {
         guard pane == .mac else { return [] }
         let currentEntries = entries(for: .mac, path: path)
         let itemIDs = selectedIDs.contains(item.id) ? Array(selectedIDs) : [item.id]
-        let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs).encoded
-        guard let payloadData = payload.data(using: .utf8) else { return [] }
+        guard let payload = DemoDragPayload(sourcePane: pane, sourcePath: path, itemIDs: itemIDs).encoded,
+              let payloadData = payload.data(using: .utf8) else { return [] }
         let pasteboardType = NSPasteboard.PasteboardType(OpenMTPDragType.payload.identifier)
 
         return itemIDs.compactMap { id in
